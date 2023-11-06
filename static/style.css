@@ -1,0 +1,210 @@
+div {
+	border: 1px solid black;
+}
+
+body {
+	font-family: 'IBM Plex Mono', Courier New, monospace;
+	font-size: 0.8em;
+	color: #333333;
+	background-color: #ffffff ;
+}
+
+a, a:active, a:visited {
+	text-decoration: none;
+	color: inherit;
+}
+
+h3 {
+	padding: 0;
+}
+
+.page {
+	display: flex;
+	flex-direction: column;
+	height: 100vh;
+	justify-content: flex-start; /* Align content at the top */
+}
+
+.header {
+	width: 100%;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+/*
+.left-div, .right-div {
+	max-width: 500px;
+	padding: 5px;
+	box-sizing: border-box;
+}
+*/
+
+h1 {
+	display: block;
+}
+
+select {
+	white-space: pre-line;
+	width: 400px;
+/*	white-space: nowrap; */
+	overflow-x: auto;
+	font-family: 'IBM Plex Mono', Courier New, monospace;
+	line-height; 1.2;
+}
+
+.file-input-container {
+    position: relative;
+    overflow: hidden;
+    display: inline-block;
+}
+
+#image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    font-size: 100px;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.default-button {
+	background-color: #66BA48;
+	color: white;
+	font-family: 'IBM Plex Mono', Courier New, monospace;
+	font-weight: bold;
+	font-size: 1.2em;
+	height: 40px;
+	padding: 7.5px 15px;
+	border: none;
+	border-radius: 8px; /* Remove rounded corners */
+	box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.4); /* Add shadow */
+	cursor: pointer;
+}
+
+.default-input {
+	font-family: 'IBM Plex Mono', Courier New, monospace;
+	font-weight: bold;
+	font-size: 1.2em;
+	border: 1px solid #bbb; /* Dark gray outline */
+	border-radius: 8px; /* Rounded corners */
+	padding: 7.5px;
+	background-color: #eee; /* Light gray fill */
+	width: 15em;
+}
+
+.browse-file-button {
+    background-color: #66BA48;
+    color: white;
+	font-family: 'IBM Plex Mono', Courier New, monospace;
+	font-weight: bold;
+	font-size: 1.2em;
+	line-height: 40px;
+	width: 130px;
+	padding: 7.5px 15px;
+	border: none;
+	border-radius: 8px; /* Remove rounded corners */
+	box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.4); /* Add shadow */
+    cursor: pointer;
+}
+
+.reset-button {
+	background-color: #66BA48;
+	color: white;
+	font-family: 'IBM Plex Mono', Courier New, monospace;
+	font-weight: bold;
+	font-size: 1.2em;
+	height: 40px;
+	padding: 7.5px 15px;
+	border: none;
+	border-radius: 8px; /* Remove rounded corners */
+	box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.4); /* Add shadow */
+	cursor: pointer;
+}
+
+.icon {
+	width: 130px;
+	height: 130px;
+}
+
+.content-container {
+	flex-grow: 1; /* Allow the container to grow and push content down */
+	display: flex;
+	justify-content: center; /* Center horizontally */
+	align-items: center; /* Center vertically */
+}
+
+.centered-div {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	flex-wrap: wrap; /* Allows the grid to wrap if it exceeds the container */
+}
+
+.object-div {
+	display: inline-flex;
+	padding: 20px;
+	box-sizing: border-box;
+	align-self: flex-start;
+	flex-direction: column;
+}
+
+.icon-div {
+	height: 200px;
+	width: 130px;
+}
+
+.row-div {
+	display: flex;
+	align-items: stretch;
+	/*padding: 0px 0px 10px 0px; */
+	width: 400px;
+}
+
+.collapsible-list-container {
+    /*height: 205px; /* Set a maximum height for the container */
+    overflow-y: auto; /* Enable vertical scrollbar if the content overflows */
+}
+
+.input-label-div {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	overflow: hidden; /* Hide label overflow */
+}
+
+.input-field-div {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	overflow: hidden;
+}
+
+.collapsed {
+    display: none;
+}
+
+ul {
+	font-family: 'IBM Plex Mono', Courier New, monospace;
+	margin: 0; /* Adjust the indentation as needed */
+	padding: 0px 0px 0px 7px;
+}
+
+label {
+	font-size: 1.2em;
+	font-weight: bold;
+	margin: 0;
+	padding: 0;
+}
+
+/* Hide the increment arrows for the IntegerField 
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 0;
+}
+
+input[type="number"] {
+    -moz-appearance: textfield; /* For Firefox 
+}
+*/

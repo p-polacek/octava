@@ -1,0 +1,70 @@
+{% extends "header.html" %}
+
+{% block title %} Homepage {% endblock %}
+
+
+{% block style %}
+
+	{% for genome in genomes %}
+
+		{% set taxid = genome["taxid"] %}
+		{% set genome_label = "_" + taxid + "-label" %}
+
+		.{{ genome_label }} {
+			visibility: hidden;
+			text-align: center;
+		}
+	{% endfor %}
+
+	{% for genome in genomes %}
+
+		{% set taxid = genome["taxid"] %}
+
+		{% set genome_div = "_" + taxid + "-div" %}
+		{% set genome_label = "_" + taxid + "-label" %}
+		.{{ genome_div }}:hover .icon-div .{{ genome_label }} {
+			visibility: visible;
+		}
+
+	{% endfor %}
+
+
+	.new-label {
+		visibility: hidden;
+		text-align: center;
+	}
+
+	.new-div:hover .icon-div .new-label {
+		visibility: visible;
+	}
+
+{% endblock %}
+
+
+{% block content %}
+
+	<div class="centered-div">
+		{% for genome in genomes %}
+			{% set taxid = genome["taxid"] %}
+			{% set icon = genome["icon"] %}
+			{% set metadata = genome["metadata"] %}
+
+			{% set disp_name = metadata["disp_name"] %}
+
+			<a class="object-div {{ '_' + taxid + '-div' }}" href="{{ url_for('select_assembly', user_id=user_id, taxid=taxid) }}">
+				<div class="icon-div">
+					<img class="icon" src="{{ url_for('serve_image', filename=icon) }}" alt="{{ disp_name }}">
+					<h3 class="{{ '_' + taxid + '-label' }}">{{ disp_name }}</h3>
+				</div>
+			</a>
+		{% endfor %}
+
+		<a class="object-div new-div" href="{{ url_for('add_species', user_id=user_id) }}">
+			<div class="icon-div">
+				<img class="icon" src="static/icons/New.png" alt="New">
+				<h3 class="new-label">New...</h3>
+			</div>
+		</a>
+	</div>
+
+{% endblock %}

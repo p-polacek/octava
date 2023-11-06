@@ -1,0 +1,122 @@
+{% extends 'header.html' %}
+
+{% block title %} Add assembly {% endblock %}
+
+
+{% block style %} {% endblock %}
+
+
+{% block content %}
+
+	<form method="POST">
+		{{ form.hidden_tag() }}
+
+		<div class="centered-div">
+			<div class="object-div">
+				<h3>Select assembly:</h3>
+				<div class="row-div" id="left-pane-div">
+					{{ form.assemblies(id="assemblies", size=10) }}
+				</div>
+
+				{% if not add_new %}
+					<div class="row-div">
+						<a href="{{ url_for('add_assembly', user_id=user_id, taxid=taxid) }}" class="browse-file-button">Add new...</a>
+					</div>
+				{% endif %}
+			</div>
+
+			<div class="object-div">
+			<h3>Assembly information:</h3>
+				<div class="row-div collapsible-list-container" id="right-pane-div">
+					<ul id="collapsible-list">
+
+					</ul>
+				</div>
+
+				<div class="row-div">
+					{{ form.select(class="browse-file-button") }}
+				</div>
+			</div>
+		</div>
+	</form>
+
+{% endblock %}
+
+
+{% block script %}
+
+	<script>
+
+		var leftDivHeight =  document.getElementById("left-pane-div").clientHeight;
+		var style = "height:" + leftDivHeight + "px";
+		document.getElementById("right-pane-div").setAttribute("style", style);
+
+		const jsonData = {{ assembly_metadata | tojson | safe }};
+
+		const selectField = document.getElementById("assemblies");
+		const collapsibleList = document.getElementById("collapsible-list");
+
+		// Function to create the collapsible list
+		function createCollapsibleList(data, parent) {
+			const ul = document.createElement("ul");
+
+			for (const key in data) {
+				const li = document.createElement("li");
+				li.style.cursor = "pointer"; // Change cursor to pointer
+				const ulLevel = document.createElement("ul");
+				ulLevel.style.display = "none"; // Initially hide the child <ul>
+
+				li.textContent = key;
+				li.addEventListener("click", (event) => {
+					if (event.target === li) {
+						ulLevel.style.display = ulLevel.style.display === "none" ? "block" : "none";
+						// Collapse other items at the same level
+						const siblings = li.parentElement.children;
+						for (const sibling of siblings) {
+							if (sibling !== li) {
+								sibling.querySelector("ul").style.display = "none";
+							}
+						}
+					}
+				});
+
+				if (Array.isArray(data[key])) {
+					data[key].forEach(item => {
+						const arrayLi = document.createElement("li");
+						if (typeof item === "object") {
+							createCollapsibleList(item, arrayLi);
+						} else {
+							arrayLi.textContent = item;
+						}
+						ulLevel.appendChild(arrayLi);
+					});
+				} else if (typeof data[key] === "object") {
+					createCollapsibleList(data[key], ulLevel);
+				} else {
+					// Handle scalar values
+					const valueLi = document.createElement("li");
+					valueLi.textContent = data[key];
+					ulLevel.appendChild(valueLi);
+					ulLevel.style.display = "none"; // Hide child <ul> for scalar values
+				}
+
+				li.appendChild(ulLevel);
+				ul.appendChild(li);
+			}
+
+			parent.appendChild(ul);
+		}
+
+		selectField.selectedIndex = -1;
+
+		// Listen for changes in the <select> field
+		selectField.addEventListener("change", () => {
+			const selectedOption = selectField.value;
+			collapsibleList.innerHTML = "";
+			createCollapsibleList(jsonData[selectedOption], collapsibleList);
+		});
+
+	</script>
+
+{% endblock %}
+
