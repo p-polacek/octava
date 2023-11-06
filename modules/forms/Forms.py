@@ -23,10 +23,13 @@ class SpeciesForm(FlaskForm):
         self.disp_name.validators = []
 
 
-class AssemblyForm(FlaskForm):
-    assemblies = SelectField("Select assembly:", choices=[], validators=[InputRequired()])
+class DatasetForm(FlaskForm):
+    datasets = SelectField("datasets", choices=[], validators=[InputRequired()])
     select = SubmitField("Select")
 
+class ParamsForm(FlaskForm):
+    hellollo = StringField()
+    select = SubmitField("Select")
 
 if __name__ == "__main__":
     pass

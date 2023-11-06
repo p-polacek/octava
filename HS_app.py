@@ -11,18 +11,20 @@ import subprocess
 from Bio import Entrez
 from datetime import date
 from zipfile import ZipFile
+from collections import OrderedDict
 
 from flask import (Flask,
+                   url_for,
                    render_template,
                    request, redirect,
-                   url_for,
                    send_from_directory)
 
 from flask_wtf import FlaskForm
-from wtforms import SelectField, SubmitField, StringField, SelectMultipleField#, Form, FieldList, BooleanField, HiddenField, FormField
+from wtforms import SelectField, SubmitField, StringField, SelectMultipleField
+                    #, Form, FieldList, BooleanField, HiddenField, FormField
 from wtforms.validators import InputRequired#, DataRequired
 
-from modules.forms.Add_species_form import SpeciesForm, AssemblyForm
+from modules.forms.Forms import SpeciesForm, DatasetForm, ParamsForm
 
 from ncbi.datasets.package import dataset
 from ncbi.datasets import GenomeApi as DatasetsGenomeApi
@@ -87,7 +89,7 @@ def index():
 
 @app.route("/<user_id>/add_species", methods=["GET", "POST"])
 def add_species(user_id):
-    form = SpeciesForm()
+    form = SpeciesForm(request.form)
     taxid = ""
     disp_name = ""
     image_path = "static/icons/Icon_default.png"
@@ -139,61 +141,47 @@ def add_species(user_id):
 
 @app.route("/<user_id>/<taxid>", methods=["GET", "POST"])
 def select_assembly(user_id, taxid):
-    form = AssemblyForm()
+    form = DatasetForm(request.form)
 
-    if request.method == "GET":
-        assembly_metadata = dict()
-        assembly_accessions = sorted([path for path in os.listdir(f"data/{taxid}")
-                                      if os.path.isdir(f"data/{taxid}/{path}")])
+    #if form.validate_on_submit():
+    if request.method == "POST":
 
-        for assembly in get_assembly_metadata_by_asm_accessions(assembly_accessions):
-            assembly = assembly["assembly"]
-            assembly_id = assembly["assembly_accession"]
-            assembly_name = f"{assembly['display_name']} ({assembly_id})"
+        assembly_id = request.form.get("datasets")
 
-            assembly_metadata[assembly_id] = assembly.to_dict()
-            form.assemblies.choices.append((assembly_id, assembly_name))
-
-        return render_template("add_select_assembly.html",
-                               user_id=user_id,
-                               taxid=taxid,
-                               form=form,
-                               assembly_metadata=assembly_metadata,
-                               add_new=False)
-
-    elif request.method == "POST":
-        assembly_id = request.form.get("assemblies")
-
-        return redirect(url_for("select_datasets",
+        return redirect(url_for("select_dataset",
                                 user_id=user_id,
                                 taxid=taxid,
                                 assembly_id=assembly_id))
+
+    assembly_metadata = dict()
+    assembly_accessions = sorted([path for path in os.listdir(f"data/{taxid}")
+                                  if os.path.isdir(f"data/{taxid}/{path}")])
+
+    for assembly in get_assembly_metadata_by_asm_accessions(assembly_accessions):
+        assembly = assembly["assembly"]
+        assembly_id = assembly["assembly_accession"]
+        assembly_name = f"{assembly['display_name']} ({assembly_id})"
+
+        assembly_metadata[assembly_id] = assembly.to_dict()
+        form.datasets.choices.append((assembly_id,
+                                      assembly_name,
+                                      {"title": assembly_name}))
+
+    return render_template("add_select_dataset.html",
+                           user_id=user_id,
+                           taxid=taxid,
+                           form=form,
+                           metadata=assembly_metadata,
+                           data="assembly",
+                           action="Select")
 
 
 @app.route("/<user_id>/<taxid>/add_assembly", methods=["GET", "POST"])
 def add_assembly(user_id, taxid):
 
-    if request.method == "GET":
-
-        form = AssemblyForm()
-
-        assembly_metadata = dict()
-        for assembly in get_assembly_metadata_by_taxon(taxid):
-            assembly = assembly["assembly"]
-            assembly_id = assembly["assembly_accession"]
-            assembly_name = f"{assembly['display_name']} ({assembly_id})"
-
-            assembly_metadata[assembly_id] = assembly.to_dict()
-            form.assemblies.choices.append((assembly_id, assembly_name))
-
-        return render_template("add_select_assembly.html",
-                               user_id=user_id,
-                               taxid=taxid,
-                               form=form,
-                               assembly_metadata=assembly_metadata,
-                               add_new=True)
-
-    elif request.method == "POST":
+    form = DatasetForm(request.form)
+    #if form.validate_on_submit():
+    if request.method == "POST":
 
         ### USE DATASETS COMMAND LINE TOOL IF TOTAL DATA SIZE > 15GB
 
@@ -244,93 +232,206 @@ def add_assembly(user_id, taxid):
         assembly_name = assembly["display_name"]
         with open(f"{assembly_dir}/metadata.json", "w") as out:
             out.write(json.dumps({"display_name":  assembly_name,
-                                   "metadata":     assembly.to_dict()},
+                                  "metadata":      assembly.to_dict()},
                                  indent=4))
 
         return redirect(url_for("select_assembly",
                                 user_id=user_id,
                                 taxid=taxid))
 
+    assembly_metadata = dict()
+    for assembly in get_assembly_metadata_by_taxon(taxid):
+        assembly = assembly["assembly"]
+        assembly_id = assembly["assembly_accession"]
+        assembly_name = f"{assembly['display_name']} ({assembly_id})"
 
-@app.route("/<user_id>/<taxid>/<assembly_id>/select_datasets", methods=["GET", "POST"])
-def select_datasets(user_id, taxid, assembly_id):
+        assembly_metadata[assembly_id] = assembly.to_dict()
+        form.datasets.choices.append((assembly_id,
+                                      assembly_name,
+                                      {"title": assembly_name}))
 
-    form = AssemblyForm()
-    if request.method == "GET":
+    return render_template("add_select_dataset.html",
+                           user_id=user_id,
+                           taxid=taxid,
+                           form=form,
+                           metadata=assembly_metadata,
+                           data="assembly",
+                           action="Add")
 
-        bp_ids = Entrez.read(Entrez.esearch(db="bioproject",
-                                            term=f"txid{taxid}[Organism:exp]",
-                                            retmode="xml",
-                                            retmax=20))["IdList"]
 
-        bp_data = Entrez.read(Entrez.esummary(db="bioproject",
-                                              id=bp_ids,
+@app.route("/<user_id>/<taxid>/<assembly_id>", methods=["GET", "POST"])
+def select_dataset(user_id, taxid, assembly_id):
+
+    form = DatasetForm(request.form)
+    #if form.validate_on_submit():
+    if request.method == "POST":
+        dataset_id = request.form.get("dataset_id")
+        return redirect(url_for("select_analysis",
+                                user_id=user_id,
+                                taxid=taxid,
+                                assembly_id=assembly_id,
+                                dataset_id=dataset_id))
+
+    dataset_metadata = dict()
+    bp_ids = sorted([path for path in os.listdir(f"data/{taxid}/{assembly_id}")
+                     if os.path.isdir(f"data/{taxid}/{assembly_id}/{path}")])
+
+    if bp_ids:
+        for bp_data in Entrez.read(Entrez.esummary(db="bioproject",
+                                                   id=bp_ids,
+                                                   retmode="xml"))["DocumentSummarySet"]["DocumentSummary"]:
+            bp_id = bp_data["Project_Id"]
+            bp_title = f"{bp_data['Project_Title']} ({bp_id})"
+            bp_data = {key: value for key, value in bp_data.items() if value}
+
+            dataset_metadata[bp_id] = bp_data
+            form.datasets.choices.append((bp_id,
+                                          bp_title,
+                                          {"title": bp_title}))
+
+    """
+    for bp_id in bp_ids:
+
+        bs_ids = [bs_link["Id"] 
+                  for bs_link in Entrez.read(Entrez.elink(db="biosample",
+                                                          dbfrom="bioproject",
+                                                          id=bp_id,
+                                                          retmode="xml"))[0]["LinkSetDb"][0]["Link"]]
+
+        bs_data = Entrez.read(Entrez.esummary(db="biosample",
+                                              id=bs_ids,
                                               retmode="xml"))
-        bp_data = bp_data["DocumentSummarySet"]["DocumentSummary"]
+        bs_data = bp_data["DocumentSummarySet"]["DocumentSummary"]
+    """
+    return render_template("add_select_dataset.html",
+                           user_id=user_id,
+                           taxid=taxid,
+                           assembly_id=assembly_id,
+                           metadata=dataset_metadata,
+                           form=form,
+                           data="dataset",
+                           action="Select")
 
-        dataset_metadata = dict()
 
-        for bp_id, data in zip(bp_ids, bp_data):
-            bp_title = f"{data['Project_Title']} ({bp_id})"
-            data = {key: value for key, value in data.items() if value}
-            dataset_metadata[bp_id] = data
-            form.assemblies.choices.append((bp_id, bp_title))
+@app.route("/<user_id>/<taxid>/<assembly_id>/add_dataset", methods=["GET", "POST"])
+def add_dataset(user_id, taxid, assembly_id):
 
-        return render_template("select_datasets.html",
-                               user_id=user_id,
-                               taxid=taxid,
-                               form=form,
-                               assembly_metadata=dataset_metadata,
-                               add_new=False)
+    form = DatasetForm(request.form)
+    #if form.validate_on_submit():
+    if request.method == "POST":
+        dataset_id = request.form.get("datasets")
+        pipeline = "sarek"
+        return redirect(url_for("run_pipeline",
+                                user_id=user_id,
+                                taxid=taxid,
+                                assembly_id=assembly_id,
+                                dataset_id=dataset_id,
+                                pipeline=pipeline))
 
-        """
-        for bp_id in bp_ids:
+    bp_ids = Entrez.read(Entrez.esearch(db="bioproject",
+                                        term=f"txid{taxid}[Organism:exp]",
+                                        retmode="xml",
+                                        retmax=20))["IdList"]
 
-            bs_ids = [bs_link["Id"] 
-                      for bs_link in Entrez.read(Entrez.elink(db="biosample",
-                                                              dbfrom="bioproject",
-                                                              id=bp_id,
-                                                              retmode="xml"))[0]["LinkSetDb"][0]["Link"]]
+    bp_data = Entrez.read(Entrez.esummary(db="bioproject",
+                                          id=bp_ids,
+                                          retmode="xml"))
+    bp_data = bp_data["DocumentSummarySet"]["DocumentSummary"]
 
-            bs_data = Entrez.read(Entrez.esummary(db="biosample",
-                                                  id=bs_ids,
-                                                  retmode="xml"))
-            bs_data = bp_data["DocumentSummarySet"]["DocumentSummary"]
-        """
-        form = AssemblyForm()
-        return render_template("select_datasets.html",
-                               user_id=user_id,
-                               taxid=taxid,
-                               assembly_id=assembly_id,
-                               form=form,
-                           add_new=False)
+    dataset_metadata = dict()
+    for bp_id, data in zip(bp_ids, bp_data):
+        bp_title = f"{data['Project_Title']} ({bp_id})"
+        data = {key: value for key, value in data.items() if value}
+        dataset_metadata[bp_id] = data
+        form.datasets.choices.append((bp_id,
+                                      bp_title,
+                                      {"title": bp_title}))
 
-    elif request.method == "POST":
-        bp_id = request.form.get("assemblies")
-        bp_id = "123456"
-        bs_id = "35882832"
+    """
+    for bp_id in bp_ids:
 
-        #bs_data = Entrez.read(Entrez.esummary(db="biosample",
-        #                                      id="35882832",
-        #                                      retmode="xml"))
-        #bs_data = bs_data["DocumentSummarySet"]["DocumentSummary"][0]
-        sra_id = "SRS18057999"
+        bs_ids = [bs_link["Id"] 
+                  for bs_link in Entrez.read(Entrez.elink(db="biosample",
+                                                          dbfrom="bioproject",
+                                                          id=bp_id,
+                                                          retmode="xml"))[0]["LinkSetDb"][0]["Link"]]
 
-        FETCHNGS_PATH = "nf_core/nf-core-fetchngs_1.11.0/1_11_0/"
-        OUT_DIR = f"data/{taxid}/{assembly_id}/{bp_id}"
-        PARAMS_FILE = f"{OUT_DIR}/{sra_id}.csv"
+        bs_data = Entrez.read(Entrez.esummary(db="biosample",
+                                              id=bs_ids,
+                                              retmode="xml"))
+        bs_data = bp_data["DocumentSummarySet"]["DocumentSummary"]
+    """
+    return render_template("add_select_dataset.html",
+                           user_id=user_id,
+                           taxid=taxid,
+                           assembly_id=assembly_id,
+                           metadata=dataset_metadata,
+                           form=form,
+                           data="dataset",
+                           action="Add")
 
-        # Start the Sarek pipeline as a subprocess
-        process = subprocess.Popen(['nextflow', 'run', FETCHNGS_PATH, "--input", PARAMS_FILE, "--outdir", OUT_DIR], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = process.communicate()
-        return_code = process.wait()
-        if return_code == 0:
-            print("Workflow completed successfully.")
-        print(stdout)
-        print(stderr)
 
-        return #redirect(url_for('index'))
+@app.route("/<user_id>/<taxid>/<assembly_id>/<dataset_id>/<pipeline>/parameters", methods=["GET", "POST"])
+def run_pipeline(user_id, taxid, assembly_id, dataset_id, pipeline):
 
+    """
+    bp_id = request.form.get("assemblies")
+    bp_id = "123456"
+    bs_id = "35882832"
+
+    #bs_data = Entrez.read(Entrez.esummary(db="biosample",
+    #                                      id="35882832",
+    #                                      retmode="xml"))
+    #bs_data = bs_data["DocumentSummarySet"]["DocumentSummary"][0]
+    sra_id = "SRS18057999"
+
+    FETCHNGS_PATH = "nf_core/nf-core-fetchngs_1.11.0/1_11_0/"
+    OUT_DIR = f"data/{taxid}/{assembly_id}/{bp_id}"
+    PARAMS_FILE = f"{OUT_DIR}/{sra_id}.csv"
+
+    # Start the Sarek pipeline as a subprocess
+    process = subprocess.Popen(['nextflow', 'run', FETCHNGS_PATH, "--input", PARAMS_FILE, "--outdir", OUT_DIR], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = process.communicate()
+    return_code = process.wait()
+    if return_code == 0:
+        print("Workflow completed successfully.")
+    print(stdout)
+    print(stderr)
+    """
+
+    form = ParamsForm()
+    params = list()
+
+    with open("nf_core/nf-core-sarek_3.3.2/3_3_2/nextflow_schema.json", "r") as params_file:
+        pipeline_params = json.load(params_file, object_pairs_hook=OrderedDict)
+    for block_name, block_params in pipeline_params["definitions"].items():
+
+        if block_name in ("institutional_config_options",
+                          "max_job_request_options",
+                          "generic_options"):
+            continue
+
+        for param_name, param_data in block_params["properties"].items():
+            setattr(form, param_name, StringField(param_name, default="finp"))
+            print(form.input)
+            params.append(param_name)
+#            if param_name in block_params["required"]:
+#                form.disp_name.validators = [InputRequired()]
+
+    return render_template("run_pipeline.html",
+                           user_id=user_id,
+                           taxid=taxid,
+                           assembly_id=assembly_id,
+                           dataset_id=dataset_id,
+                           pipeline=pipeline,
+                           form=form,
+                           params=params)
+                               
+
+
+@app.route("/<user_id>/<taxid>/<assembly_id>/<dataset_id>/<pipeline>/select_analysis", methods=["GET", "POST"])
+def select_analysis(user_id, taxid, assembly_id, dataset_id, pipeline):
+    return None
 
 if __name__ == "__main__":
     app.run(debug=True, port=8888)
