@@ -1,0 +1,8 @@
+.nextflow/
+data/
+modules/dataformat
+modules/datasets
+modules/ncbi.datasets.metadata.genome_help.txt
+nf_core/
+templates/Old/
+work/
