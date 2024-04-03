@@ -1,0 +1,305 @@
+{% extends "header.html" %}
+
+{% block title %} Association analysis QC {% endblock %}
+
+
+{% block style %}
+
+{% endblock %}
+
+
+{% block content %}
+
+	<div id="help-popup" class="help-popup collapsed"></div>
+
+	<div class="results-wrapper">
+		<div class="row-div">
+			<h1>
+				Filter new marker set:
+			</h1>
+			<button class="aux-button bold button-help" title="Help" type="button" onclick="showHelp(event, 'gwas_filt')"> &#63; </button>
+		</div>
+		<div class="results-container">
+			<div style="display: flex;">
+				<form method = "POST"
+					  action    = "{{ url_for('GWAS_filter', user_id=user_id) }}"
+					  onkeydown = "if(event.keyCode === 13) { event.target.blur(); }"
+					  onsubmit  = "checkName(event);">
+					{{ form.hidden_tag() }}
+					<div class="object-div param-div-flexheight">
+
+						<div class="row-input-div justified padded-top padded-bottom">
+							{{ form.plot.label(class="default-label bold") }}
+							{{ form.plot(class="default-input", id="choice-field", onchange="showPlot()") }}
+						</div>
+
+						<h2 class="padded-top">Missingness per:</h2>
+						{% for thr_input in ("smiss", "vmiss") %}
+							<div class="row-input-div justified small-padded-top">
+								{{ form[thr_input].label(class="default-label bold") }}
+								{% set input_id = thr_input + "-thresh" %}
+								{{ form[thr_input](class="small-num-input", id=input_id, onchange="showPlot()") }}
+							</div>
+						{% endfor %}
+
+						<h2 class="padded-top">Heterozygosity per:</h2>
+						{% for thr_input in ("shet", "vhet") %}
+							<div class="row-input-div justified small-padded-top">
+								{{ form[thr_input].label(class="default-label bold") }}
+								{% set input_id = thr_input + "-thresh" %}
+								{{ form[thr_input](class="small-num-input", id=input_id, onchange="showPlot()") }}
+							</div>
+						{% endfor %}
+
+						<h2 class="padded-top">Allele frequency:</h2>
+						<div class="row-input-div justified small-padded-top">
+							{{ form.maf.label(class="default-label bold") }}
+							{{ form.maf(class="small-num-input", id="maf-thresh", onchange="showPlot()") }}
+						</div>
+
+						<h2 class="padded-top">HW equilibrium:</h2>
+						<div class="row-input-div justified small-padded-top">
+							{{ form.hwe.label(class="default-label bold") }}
+							{{ form.hwe(class="small-num-input", id="hwe-thresh", onchange="showPlot()") }}
+						</div>
+
+						<h2 class="padded-top">LD-pruning:</h2>
+						<div class="row-input-div justified small-padded-top">
+							{{ form.prune.label(class="default-label bold") }}
+							{{ form.prune(class="small-num-input", id="prune-thresh") }}
+						</div>
+						<div class="row-input-div justified small-padded-top padded-bottom">
+							{{ form.window.label(class="default-label bold") }}
+							{{ form.window(class="small-num-input", id="window") }}
+						</div>
+
+						<div class="row-input-div justified small-padded-top padded-bottom">
+							{{ form.name.label(class="default-label bold") }}
+							{{ form.name(class="default-input", id="name") }}
+						</div>
+
+						<div class="row-input-div justified small-padded-top padded-bottom">
+							<button type="submit">
+								<label class="default-label bold"> Save marker set </label>
+							</button>						
+						</div>
+					</form>
+				</div>
+
+				<div class="scrollable padded-top" style="display: flex; max-height: 65vh; flex: 1;">
+					<div id="fig-div" style="flex: 1;"></div>
+					<div>
+						<div class="row-div justified padded-bottom">
+							<button onclick="decrement()"> <b> < </b> </button>
+							<h3> Showing rows <span id="table-from">1</span>
+																	-
+											  <span id="table-to">200</span>
+							</h3>
+							<button onclick="increment()"> <b> > </b> </button>
+						</div>
+						<div class="scrollable padded-right">
+							<table id="plot-table">
+							</table>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+{% endblock %}
+
+{% block script %}
+
+	<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+	<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+
+    <script>
+
+		var numMarkers = 50000;
+		var numSamples = 300;
+
+		var genome   = '{{ genome }}';
+		var histData = JSON.parse('{{ hist_data|tojson|safe }}');
+		var pTitles  = {"smiss": "Sample missingness",
+		                "vmiss": "Marker missingness",
+					    "shet":  "Sample heterozygosity",
+					    "vhet":  "Marker heterozygosity",
+					    "maf":   "Minor allele frequency",
+					    "hwe":   "Hardy-Weinberg equilibrium"}
+		var xLabels  = {"smiss": "Missingness rate",
+		                "vmiss": "Missingness rate",
+					    "shet":  "Heterozygosity rate",
+					    "vhet":  "Heterozygosity rate",
+					    "maf":   "Minor allele frequency",
+					    "hwe":   "-log10(P) HWE"}
+
+		function checkName(event) {
+			if (document.getElementById("name").value.trim() == "") {
+				alert("Set name is required.");
+				event.preventDefault();
+			}
+		}
+		function getMaxRows(plotChoice) {
+			if ((plotChoice == "smiss") | (plotChoice == "shet")) {
+				return numSamples;
+			}
+			else {
+				return numMarkers;
+			}
+		};
+
+		function increment() {
+			var plotChoice = document.getElementById("choice-field").value;
+			var maxRows    = getMaxRows(plotChoice);
+			var tableFrom  = document.getElementById("table-from");
+			var tableTo    = document.getElementById("table-to");
+			var fromValue  = parseInt(tableFrom.innerText, 10);
+			var toValue    = parseInt(tableTo.innerText, 10);
+
+			if (toValue + 200 > maxRows) {
+				tableFrom.innerText = Math.max(1, maxRows - 200);
+				tableTo.innerText = maxRows;
+			}
+			else {
+				tableFrom.innerText = fromValue + 200;
+				tableTo.innerText = toValue + 200;
+			}
+			if (fromValue != parseInt(tableFrom.innerText, 10)) {
+				fillTable(plotChoice);
+			}
+		}
+
+		function decrement() {
+			var plotChoice = document.getElementById("choice-field").value;
+			var maxRows    = getMaxRows(plotChoice);
+			var tableFrom  = document.getElementById("table-from");
+			var tableTo    = document.getElementById("table-to");
+			var fromValue  = parseInt(tableFrom.innerText, 10);
+			var toValue    = parseInt(tableTo.innerText, 10);
+
+			if (fromValue - 200 < 1) {
+				tableFrom.innerText = 1;
+				tableTo.innerText = Math.min(200, maxRows);
+			}
+			else {
+				tableFrom.innerHTML = fromValue - 200;
+				tableTo.innerHTML = toValue - 200;
+			}
+			if (fromValue != parseInt(tableFrom.innerText, 10)) {
+				fillTable(plotChoice);
+			}
+		}
+
+		function fillTable(plotChoice) {
+			var fromVal = document.getElementById("table-from").innerText;
+			var toVal = document.getElementById("table-to").innerText;
+
+			$.ajax({
+				url: "/fetch_ajax",
+				method: "POST",
+				data: { genome: genome,
+				        plot_choice: plotChoice,
+						start_row: fromVal,
+						end_row: toVal },
+				success: function (data) {
+
+					var table = document.getElementById("plot-table");
+					table.innerHTML = "";
+					if ((plotChoice == "smiss") | (plotChoice == "shet")) {
+						var idColumn = "Sample ID";
+					}
+					else {
+						var idColumn = "Variant ID";
+					}
+					var cols = [idColumn, xLabels[plotChoice]];
+
+					var thead = document.createElement("thead");
+					var tr = document.createElement("tr");
+					cols.forEach(function (col) {
+						var th = document.createElement("th");
+						th.textContent = col;
+						th.classList.add("header-top", "col-header");
+						tr.appendChild(th);
+					});
+					thead.appendChild(tr);
+
+					var tbody = document.createElement("tbody");
+					data.forEach(function (row) {
+						var tr = document.createElement("tr");
+						row.forEach(function (cell) {
+							var td = document.createElement("td");
+							td.textContent = cell;
+							td.classList.add("default-col");
+							tr.appendChild(td);
+						});
+						tbody.appendChild(tr);
+					});
+					table.appendChild(thead);
+					table.appendChild(tbody);
+
+				},
+			});
+		};
+
+		function showPlot() {
+			var plotChoice = document.getElementById("choice-field").value;
+			var data = histData[plotChoice];
+
+			var trace = {
+				type: "bar",
+				x: data[1],
+				y: data[0],
+				marker: { color: "#47b023" },
+			};
+
+			var layout = {
+				title: {
+					text: pTitles[plotChoice],
+					x: 0.5,
+				},
+				plot_bgcolor: "rgba(0, 0, 0, 0)",
+				paper_bgcolor: "rgba(0, 0, 0, 0)",
+				xaxis: {
+					title: xLabels[plotChoice],
+					gridcolor: "rgba(0,0,0,0.1)",
+				},
+				yaxis: {
+					title: "Count",
+					gridcolor: "rgba(0,0,0,0.1)",
+				},
+				margin: {
+					l: 80,
+					r: 40,
+					b: 50,
+					t: 70,
+					pad: 4
+				},
+				bargap: 0,
+			};
+
+
+			var thresh = document.getElementById(plotChoice + "-thresh").value;
+			layout.shapes = [{
+				type: "line",
+				x0: thresh,
+				x1: thresh,
+				y0: 0,
+				y1: 1,
+				yref: "paper",
+				line: {
+					color: "red",
+					width: 2
+				}
+			}];
+
+			Plotly.newPlot("fig-div", [trace], layout);
+			fillTable(plotChoice);
+
+		};
+
+		showPlot();
+
+    </script>
+
+{% endblock %}

@@ -1,0 +1,195 @@
+{% extends "header.html" %}
+
+{% block title %} Association analysis options {% endblock %}
+
+
+{% block style %}
+
+{% endblock %}
+
+
+{% block content %}
+
+	<div id="help-popup" class="help-popup collapsed"></div>
+
+	<div class="results-wrapper">
+		<div class="results-container padded-top padded-bottom">
+
+			<form method    = "POST"
+				  action    = "{{ url_for('GWAS_results', user_id=user_id) }}"
+				  onkeydown = "if(event.keyCode === 13) { event.target.blur(); }">
+				{{ form.hidden_tag() }}
+
+				<div class="object-div param-div-default">
+					<div class="row-div padded-bottom">
+						<h2>GWAS parameters:</h2>
+					</div>
+					<div class="row-div small-padded-top">
+						<button onclick="showDropdown(event, this);" class="dropdown-button" type="button">
+							{{ form.markers.label(class="default-label bold") }}
+							<span class="default-label counter" id="markers-count"> 0 selected </span>
+						</button>
+						<button class="aux-button button-save" type="button" title="Create new marker set" onclick="location.href='{{ url_for( 'GWAS_QC' , user_id=user_id ) }}'">
+							&#43;
+						</button>
+						<div class="dropdown-menu collapsed">
+							<div class="sticky non-transparent small-padding">
+								<input type="text" class="search-bar" placeholder="Search..." onkeyup="filterDropdown(visibleDropdown)">
+								<button type="button" onclick="toggleAll(visibleDropdown)"> Select all </button>
+							</div>
+							{% for choice in form.markers %}
+								<div class="checkbox-row" oncontextmenu="getMarkersData(event, this);">
+									{{ choice(onchange="updateCount(this.parentElement.parentElement);") }}
+									{{ choice.label }}
+								</div>
+							{% endfor %}
+						</div>
+					</div>
+					<div class="row-div small-padded-top">
+						<button onclick="showDropdown(event, this);" class="dropdown-button" type="button">
+							{{ form.models.label(class="default-label bold") }}
+							<span class="default-label counter" id="models-count"> 0 selected </span>
+						</button>
+						<button class="aux-button button-help" type="button" title="Help" onclick="showHelp(event, 'models')">
+							&#63;
+						</button>
+						<div class="dropdown-menu collapsed">
+							<div class="sticky non-transparent small-padding">
+								<input type="text" class="search-bar" placeholder="Search..." onkeyup="filterDropdown(visibleDropdown)">
+								<button type="button" onclick="toggleAll(visibleDropdown)"> Select all </button>
+							</div>
+							{% for choice in form.models %}
+								<div class="checkbox-row">
+									{{ choice(onchange="updateCount(this.parentElement.parentElement);") }}
+									{{ choice.label }}
+								</div>
+							{% endfor %}
+						</div>
+					</div>
+				</div>
+				<div class="object-div param-div-default">
+					<div class="row-div padded-bottom">
+						<h2>Traits to analyze:</h2>
+					</div>
+					<div class="row-div small-padded-top">
+						<button onclick="showDropdown(event, this);" class="dropdown-button" type="button">
+							{{ form.traits.label(class="default-label bold") }}
+							<span class="default-label counter" id="traits-count"> 0 selected </span>
+						</button>
+						<button class="aux-button button-save" type="button" title="Save selection as group" onclick="makeGroup(event, 'traits')">
+							&#43;
+						</button>
+						<div class="dropdown-menu collapsed">
+							<div class="sticky non-transparent small-padding">
+								<input type="text" class="search-bar" placeholder="Search..." onkeyup="filterDropdown(visibleDropdown)">
+								<button type="button" onclick="toggleAll(visibleDropdown)"> Select all </button>
+							</div>
+							{% for choice in form.traits %}
+								<div class="checkbox-row">
+									{{ choice(class="traits-checkbox", onchange="updateCount(this.parentElement.parentElement);") }}
+									{{ choice.label }}
+								</div>
+							{% endfor %}
+						</div>
+					</div>
+					<div class="row-div small-padded-top">
+						<button onclick="showDropdown(event, this);" class="dropdown-button" type="button">
+							{{ form.trait_groups.label(class="default-label bold") }}
+							<span class="default-label counter" id="groups-count"> 0 selected </span>
+						</button>
+						<button class="aux-button button-delete" type="button" title="Delete selected groups" onclick="deleteGroup(event, 'traits')">
+							&times;
+						</button>
+						<div class="dropdown-menu collapsed" id="traits_group-dropdown">
+							<div class="sticky non-transparent small-padding">
+								<input type="text" class="search-bar" placeholder="Search..." onkeyup="filterDropdown(visibleDropdown)">
+								<button type="button" onclick="toggleAll(visibleDropdown)"> Select all </button>
+							</div>
+							{% for choice in form.trait_groups %}
+								<div class="checkbox-row group-option">
+									{{ choice(class="traits_group-checkbox", onchange="updateCount(this.parentElement.parentElement);") }}
+									{{ choice.label }}
+								</div>
+							{% endfor %}
+						</div>
+					</div>
+				</div>
+
+				<div class="object-div param-div-default">
+					<div class="row-div padded-bottom">
+						<h2>Limit to region:</h2>
+						<button class="aux-button button-help" type="button" title="Help" onclick="showHelp(event, 'gwas-limit')">
+							&#63;
+						</button>
+					</div>
+					<div class="row-input-div justified small-padded-top">
+							{{ form.chrom.label(class="default-label bold") }}
+							{{ form.chrom(class="default-input", id="chrom-field") }}				
+					</div>
+					<div class="row-input-div justified small-padded-top">
+							{{ form.start.label(class="default-label bold") }}
+							{{ form.start(class="default-input", id="start-field") }}
+					</div>
+					<div class="row-input-div justified small-padded-top">
+							{{ form.end.label(class="default-label bold") }}
+							{{ form.end(class="default-input", id="end-field") }}
+					</div>
+				</div>
+
+				<div>
+					<button type="submit">
+						<label class="default-label bold" style="font-size: 1em;"> Submit </label>
+					</button>
+				</div>
+			</form>
+		</div>
+	</div>
+
+{% endblock %}
+
+{% block script %}
+
+	<script src="{{url_for('static', filename='js/make_delete_group.js')}}"></script>
+	<script src="{{url_for('static', filename='js/get_markers_data.js')}}"></script>
+	<script src="{{url_for('static', filename='js/help_texts.js')}}"></script>
+	<script src="{{url_for('static', filename='js/popups.js')}}"></script>
+
+	<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+
+	<script>
+
+		var user_id = '{{ user_id }}';
+		var genome = '{{ genome }}';
+		var visibleDropdown = null;
+
+		// Hide shown popup on click
+		document.addEventListener("click", function(event) {
+			if (visibleDropdown !== null) {
+				hideDropdown(visibleDropdown);
+			}
+			document.getElementById("help-popup").classList.add("collapsed");
+		});
+
+		document.addEventListener("DOMContentLoaded", function() {
+			// Show samples list when right-clicking group
+			document.querySelectorAll(".group-option").forEach(option => {
+				option.addEventListener("contextmenu", function(event) {
+					// Don't show default menu
+					event.preventDefault();
+					const helpPopup = document.getElementById("help-popup");
+					helpPopup.innerHTML = option.innerText + ":<br>" + option.children[0].value.split(",").join("<br>");
+					helpPopup.style.left = event.clientX + "px";
+					helpPopup.style.top = event.clientY + "px";
+					helpPopup.classList.remove("collapsed");
+				});
+			});
+
+			// Prevent hiding help popup when clicked within
+			const helpPopup = document.getElementById("help-popup");
+			popupClickedRetain(helpPopup);
+
+		});
+
+	</script>
+
+{% endblock %}

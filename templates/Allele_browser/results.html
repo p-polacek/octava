@@ -1,0 +1,902 @@
+{% extends "header.html" %}
+
+{% block title %} Allele viewer {% endblock %}
+
+{% block style %}
+
+{% endblock %}
+
+{% block content %}
+
+	<div id="help-popup" class="help-popup collapsed"></div>
+
+	{% if errors %}
+		<div class="padded-left">
+			<h2 class="padded-left padded-bottom"> Warnings: </h2>
+			{% for error in errors %}
+				<h3 class="padded-left taller-line">
+					{{ error }}
+				<br>
+				</h3>
+			{% endfor %}
+		</div>
+		<hr>
+	{% endif %}
+
+		<div class="row-div padded-left">
+			<h3 class="padded-left bold taller-line">
+				Click section to show/hide
+				<br>
+				Click and drag header handle to resize column
+				<br>
+				<a href="javascript:saveExcel();">
+					Click to download variants table as .xlsx file
+				</a>
+			</h3>
+		</div>
+
+    {% if form.data["impact"] != ["geneonly"] %}
+
+		<div class="results-wrapper">
+			<div class="row-div">
+				{% if not annotations %}
+					<h3 class="bold"> No variants found for query. </h3>
+			</div>
+				{% else %}
+					<h1 class="clickable" onclick="toggleSection(this, 'vars-div');">
+						Variants:
+					</h1>
+					<button class="aux-button button-help" title="Help" type="button" onclick="showHelp(event, 'vars-table')"> &#63; </button>
+			</div>
+				<div id="vars-div" class="results-container collapsed margin-top">
+					<table id="vars-table">
+						<tr>
+							<th class="header-left">
+								<div style="display:flex;">
+									<div class="clickable" id="vars_0" style="flex: 1;" onclick="dropDown(event, this);">
+										Filter samples&nbsp;&#9013;
+									</div>
+									<div class="resizable" style="flex: 0 0 auto; width: 17px;">
+									</div>
+								</div>
+							</th>
+
+						<tr>
+							<th class="header-left"> Chromosome </th>
+								{% for ann in annotations %}
+									<td class="center-text wider-col"> {{ ann[0] }} </td>
+								{% endfor %}
+						<tr>
+							<th class="header-left"> Position </th>
+							{% for ann in annotations %}
+								<td class="center-text"> 
+									{{ "{:,}".format(ann[1]) }}
+								</td>
+							{% endfor %}
+						<tr>
+							<th class="header-left"> Affected gene </th>
+								{% for ann in annotations %}
+									<td class="center-text">
+									{% for gene in ann[2] %}
+										{{ gene }}
+									{% endfor %}
+									</td>
+								{% endfor %}    
+						<tr>
+							<th class="header-left"> Reference </th>
+							{% for ann in annotations %}
+								<td class="center-text help-cursor" oncontextmenu="getVarData(event, '{{ ann[0] }}', '{{ ann[1] }}', 'REF');">
+									{{ ann[3] }}
+								</td>
+							{% endfor %}
+						<tr class="header-top">
+							<th class="header-left"> Annotation </th>
+							{% for ann in annotations %}
+								<td class="help-cursor" oncontextmenu="getVarData(event, '{{ ann[0] }}', '{{ ann[1] }}', 'CSQ');">
+								{% for ann_entry in ann[4] %}
+									{{ ann_entry }} <br>
+								{% endfor %}
+								</td>
+							{% endfor %}
+						<tr>
+							<th class="header-left"> Severity score </th>
+							{% for provean_pred in provean_scores %}
+								<td>
+									<span title="{{ " | ".join((provean_pred.values()|list)[:13])|safe }}">
+										 snp1 | {{ provean_pred["Allele"] }} | {{ provean_pred["Score"]|float|round(2) }} <br>
+										{{ "<span class='red-text'>"|safe if provean_pred["Impact"] == "DELETERIOUS" else "<span>"|safe }}
+											{{ provean_pred["Impact"] }} <br>
+										</span>
+									</span>
+								</td>
+							{% endfor %}
+
+						{% for gt in genotypes %}
+							{% set sample = gt[0] %}
+							<tr>
+								<th class="header-left"> {{ sample }} </th>
+								{% for call_data in gt[1:] %}
+									{% set ann = annotations[loop.index0] %}
+									{% set call = call_data[0] %}
+									{% set qual = call_data[1]|int %}
+									<td class="center-text help-cursor"
+									{% if qual != "" %}
+										style="background-color: rgba({{ (255 - [0, (qual * 10 - 255)]|max) *0.8 }}, {{ [255, qual * 10]|min *0.8 }}, 0, 0.65);"
+									{% endif %}
+									oncontextmenu="(function(chrom, pos, sample) { getVarData(event, chrom, pos, sample); })('{{ ann[0] }}', '{{ ann[1] }}', '{{ sample }}');">
+										{{ call }}
+{#
+									<td class="center-text help-cursor"
+										oncontextmenu="getVarData(event, '{{ ann[0] }}', '{{ ann[1] }}', '{{ gt[0] }}');">
+										{{ call_data }}
+#}
+								{% endfor %}
+							</tr>
+						{% endfor %}
+					</table>
+				</div>
+			{% endif %}
+		</div>
+	{% endif %}
+
+	{% if genes %}
+		<div class="results-wrapper">
+			<div class="row-div">
+				<h1 class="clickable" onclick="toggleSection(this, 'genes-div');">
+					Genes:
+				</h1>
+				<button class="aux-button button-help" title="Help" type="button" onclick="showHelp(event, 'genes-table')"> &#63; </button>
+			</div>
+			<div id="genes-div" class="results-container collapsed margin-top">
+				<table id="genes-table"></table>
+			</div>
+		</div>
+
+		{% if exp_data %}
+			<div class="results-wrapper">
+				<div class="row-div">
+					<h1 class="clickable" onclick="toggleSection(this, 'genexp-div');">
+						Gene expression:
+					</h1>
+					<button class="aux-button button-help" title="Help" type="button" onclick="showHelp(event, 'exp')"> &#63; </button>
+				</div>
+				<div id="genexp-div" class="results-container collapsed">
+					<div style="display: flex;">
+						<div class="param-div-flexheight padded-top">
+							<div class="row-div padded-top padded-bottom">
+								<button onclick="showDropdown(event, this);" class="dropdown-button" type="button">
+									<label class="default-label bold"> Gene: </label>
+									<span class="default-label counter" id="genes-count"> 0 selected</span>
+								</button>
+								<button type="button" class="aux-button button-update" title="Copy selection from Genes table" onclick="genesToExp()">
+									&#8617;
+								</button>
+								<div class="dropdown-menu collapsed">
+									<div class="sticky non-transparent small-padding">
+										<input type="text" class="search-bar" placeholder="Search..." onkeyup="filterDropdown(visibleDropdown)">
+										<button type="button" onclick="toggleAll(visibleDropdown)"> Select all </button>
+									</div>
+									{% for gene_data in genes %}
+										{% set gene = gene_data["ID"] %}
+										{% set checkbox_id = 'genexp_' + gene %}
+										<div class="checkbox-row">
+											<input type="checkbox" class="genexp-gene-checkbox" id= "{{ checkbox_id }}" value="{{ gene }}" onchange="updateCount(this.parentElement.parentElement);" />
+											<label for="{{ checkbox_id }}" class="checkbox-label"> {{ gene }} </label>
+										</div>
+									{% endfor %}
+								</div>
+							</div>
+							<h2 class="padded-bottom">Plot data by:</h2>
+							<div class="row-div padded-bottom">
+								<button onclick="toggleExp('projects-table');" class="dropdown-button" type="button">
+									<label class="default-label bold"> Project: </label>
+									<span class="default-label counter" id="projects-count"> 0 selected </span>
+								</button>
+							</div>
+							<div class="row-div padded-bottom">
+								<button onclick="toggleExp('runs-table');" class="dropdown-button" type="button">
+									<label class="default-label bold"> Run: </label>
+									<span class="default-label counter" id="runs-count"> 0 selected </span>
+								</button>
+								<button type="button" class="aux-button button-save" id="save-run-group" title="Save selection as group" onclick="makeGroup(event, 'expruns')"> &#43; </button>
+							</div>
+							<div class="row-div padded-bottom">
+								<button onclick="showDropdown(event, this);" class="dropdown-button" type="button">
+									<label class="default-label bold"> Run group: </label>
+									<span class="default-label counter" id="run-groups-count"> 0 selected </span>
+								</button>
+								<button type="button" class="aux-button button-delete" id="delete-run-group" title="Delete selected group(s)" onclick="deleteGroup(event, 'expruns')"> &times; </button>
+								<div id="expruns_group-dropdown" class="dropdown-menu collapsed">
+									<div class="sticky non-transparent small-padding">
+										<input type="text" class="search-bar" placeholder="Search..." onkeyup="filterDropdown(visibleDropdown)">
+										<button type="button" onclick="toggleAll(visibleDropdown)"> Select all </button>
+									</div>
+									{% for choice in form.exprun_groups %}
+										<div class="checkbox-row">
+											{{ choice(class="expruns_group-checkbox", onchange="updateCount(this.parentElement.parentElement);filterRunsTable();") }}
+											{{ choice.label(class="checkbox-label") }}
+										</div>
+									{% endfor %}
+								</div>
+							</div>
+							<div class="row-div padded-bottom">
+								<button onclick="showDropdown(event, this);" class="dropdown-button" type="button">
+									<label class="default-label bold"> Column: </label> &nbsp;&nbsp;
+									<span class="default-label dropdown-choice-label" id="plot-by-tracker"></span>
+								</button>
+								<div class="dropdown-menu collapsed" id="plot-by-menu">
+									<div class="sticky non-transparent small-padding">
+										<input type="text" class="search-bar" placeholder="---Disabled---" disabled>
+										<button type="button" disabled> Select all </button>
+									</div>
+								</div>
+							</div>
+							<div class="row-div padded-bottom padded-top">
+								<button onclick="showPlot();" type="button">
+									<label class="default-label bold"> Update plot </label>
+								</button>
+							</div>
+						</div>
+						<div class="scrollable" style="max-height: 65vh; flex: 1;">
+							<table id="projects-table"></table>
+							<table id="runs-table"></table>
+							<div id="genexp-plot" style="height: 65vh;"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+		{% else %}
+			<div class="results-wrapper">
+				<div class="row-div">
+					<h3 class="bold">
+						&nbsp;No gene expression data found for {{ genome }}
+					</h3>
+				</div>
+			</div>
+		{% endif %}
+
+		<div class="results-wrapper">
+			<div class="row-div">
+				<h1 class="clickable" onclick="toggleSection(this, 'geneview-div'); genesToIGV('all');">
+					Gene view:
+				</h1>
+				<button class="aux-button button-update" title="Copy selection from Genes table" type="button" onclick="genesToIGV();">
+					&#8617;
+				</button>
+			</div>
+			<div id="geneview-div" class="results-container collapsed">
+				<div style="display: flex;">
+					<div id="igv-div" class="scrollable padded-top padded-bottom" style="max-height: 65vh; flex: 1;">
+					</div>
+				</div>
+			</div>
+		</div>
+	{% else %}
+		<div class="results-wrapper">
+			<div class="row-div">
+				<h3 class="bold">
+					&nbsp;No genes found for query.
+				</h3>
+			</div>
+		</div>
+	{% endif %}
+
+	{% if genotypes %}
+		<div class="results-wrapper">
+			<div class="row-div">
+				<h1 class="clickable" onclick="makeGroupsTable(); toggleSection(this, 'groups-div');">
+					Sample clusters:
+				</h1>
+				<button class="aux-button button-help" title="Help" type="button" onclick="showHelp(event, 'groups')"> &#63; </button>
+			</div>
+				<div id="groups-div" class="results-container collapsed margin-top">
+				<table id="groups-table"></table>
+			</div>
+		</div>
+    {% endif %}
+
+	<div class="results-wrapper">
+		<div class="row-div">
+			<h1 class="clickable" onclick="toggleSection(this, 'params-div');">
+				Edit query:
+			</h1>
+		</div>
+			<div id="params-div" class="results-container collapsed padded-top margin-top">
+				{% include "Allele_browser/allele_browser_input_block.html" %}
+		</div>
+	</div>
+
+
+{% endblock %}
+
+
+{% block script %}
+
+	<script src="{{url_for('static', filename='js/validate_alleleview_input.js')}}"></script>
+	<script src="{{url_for('static', filename='js/make_delete_group.js')}}"></script>
+	<script src="{{url_for('static', filename='js/filterable_table.js')}}"></script>
+	<script src="{{url_for('static', filename='js/get_var_data.js')}}"></script>
+	<script src="{{url_for('static', filename='js/help_texts.js')}}"></script>
+	<script src="{{url_for('static', filename='js/popups.js')}}"></script>
+
+	<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/igv@2.15.5/dist/igv.min.js"></script>
+	<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+	<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+	<script type="text/javascript">
+
+		const igvConfig = {{ igv_config|tojson|safe }};
+		var igvDiv = document.getElementById("igv-div");
+		var igvParent = igvDiv.parentElement;
+
+		// IGV container needs to be rendered (not collapsed) to load properly
+		igvParent.removeChild(igvDiv);
+		igvDiv.classList.add("hidden");
+		document.body.appendChild(igvDiv);
+		let browserPromise = (async () => {
+			return await igv.createBrowser(igvDiv, igvConfig);
+		})();
+		document.body.removeChild(igvDiv);
+		igvParent.appendChild(igvDiv);
+		igvDiv.classList.remove("hidden");
+
+		var genome = '{{ genome }}';
+		var visibleDropdown = null;
+		var dropdowns = {}; // Array to store dropdown menus for each column
+		var colors = JSON.parse('{{ colors|tojson|safe }}');
+
+		function saveExcel() {
+			var wb = XLSX.utils.table_to_book(document.getElementById("vars-table"));
+			XLSX.writeFile(wb, "variant_data.xlsx");
+		}
+
+		function toggleSection(clickedElem, section) {
+			var sectionDiv = document.getElementById(section);
+			if (sectionDiv.classList.contains("collapsed")) {
+				sectionDiv.classList.remove("collapsed");
+				window.scrollTo({
+					top: clickedElem.parentElement.offsetTop - 30,
+					behavior: "smooth",
+				});
+			} 
+			else {
+				sectionDiv.classList.add("collapsed");
+			}
+		}
+
+		function toggleExp(tableId) {
+			if (tableId === "projects-table") {
+				document.getElementById("projects-table").classList.remove("collapsed");
+				document.getElementById("runs-table").classList.add("collapsed");
+			} else {
+				document.getElementById("projects-table").classList.add("collapsed");
+				document.getElementById("runs-table").classList.remove("collapsed");
+			}
+			document.getElementById("genexp-plot").classList.add("collapsed");
+		}
+
+		function filterGenes() {
+		  var emptyGenes = document.getElementsByName("0");
+		  for (let i = 0; i < emptyGenes.length; i++) {
+			if (emptyGenes[i].classList.contains("collapsed")) {
+			  emptyGenes[i].classList.remove("collapsed");
+			} 
+			else {
+			  emptyGenes[i].classList.add("collapsed");
+			}
+		  }
+		}
+
+		function highlightTableRow(row) {
+			if (row.classList.contains("selected") == true) {
+				row.classList.remove("selected");
+			}
+			else {
+				row.classList.add("selected");
+			}
+			filterVariants();
+		}
+
+		function filterVariants() {
+			var selectedGenes = [];
+			document.querySelectorAll("selected").forEach(function(element) {
+				selectedGenes.push(element.id);
+			});
+		}
+
+		// Update runs-table and projects-table counters on filtering
+		function updateTableCount(tableId) {
+			var table = document.getElementById(tableId);
+			var numRows = table.querySelector("tbody").querySelectorAll("tr:not(.collapsed)").length;
+			if (tableId === "projects-table") {
+				document.getElementById("projects-count").innerHTML = numRows + " selected";
+			} else if (tableId === "runs-table") {
+				document.getElementById("runs-count").innerHTML = numRows + " selected";
+			}
+		}
+
+		function filterRunsTable() {
+			var projectsTable = document.getElementById("projects-table");
+
+			var visibleBPs = [];
+			var projectRows = projectsTable.querySelector("tbody").querySelectorAll("tr");
+			// Get filters based on projects-table selection
+			for (let i = 0; i < projectRows.length; i++) {
+				var row = projectRows[i];
+				if (!row.classList.contains("collapsed")) {
+					visibleBPs.push(row.querySelector("td").textContent);
+				}
+			}
+
+
+			var groupRuns = [];
+			var checkboxes = document.querySelectorAll(".expruns_group-checkbox");
+			// Get filters based on run groups selection
+			for (let i = 0; i < checkboxes.length; i++) {
+				if (checkboxes[i].checked) {
+					groupRuns = groupRuns.concat(checkboxes[i].value.split(","));
+				}
+			}
+
+			// Apply filters based on runs-table selection
+			var runsTable = document.getElementById("runs-table");
+			var runRows = runsTable.querySelector("tbody").querySelectorAll("tr");
+			for (let i = 0; i < runRows.length; i++) {
+				var cells = runRows[i].children;
+				var showRow = true;
+
+				if (!visibleBPs.includes(cells[1].innerHTML)) {
+					showRow = false;
+				} 
+
+				if (groupRuns.length > 0 && !groupRuns.includes(cells[0].innerHTML)) {
+					showRow = false;
+				} 
+
+				if (showRow === true) {
+					// Loop through each filter checkbox for each dropdown menu
+					if ("runs-table" in dropdowns) {
+						Object.keys(dropdowns["runs-table"]).forEach(function(colIndex) {
+							dropdowns["runs-table"][colIndex].querySelectorAll('input[type="checkbox"]').forEach(function(checkbox) {
+								if (!checkbox.checked && cells[colIndex].textContent === checkbox.value) {
+									showRow = false;
+								}
+							});
+						});
+					}
+				}
+
+				// Apply hide/show to row
+				if (showRow) {
+					runRows[i].classList.remove("collapsed");
+				} else {
+					runRows[i].classList.add("collapsed");
+				}
+			}
+			updateTableCount("runs-table");
+		}
+
+		function dropDown(event, clickedElem) {
+			var colIndex = clickedElem.id.split(/[_]+/).pop();
+			var table = findParentTable(clickedElem);
+			var tableId = table.id
+			var tableDropdowns = dropdowns[tableId];
+			if (tableDropdowns) {
+				var dropdown = dropdowns[tableId][colIndex];
+			} else {
+				dropdowns[tableId] = {};
+			}
+
+			// Check if dropdown already exists
+			if (!dropdown) {
+				var uniqueValues = getUniqueValues(table, colIndex);
+				var dropdown = makeDropdown(tableId, colIndex, uniqueValues);
+
+				// Remove starting rows from "Filter samples" dropdown
+				if (tableId === "vars-table" && colIndex == 0) {
+					deleteDropdownRows(dropdown, [0,1,2,3,4,5,6]);
+				}
+
+				// Update runs-table and projects-table counters on filtering
+				if (["runs-table", "projects-table"].includes(tableId)) {
+					var checkboxes = dropdown.querySelectorAll("input[type='checkbox']");
+					checkboxes.forEach(function(checkbox) {
+						checkbox.addEventListener("change", function(event) {
+							updateTableCount(tableId);
+						});
+					});
+				}
+
+				// Update runs-table on filtering project-table
+				if (tableId === "projects-table") {
+					var checkboxes = dropdown.querySelectorAll("input[type='checkbox']");
+					checkboxes.forEach(function(checkbox) {
+						checkbox.addEventListener("change", function(event) {
+							filterRunsTable();
+						});
+					});
+				}
+			}
+
+			// Position the dropdown menu
+			var headerRect = clickedElem.getBoundingClientRect();
+			dropdown.style.top = (headerRect.bottom + window.scrollY) + "px";
+			dropdown.style.left = (headerRect.left + window.scrollX) + "px";
+
+			var clickedIsVisible = !dropdown.classList.contains("collapsed");
+			if (visibleDropdown) {
+				hideDropdown(visibleDropdown);
+			}
+
+			if (!clickedIsVisible) {
+				dropdown.classList.remove("collapsed");
+				visibleDropdown = [dropdown, tableId];
+				event.stopPropagation();
+
+				// Gray-out checkbox values only available for hidden rows
+				// Get visible unique values for the column
+				var visibleValues = [];
+				var rows = table.getElementsByTagName("tbody")[0].getElementsByTagName("tr");
+				for (let i = 0; i < rows.length; i++) {
+					if (!rows[i].classList.contains("collapsed")) {
+						var cell = rows[i].children[colIndex].textContent;
+						if (!visibleValues.includes(cell)) {
+							visibleValues.push(cell);
+						}
+					}
+				}
+
+				// Loop through checkboxes and gray-out
+				dropdown.querySelectorAll('input[type="checkbox"]').forEach(function(checkbox) {
+					var checkboxRow = checkbox.parentElement;
+					if (!(visibleValues.includes(checkbox.value)) && checkbox.checked) {
+						checkboxRow.classList.add("grayed-out");
+					} else {
+						checkboxRow.classList.remove("grayed-out");
+					}
+				});
+
+				// Focus on the search bar
+				dropdown.querySelector("input[type='text']").focus();
+
+				sortGray(dropdown);
+				event.stopPropagation();
+			}
+		}
+
+        function processHideDropdown() {
+			var dropdownData = visibleDropdown;
+			var dropdown = dropdownData[0];
+			var tableId = dropdownData[1];
+			hideDropdown(dropdownData);
+
+			if (tableId != null) {
+				sortGray(dropdown);
+
+				var table = document.getElementById(tableId);
+				var header = table.getElementsByTagName("th");
+
+				// Highlight columns with filters applied
+				Object.keys(dropdowns[tableId]).forEach(function(colIndex) {
+					var toHighlight = false;
+					checkboxes = dropdowns[tableId][colIndex].querySelectorAll('input[type="checkbox"]')
+					for (let i = 0; i < checkboxes.length; i++) {
+						var checkbox = checkboxes[i];
+						var checkboxRow = checkbox.parentElement;
+
+						if (!checkbox.checked) {
+							toHighlight = true;
+							break;
+						}
+					}
+					header[colIndex].style.color = toHighlight ? "#ff9c78" : "";
+				});
+			}
+        }
+
+		function showPlot() {
+			var colField = document.querySelector('input[name="plot-by-choice"]:checked');
+			if (colField == null) {
+				showHelp(event, "select-column");
+				return;
+			}
+			var colToPlot = colField.value.split(/[_]+/).pop();
+			var colLabel = colField.labels[0].textContent;
+
+			var geneCheckboxes = document.querySelectorAll(".genexp-gene-checkbox"); 
+			var selectedGenes = [];
+			geneCheckboxes.forEach(function(checkbox) {
+				if (checkbox.checked) { selectedGenes.push(checkbox.value) } 
+			});
+			if (selectedGenes.length === 0) {
+				showHelp(event, "select-gene");
+				return;
+			}
+
+			var table = document.getElementById("runs-table");
+			var uniqueValues  = getUniqueValues(table, colToPlot);
+			var traces = [];
+			var rows = table.getElementsByTagName("tbody")[0].getElementsByTagName("tr");
+			var visibleRows = [];
+
+			for (let i = 0; i < rows.length; i++) {
+				var row = rows[i];
+				if (!rows[i].classList.contains("collapsed")) {
+					visibleRows.push(row);
+				}
+			}
+
+			for (uniqueVal of uniqueValues) {
+				var expValues = [];
+				var geneValues = [];
+
+				for (var i=0; i<visibleRows.length; i++) {
+					var cells = visibleRows[i].getElementsByTagName("td");
+					if (cells[colToPlot].textContent === uniqueVal) {
+						selectedGenes.forEach( function(gene) {
+							if (expDict[gene] != null) {
+								expValues.push(expDict[gene][cells[0].textContent]);
+								geneValues.push(gene);
+							} else {
+								selectedGenes.splice(selectedGenes.indexOf(gene), 1);
+							}
+						});
+					}
+				}
+				if (uniqueVal === "") {
+					uniqueVal = "(blank)";
+				}
+
+				var trace = {
+					x: geneValues,
+					y: expValues,
+					type: "box",
+					name: uniqueVal + " (n=" + Math.round(expValues.length / selectedGenes.length) + ")",
+				};
+				if (false && colors[colLabel]) {
+					trace["marker"] = { color: colors[colLabel][uniqueVal] };
+					trace["fillcolor"] = colors[colLabel][uniqueVal];
+				}
+				traces.push(trace);
+			}
+
+			var layout = {
+				boxmode: "group",
+				showlegend: true,
+				font: {
+					size: 12,
+				},
+				yaxis: {
+					title: "Expression quantile",
+					tickformat: ".2f",
+				},
+				xaxis: {
+					tickangle: 20,
+					automargin: true,
+					showgrid: true,
+				},
+//				automargin: true,
+				margin: {
+					l: 100,
+					r: 20,
+					b: 20,
+					t: 20,
+					pad: 4,
+				},
+			};
+
+			// Break long legend titles by newlines
+			for (let i = 0; i < traces.length; i++) {
+			  traces[i].name = traces[i].name.replace(/(.{15,}?)\s/g, "$1<br>");
+			}
+
+			document.getElementById("runs-table").classList.add("collapsed");
+			document.getElementById("projects-table").classList.add("collapsed");
+			document.getElementById("genexp-plot").classList.remove("collapsed");
+
+			Plotly.newPlot("genexp-plot", traces, layout);
+
+			document.getElementById("genexp-plot").on("plotly_click", function(data){
+				var selectedGene = data.points[0].x;
+				var checkbox = document.getElementById("genexp_" + selectedGene);
+				checkbox.checked = !checkbox.checked;
+				updateCount(checkbox.parentElement.parentElement)
+			});
+		};
+
+		function genesToExp() {
+			var genesTable = document.getElementById("genes-table");
+			var rows = genesTable.querySelector("tbody").querySelectorAll("tr");
+			rows.forEach( function(row) {
+				geneName = row.querySelector("td").innerText;
+				if (!row.classList.contains("collapsed")) {
+					document.getElementById("genexp_" + geneName).checked = true;
+				} else {
+					document.getElementById("genexp_" + geneName).checked = false;
+				}
+			});
+			updateCount(document.getElementById("genexp_" + geneName).parentElement.parentElement);
+		}
+
+		function makeGroupsTable() {
+			var tableId = "groups-table";
+			var table = document.getElementById(tableId);
+			if (table != null && table.innerHTML != null) {
+				var groups = JSON.parse('{{ groups|tojson|safe }}');
+				var groupCols = ["Variant sequence", "Samples"];
+				var groupsData = [];
+				for (var [groupVars, samples] of Object.entries(groups)) {
+					groupsData.push([groupVars, samples.join(", ")]);
+				}
+				groupsData.sort(function(a, b) {
+					return a[0].localeCompare(b[0]);
+				});
+				for (let i = 0; i < groupsData.length; i++) {
+					groupsData[i][0] = groupsData[i][0].split(" ");
+				}
+
+				groupsData.unshift(groupCols);
+				createTable(groupsData, table);
+			}
+		}
+
+		function genesToIGV(toAll) {
+			var genesLoc = "";
+			var roiConfig =  [ { color: "rgba(217,144,88,0.1)", features: [] } ];
+			if (toAll == null) {
+				var genesTable = document.getElementById("genes-table");
+				var rows = genesTable.querySelector("tbody").querySelectorAll("tr");
+				for (let i = 0; i < rows.length; i++) {
+					if (!rows[i].classList.contains("collapsed")) {
+						var cells = rows[i].querySelectorAll("td");
+						var [id, chrom, start, end] = Array.from(cells).slice(0, 4).map(cell => cell.innerText);
+						genesLoc += chrom + ":"
+						genesLoc += (parseInt(start) - 200) + "-";
+						genesLoc += (parseInt(end) + 200) + " ";
+
+						const roi = { 
+							chr: chrom,
+							start: start,
+							end: end,
+							name: id,
+						};
+						roiConfig[0]["features"].push(roi);
+					}
+				}
+				browserPromise.then(browser => {
+					browser.clearROIs();
+					browser.loadROI(roiConfig);
+				});
+			} else {
+				genesLoc = "all";
+			}
+			browserPromise.then(browser => {
+				browser.goto(genesLoc);
+			});
+		}
+
+		var projectData = parseTSV({{ project_info|tojson|safe }});
+		var runData = parseTSV({{ run_info|tojson|safe }});
+		var expData = parseTSV({{ exp_data|tojson|safe }});
+
+		var runIds = [];
+		for (let i = 1; i < runData.length; i++) {
+			runIds.push(runData[i][0]);
+		}
+
+		var expDict = {};
+		var geneIds = [];
+		expData.forEach(exp => {
+			var geneExp = {};
+			for (let i = 0; i < runIds.length; i++) {
+				geneExp[runIds[i]] = exp[i + 1];
+			}
+			expDict[exp[0]] = geneExp;
+			geneIds.push(exp[0]);
+		});
+
+		document.addEventListener("DOMContentLoaded", () => {
+			// Reset scrolling
+			window.scrollTo({ top: 0 });
+
+			// Create Genes table
+			var tableId = "genes-table";
+			var table = document.getElementById(tableId);
+			var genes = JSON.parse('{{ genes|tojson|safe }}');
+			var geneCols = ["ID", "Chromosome", "Start",
+			                "End", "Length", "Strand", "Variants"];
+			var genesData = [];
+			genesData.push(geneCols);
+			genes.forEach( function(gene) {
+				var geneData = [];
+				geneCols.forEach( function(col) {
+					geneData.push(gene[col]);
+				});
+				genesData.push(geneData);
+			});
+			createTable(genesData, table)
+
+			// Create RNA-seq projects table
+			var tableId = "projects-table";
+			var table = document.getElementById(tableId);
+			if (table != null) {
+				createTable(projectData, table);
+				table.classList.add("collapsed");
+				updateTableCount(tableId);
+			}
+
+			// Create RNA-seq runs table
+			var tableId = "runs-table";
+			var table = document.getElementById(tableId);
+			if (table != null) {
+				createTable(runData, table);
+				table.classList.add("collapsed");
+				updateTableCount(tableId);
+
+				// Fill in plotBy field
+				var headerFields = table.getElementsByTagName("th");
+				var plotBy = document.getElementById("plot-by-menu");
+				for (let i = 0; i < headerFields.length; i++) {
+					var opt = document.createElement("input");
+					opt.type = "radio";
+					opt.name = "plot-by-choice";
+					headerId = headerFields[i].querySelector(".clickable").id
+					opt.value = headerId;
+					opt.id = "plot-by-" + headerId;
+					var label = document.createElement("label");
+					label.textContent = headerFields[i].textContent.slice(0, -2);
+					label.htmlFor = opt.id;
+
+					(function(selected) {
+						opt.onchange = function() { 
+							document.getElementById("plot-by-tracker").innerHTML = selected; 
+							hideDropdown(visibleDropdown);
+						};
+					})(label.textContent);
+
+					plotBy.appendChild(opt);
+					plotBy.appendChild(label);
+					plotBy.appendChild(document.createElement("br"));
+				}
+			}
+
+
+			// Uncheck all groups selected
+			var checkboxes = document.querySelectorAll(".expruns_group-checkbox");
+			for (let i = 0; i < checkboxes.length; i++) {
+				checkboxes[i].checked = false;
+			}
+			if (checkboxes.length > 0) {
+				updateCount(checkboxes[0].parentElement.parentElement);
+				filterRunsTable();
+			}
+
+			// Prevent hiding help popup when clicked within
+			const helpPopup = document.getElementById("help-popup");
+			popupClickedRetain(helpPopup);
+		});
+
+		// Hide shown popup on click
+		document.addEventListener("click", function(event) {
+			if (visibleDropdown != null) {
+				processHideDropdown(visibleDropdown);
+			}
+			document.getElementById("help-popup").classList.add("collapsed");
+		});		
+
+		function resizePlot() {
+			plotDiv = document.getElementById("genexp-plot");
+			if (plotDiv != null && plotDiv.innerHTML && !plotDiv.classList.contains("collapsed")) {
+				Plotly.Plots.resize("genexp-plot");
+			}
+		}
+		window.addEventListener("resize", function() { resizePlot() });
+
+		{% include "Allele_browser/allele_browser_input_scripts.html" %}
+		helpTexts["genes"] = 'Example format: <u>{{ genome_data["Sample_ID"] }}</u><br>Enter multiple genes separated wuth a comma (,)';
+
+    </script>
+
+{% endblock %}
+

@@ -1,0 +1,65 @@
+bidirectional_gene_fusion	Bidirectional gene fusion	HIGH	GENE_FUSION_REVERSE	Bidirectional gene fusion	Fusion of two genes in opposite directions.			
+chromosome	Chromosome	HIGH	CHROMOSOME_LARGE DELETION	Chromosome	A large parte (over 1%) of the chromosome was deleted.			
+duplication	Duplication	HIGH	EXON_DUPLICATION	Duplication	Duplication of an exon.			
+exon_loss_variant	Exon loss	HIGH	EXON_DELETED	Exon loss variant	A deletion removes the whole exon.			
+feature_ablation	Feature ablation	HIGH	GENE_DELETED	Feature ablation	Deletion of a gene.			
+frameshift_variant	Frameshift	HIGH	FRAME_SHIFT	Frameshift variant	Insertion or deletion causes a frame shift			
+gene_fusion	Gene fusion	HIGH	GENE_FUSION	Gene fusion	Fusion of two genes.			
+inversion	Inversion	HIGH	EXON_INVERSION	Inversion	Inversion of an exon.			
+protein_protein_contact	Protein-protein contact	HIGH	PROTEIN_PROTEIN_INTERACTION_LOCUS	Protein protein contact	Protein-Protein interaction loci.			
+rare_amino_acid_variant	Rare amino acid variant	HIGH	RARE_AMINO_ACID	Rare amino acid variant	The variant hits a rare amino acid thus is likely to produce protein loss of function			
+rearranged_at_DNA_level	Rearranged at DNA level	HIGH	GENE_REARRANGEMENT	Rearranged at DNA level	Rearrangement affecting one or more genes.			
+splice_acceptor_variant	Splice acceptor variant	HIGH	SPLICE_SITE_ACCEPTOR	Splice acceptor variant	"The variant hits a splice acceptor site (defined as two bases before exon start, except for the first exon)."			
+splice_donor_variant	Splice donor variant	HIGH	SPLICE_SITE_DONOR	Splice donor variant	"The variant hits a Splice donor site (defined as two bases after coding exon end, except for the last exon)."			
+start_lost	Start lost	HIGH	START_LOST	Start lost	Variant causes start codon to be mutated into a non-start codon.			
+stop_gained	Stop gained	HIGH	STOP_GAINED	Stop gained	Variant causes a STOP codon			
+stop_lost	Stop lost	HIGH	STOP_LOST	Stop lost	Variant causes stop codon to be mutated into a non-stop codon			
+structural_interaction_variant	Structural interaction variant	HIGH	PROTEIN_STRUCTURAL_INTERACTION_LOCUS	Structural interaction variant	"Within protein interacion loci (e.g. two AA that are in contact within the same protein, prossibly helping structural conformation)."			
+3_prime_UTR_truncation + exon_loss	3' UTR truncation + exon loss	MODERATE	UTR_3_DELETED	3' UTR truncation + exon loss	The variant deletes an exon which is in the 3'UTR of the transcript			
+5_prime_UTR_truncation + exon_loss_variant	5' UTR truncation + exon loss	MODERATE	UTR_5_DELETED	5' UTR truncation + exon loss	The variant deletes an exon which is in the 5'UTR of the transcript			
+disruptive_inframe_deletion	Disruptive inframe deletion	MODERATE	CODON_CHANGE_PLUS CODON_DELETION	Disruptive inframe deletion	One codon is changed and one or more codons are deleted			
+disruptive_inframe_insertion	Disruptive inframe insertion	MODERATE	CODON_CHANGE_PLUS CODON_INSERTION	Disruptive inframe insertion	One codon is changed and one or many codons are inserted			
+conservative_inframe_deletion	Conservative inframe deletion	MODERATE	-	Conservative inframe deletion	-			
+conservative_inframe_insertion	Conservative inframe insertion	MODERATE	-	Conservative inframe insertion	-			
+regulatory_region_ablation	Regulatory region ablation	MODERATE	-	Regulatory region ablation	-			
+TBFS_ablation	TBFS ablation	MODERATE	-	TBFS ablation	-			
+inframe_deletion	Inframe deletion	MODERATE	CODON_DELETION	Inframe deletion	One or many codons are deleted			
+inframe_insertion	Inframe insertion	MODERATE	CODON_INSERTION	Inframe insertion	One or many codons are inserted			
+missense_variant	Missense	MODERATE	NON_SYNONYMOUS_CODING	Missense variant	Variant causes a codon that produces a different amino acid			
+sequence_feature + exon_loss_variant	Sequence feature + exon loss	MODERATE	NEXT_PROT	Sequence feature + exon loss	"A 'NextProt' based annotation. Details are provided in the 'feature type' sub-field (ANN), or in the effect details (EFF)."			
+splice_region_variant	Splice region variant	MODERATE	SPLICE_SITE_BRANCH_U12	Splice region variant	"A varaint affective putative (Lariat) branch point from U12 splicing machinery, located in the intron."			
+5_prime_UTR_premature_start_codon_gain_variant	5' UTR premature start codon gain	LOW	START_GAINED	5' UTR premature start codon gain	A variant in 5'UTR region produces a three base sequence that can be a START codon.			
+coding_sequence_variant	Coding sequence variant	LOW	CODON_CHANGE	Coding sequence variant	One or many codons are changed			
+initiator_codon_variant	Initiator codon variant	LOW	NON_SYNONYMOUS_START	Initiator codon variant	Variant causes start codon to be mutated into another start codon (the new codon produces a different AA).			
+splice_region_variant	Splice region variant	LOW	SPLICE_SITE_REGION	Splice region variant	"A sequence variant in which a change has occurred within the region of the splice site, either within 1-3 bases of the exon or 3-8 bases of the intron."			
+start_retained	Start retained	LOW	SYNONYMOUS_START	Start retained	Variant causes start codon to be mutated into another start codon.			
+start_retained_variant	Start retained variant	LOW	-	Start retained variant	-			
+stop_retained	Stop retained	LOW	SYNONYMOUS_STOP	Stop retained	Variant causes stop codon to be mutated into another start codon.			
+stop_retained_variant	Stop retained variant	LOW	NON_SYNONYMOUS_STOP	Stop retained variant	Variant causes stop codon to be mutated into another stop codon (the new codon produces a different AA).			
+synonymous_variant	Synonymous variant	LOW	SYNONYMOUS_CODING	Synonymous variant	Variant causes a codon that produces the same amino acid			
+3_prime_UTR_variant	3' UTR variant	MODIFIER	UTR_3_PRIME	3' UTR variant	Variant hits 3'UTR region			
+5_prime_UTR_variant	5' UTR variant	MODIFIER	UTR_5_PRIME	5' UTR variant	Variant hits 5'UTR region			
+coding_sequence_variant	Coding sequence variant	MODIFIER	CDS	Coding sequence variant	The variant hits a CDS.			
+conserved_intergenic_variant	Conserved intergenic variant	MODIFIER	INTERGENIC_CONSERVED	Conserved intergenic variant	The variant is in a highly conserved intergenic region			
+conserved_intron_variant	Conserved intron variant	MODIFIER	INTRON_CONSERVED	Conserved intron variant	The variant is in a highly conserved intronic region			
+downstream_gene_variant	Downstream gene variant	MODIFIER	DOWNSTREAM	Downstream gene variant	Downstream of a gene (default length: 5K bases)			
+duplication	Duplication	MODIFIER	GENE_DUPLICATION	Duplication	Duplication of a gene.			
+exon_variant	Exon variant	MODIFIER	EXON	Exon variant	The variant hits an exon (from a non-coding transcript) or a retained intron.			
+feature_elongation	Feature elongation	MODIFIER	-	Feature elongation	-			
+feature_truncation	Feature truncation	MODIFIER	-	Feature truncation	-			
+gene_variant	Gene variant	MODIFIER	GENE	Gene variant	The variant hits a gene.			
+intergenic_region	Intergenic region	MODIFIER	INTERGENIC	Intergenic region	The variant is in an intergenic region			
+intragenic_variant	Intragenic variant	MODIFIER	INTRAGENIC	Intragenic variant	"The variant hits a gene, but no transcripts within the gene"			
+intron_variant	Intron variant	MODIFIER	INTRON	Intron variant	"Variant hits and intron. Technically, hits no exon in the transcript."			
+mature_miRNA_variant	Mature miRNA variant	MODIFIER	-	Mature miRNA variant	-			
+miRNA	miRNA	MODIFIER	MICRO_RNA	miRNA	Variant affects an miRNA	MODIFIER	-	-
+NMD_transcript_variant	NMD transcript variant	MODIFIER	-	NMD transcript variant	-			
+non_coding_transcript_exon_variant	Non-coding transcript exon variant	MODIFIER	-	Non-coding transcript exon variant	-			
+non_coding_transcript_variant	Non-coding transcript variant	MODIFIER	-	Non-coding transcript variant	-			
+regulatory_region_amplification	Regulatory region amplification	MODIFIER	-	Regulatory region amplification	-			
+regulatory_region_variant	Regulatory region variant	MODIFIER	REGULATION	Regulatory region variant	The variant hits a known regulatory feature (non-coding).			
+TF_binding_site_variant	TF-binding site variant	MODIFIER	-	TF-binding site variant	-			
+TFBS_amplification	TFBS amplification	MODIFIER	-	TFBS amplification	-			
+transcript_amplification	Transcript amplification	MODIFIER	-	Transcript amplification	-			
+transcript_variant	Transcript variant	MODIFIER	TRANSCRIPT	Transcript variant	The variant hits a transcript.			
+upstream_gene_variant	Upstream gene variant	MODIFIER	UPSTREAM	Upstream gene variant	Upstream of a gene (default length: 5K bases)			

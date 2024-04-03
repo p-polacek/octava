@@ -5,66 +5,97 @@
 
 {% block style %}
 
-	{% for genome in genomes %}
+	<style>
+		{% for genome in genomes %}
+			{% set genome_index = genome[0]|string %}
+			{% set genome_label = "label" + genome_index %}
+			{% set genome_div = "div" + genome_index %}
 
-		{% set taxid = genome["taxid"] %}
-		{% set genome_label = "_" + taxid + "-label" %}
+			#{{ genome_label }} {
+				visibility: hidden;
+				text-align: center;
+			}
 
-		.{{ genome_label }} {
-			visibility: hidden;
-			text-align: center;
-		}
-	{% endfor %}
+			#{{ genome_div }}:hover .genome-icon-div #{{ genome_label }} {
+				visibility: visible;
+			}
+		{% endfor %}
 
-	{% for genome in genomes %}
+		{% for tool in ("Allele_browser", "Genome_browser", "Association_analysis", "Phylogeny_analysis") %}
 
-		{% set taxid = genome["taxid"] %}
+			{% set tool_label = tool + "-label" %}
+			{% set tool_div = tool + "-div" %}
 
-		{% set genome_div = "_" + taxid + "-div" %}
-		{% set genome_label = "_" + taxid + "-label" %}
-		.{{ genome_div }}:hover .icon-div .{{ genome_label }} {
-			visibility: visible;
-		}
+			#{{ tool_label }} {
+				visibility: hidden;
+				text-align: center;
+			}
 
-	{% endfor %}
+			#{{ tool_div }}:hover #{{ tool_label }} {
+				visibility: visible;
+			}
 
-
-	.new-label {
-		visibility: hidden;
-		text-align: center;
-	}
-
-	.new-div:hover .icon-div .new-label {
-		visibility: visible;
-	}
+		{% endfor %}
+	</style>
 
 {% endblock %}
 
 
 {% block content %}
 
-	<div class="centered-div">
-		{% for genome in genomes %}
-			{% set taxid = genome["taxid"] %}
-			{% set icon = genome["icon"] %}
-			{% set metadata = genome["metadata"] %}
-
-			{% set disp_name = metadata["disp_name"] %}
-
-			<a class="object-div {{ '_' + taxid + '-div' }}" href="{{ url_for('select_assembly', user_id=user_id, taxid=taxid) }}">
-				<div class="icon-div">
-					<img class="icon" src="{{ url_for('serve_image', filename=icon) }}" alt="{{ disp_name }}">
-					<h3 class="{{ '_' + taxid + '-label' }}">{{ disp_name }}</h3>
+	<div class="page">
+		<div class="centered-div clickable"
+		     id="genome-sel-div">
+			{% for genome in genomes %}
+				{% set genome_index = genome[0]|string %}
+				{% set genome_name = genome[1] %}
+				<div class="object-div"
+				     id="{{ 'div' + genome_index }}"
+				     onclick="showTools('{{ genome_name }}')">
+					<div class="genome-icon-div">
+						<img class="genome-icon"
+						     src="{{ url_for('serve_icon', filename=genome_name) }}"
+							 alt="{{ genome_name }}">
+						<h2 class="text-wrap padded-top" id="{{ 'label' + genome_index }}">{{ genome_name }}</h2>
+					</div>
 				</div>
-			</a>
-		{% endfor %}
-
-		<a class="object-div new-div" href="{{ url_for('add_species', user_id=user_id) }}">
-			<div class="icon-div">
-				<img class="icon" src="static/icons/New.png" alt="New">
-				<h3 class="new-label">New...</h3>
-			</div>
-		</a>
+			{% endfor %}
+		</div>
+		<div class="tool-selection-div clickable collapsed"
+		     id="tool-sel-div">
+			{% for tool in ("Allele_browser", "Genome_browser", "Association_analysis", "Phylogeny_analysis") %}
+				{% set tool_name = tool.replace("_", " ") %}
+				<div class="object-div"
+					 id="{{ tool + '-div' }}"
+					 onclick="loadAnalysis('{{ tool }}')">
+					<img class="tool-icon"
+					     src="{{ url_for('static', filename='tools/' + tool + '.png') }}"
+						 alt="{{ tool_name }}">
+					<h2 class="text-wrap" id="{{ tool + '-label' }}">{{ tool_name }}</h2>
+				</div>
+			{% endfor %}
+		</div>
 	</div>
+
+{% endblock %}
+
+{% block script %}
+
+	<script>
+		function showTools(name) {
+			document.getElementById("genome-sel-div").style.display = "none";
+			document.getElementById("tool-sel-div").style.display = "block";
+			window.genome = name;
+			document.getElementById("genome-title").innerHTML = name;
+		}
+		function loadAnalysis(tool) {
+			var user_id = "{{ user_id }}";
+			window.location.href = "/save_session/" + user_id + "/" + genome + '/' + tool;
+		}
+
+		// Remove bottom spacer that is only used for other pages
+		document.getElementById("empty-space").classList.add("collapsed");
+
+	</script>
 
 {% endblock %}

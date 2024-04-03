@@ -1,0 +1,3 @@
+Dark blue	#014e60
+Lighter green	#47b023
+Original green	#3a8f1d

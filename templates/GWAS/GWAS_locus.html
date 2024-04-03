@@ -1,0 +1,71 @@
+{% extends "header.html" %}
+
+{% block title %} Locus analysis {% endblock %}
+
+
+{% block style %}
+
+	<link rel="stylesheet" href="{{ url_for('static', filename='locuszoom/css/locuszoom.css') }}">
+
+{% endblock %}
+
+
+{% block content %}
+
+	<div class="page">
+		<div class="centered-div">
+			<div id="igvDiv"></div>
+		</div>
+	</div>
+
+{% endblock %}
+
+{% block script %}
+
+	<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+
+	<script type="module">
+
+		var genome = '{{ genome }}';
+
+		import igv from "{{ url_for('static', filename='igv.esm.min.js') }}";
+		const igvConfig = {{ igv_config|tojson|safe }};
+		const browser = await igv.createBrowser(document.getElementById("igvDiv"), igvConfig);
+
+		browser.on("trackclick", function (track, popoverData) {
+			if ((track.name == "GWAS") & (popoverData.length > 0))  {
+				var ch = popoverData[0].value;
+				var pos = popoverData[1].value;
+
+				const trackToAccess = browser.trackViews
+					.map(trackView => trackView.track)
+					.find(track => track?.name == "LD");
+
+				browser.removeTrack(trackToAccess);
+
+				$.get('/ld/' + genome + '/' + ch + '/' + pos, function() {
+
+					const LDTrack = {
+							name: "LD",
+							type: "gwas",
+							format: "gwas",
+							posteriorProbability: "true",
+							url: "{{ url_for('serve_ld_file') }}",
+							visibilityWindow: 1000000,
+							columns: {
+								chromosome: 1,
+								position: 2,
+								value: 3
+							},
+						"min": -0.1,
+						"max": 1.1,
+						"height": 200,
+						"dotSize": 3,
+						}
+					browser.loadTrack(LDTrack);
+				});
+			}
+		});
+	</script>
+
+{% endblock %}
