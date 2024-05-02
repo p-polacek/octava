@@ -376,12 +376,15 @@ def run_GWAS(genome, params):
         traits = traits if isinstance(traits, list) else [traits]
 
         for model, trait in product(models, traits):
-            out_root = f"GAPIT.processed.{model}.{trait}"
+            out_root = f"{model}.{trait}"
+
+            mplot_fn = os.path.join(out_dir, f"{model}.{trait}.mplot.png")
+            qqplot_fn = os.path.join(out_dir, f"{model}.{trait}.qqplot.png")
+
             if all([os.path.exists(os.path.join(out_dir,
                                                 f"{out_root}.{ext}")
                                    )
-                    for ext in ("tsv",
-                                "tsv.gz",
+                    for ext in ("tsv.gz",
                                 "tsv.gz.tbi")]):
                 continue
 
@@ -393,8 +396,16 @@ def run_GWAS(genome, params):
                                   f"{out_root}.tsv.gz")
 
             res = pd.read_csv(in_fn)
-            cols = ["Chr", "Pos", "P.value", "Effect"]
-            res[cols].to_csv(out_tsv, sep="\t", index=False)
+            res = res[["Chr", "Pos", "P.value", "Effect"]]
+
+            # Get std error if available
+            in_se = os.path.join(raw_dir,
+                                 f"GAPIT.Association.GWAS_StdErr.{model}.{trait}.csv")
+            se = pd.read_csv(in_se)["std Error"]
+            if not se.isna().all():
+                res["std Error"] = se
+
+            res.to_csv(out_tsv, sep="\t", index=False)
 
             subprocess.run(["bgzip", "-f", "-c", out_tsv],
                            stdout=open(out_gz, "w"),
@@ -409,20 +420,15 @@ def run_GWAS(genome, params):
                             out_gz],
                            check=True)
 
-            mplot_fn = os.path.join(out_dir, f"{model}.{trait}.mplot.png")
-            qqplot_fn = os.path.join(out_dir, f"{model}.{trait}.qqplot.png")
+            res["P.value"] = -np.log10(res["P.value"])
+            res.sort_values(by="P.value", ascending=False).to_csv(out_tsv, sep="\t", index=False)
 
-            if not os.path.exists(mplot_fn) or not os.path.exists(qqplot_fn):
+            spans_fn = os.path.join("data", genome, "spans.txt")
 
-                spans_fn = os.path.join("data", genome, "spans.txt")
-                mplot_fig = manhattanplot(out_tsv, spans_fn)
-                mplot_fig.savefig(mplot_fn, format="png")
+            mplot_fig = manhattanplot(res, spans_fn)
+            mplot_fig.savefig(mplot_fn, dpi=300, format="png")
 
-                qqplot_fig = qqplot(out_tsv)
-                qqplot_fig.savefig(qqplot_fn, format="png")
+            qqplot_fig = qqplot(res)
+            qqplot_fig.savefig(qqplot_fn, dpi=300, format="png")
 
-                df = pd.read_csv(out_tsv, sep="\t")
-                df["P.value"] = -np.log10(df["P.value"]).round(5)
-                df = df.sort_values(by="P.value", ascending=False)
-                df["Effect"] = df["Effect"].round(5)
-                df.to_csv(out_tsv, sep="\t", index=False)
+            os.remove(out_tsv)

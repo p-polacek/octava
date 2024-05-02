@@ -13,6 +13,7 @@ import gffutils
 import subprocess
 import numpy as np
 import pandas as pd
+from time import time
 
 from flask import (Flask,
                    jsonify,
@@ -63,6 +64,7 @@ from modules.getQueryOptions import getFile, getDbDir, getGenomeData
 app = Flask(__name__)
 #app.config["UPLOAD_FOLDER"] = "static/icons"
 app.secret_key = "275b250b2816223102a047d297676ce0"
+app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024
 Compress(app)
 
 # Define working directories
@@ -101,18 +103,16 @@ def serve_image(filename):
 @app.route("/data/<genome>/<fn>")
 def serve_file(genome, fn):
     ### Correct this later
-    if fn.startswith("SL"):
-        return send_from_directory(os.path.join(data_dir, genome, "GWAS", "snp", "imp_filt"), "SL4.0ch11.53252504.vcor")
-    if fn.startswith("GAPIT"):
-        model = fn.strip("GAPIT.processed.").split(".", 1)[0]
-        fn_dir = os.path.join(data_dir,
-                              genome,
-                              "GWAS",
-                              "snp",
-                              "assoc")
-    else:
-        fn_dir = os.path.join(data_dir,
-                              genome)
+#    if fn.startswith("SL"):
+#        return send_from_directory(os.path.join(data_dir, genome, "GWAS", "snp", "imp_filt"), "SL4.0ch11.53252504.vcor")
+#    fn_dir = os.path.join(data_dir,
+#                          genome,
+#                          "GWAS",
+#                          "snp",
+#                          "assoc")
+#    else:
+    fn_dir = os.path.join(data_dir,
+                          genome)
     if fn.endswith(".gz"):
         return send_from_directory(fn_dir,
                                    fn,
@@ -121,19 +121,19 @@ def serve_file(genome, fn):
                                fn)
 
 
-@app.route("/markerdata/<genome>/<fn>")
+@app.route("/markerdata/<genome>/<markers>/<fn>")
 def serve_markerdata(genome, markers, fn):
     ### Correct this later
-    if fn.startswith("GAPIT"):
-        model = fn.strip("GAPIT.processed.").split(".", 1)[0]
-        fn_dir = os.path.join(data_dir,
-                              genome,
-                              "GWAS",
-                              markers,
-                              "assoc")
-    else:
-        fn_dir = os.path.join(data_dir,
-                              genome)
+#    if fn.startswith("GAPIT"):
+#    model = fn.strip("GAPIT.processed.").split(".", 1)[0]
+    fn_dir = os.path.join(data_dir,
+                          genome,
+                          "GWAS",
+                          markers,
+                          "assoc")
+#    else:
+#        fn_dir = os.path.join(data_dir,
+#                              genome)
     if fn.endswith(".gz"):
         return send_from_directory(fn_dir,
                                    fn,
@@ -142,17 +142,19 @@ def serve_markerdata(genome, markers, fn):
                                fn)
 
 
-@app.route("/ld_file")
-def serve_ld_file():
-    return send_from_directory(os.path.join(data_dir, "Tomato", "GWAS", "snp", "imp_filt"), "snp.ld.vcor")
+@app.route("/ld_file/<genome>/<markers>")
+def serve_ld_file(genome, markers):
+    return send_from_directory("tmp", "snp.ld.single.vcor2")
 
 
-@app.route("/pip_file")
-def serve_pip_file():
-    return send_from_directory(os.path.join(data_dir, "Tomato", "GWAS", "snp", "assoc"), "num_locules_chr02_pip.txt")
+@app.route("/pip_file/<genome>/<markers>")
+def serve_pip_file(genome, markers):
+    return send_from_directory("tmp", "pip_combined.txt")
 
 
-def get_ld_fn(genome, ch, pos):
+@app.route("/ld/<genome>/<markers>/<ch>/<pos>")
+def get_ld(genome, markers, ch, pos):
+    """
     plink_path = os.path.join(root_dir,
                               "modules",
                               "tools",
@@ -160,14 +162,14 @@ def get_ld_fn(genome, ch, pos):
     gt_dir = os.path.join(data_dir,
                           genome,
                           "GWAS",
-                          "snp",
+                          markers,
                           "imp_filt")
     gt_root = os.path.join(gt_dir,
                            "imp.filt")
     out_root = os.path.join(gt_dir,
                             "snp.ld")
     out_file = f"{out_root}.vcor"
-                          
+
     subprocess.run([plink_path,
                     "--bfile", gt_root,
                     "--allow-extra-chr",
@@ -178,12 +180,31 @@ def get_ld_fn(genome, ch, pos):
                    check=True)
 
     pd.read_csv(out_file, sep="\t").iloc[:, [3, 4, 6]].set_axis(["Chr", "Pos", "R2"], axis=1).to_csv(out_file, sep="\t", index=False)
+    """
 
+#    gt_dir = os.path.join(data_dir,
+#                          genome,
+#                          "GWAS",
+#                          markers,
+#                          "imp_filt")
+    gt_dir = "tmp"
+    in_file = os.path.join(gt_dir,
+                           #"snp.ld.phased.vcor2")
+                           "r2_combined.txt")
+    in_vars = os.path.join(gt_dir,
+                           #"snp.ld.phased.vcor2.vars")
+                           "r2_combined.vars")
+    out_file = os.path.join(gt_dir,
+                            "snp.ld.single.vcor2")
 
-@app.route("/ld/<genome>/<ch>/<pos>")
-def get_ld(genome, ch, pos):
-    get_ld_fn(genome, ch, pos)
+    variants = pd.read_csv(in_vars, sep="\t", header=None)[0]
+    var_index = variants[variants == f"{ch}:{pos}"].index.values[0]
+    r2 = pd.read_csv(in_file, sep="\t", header=None)[[var_index]].set_axis(["R2"], axis=1)
+    r2[["Chr", "Pos"]] = variants.str.split(":", expand=True)
+    r2[["Chr", "Pos", "R2"]].to_csv(out_file, sep="\t", index=False)
+
     return jsonify(success=True)
+
 
 @app.route("/fetch_ajax", methods=["POST"])
 def fetch_ajax():
@@ -218,7 +239,7 @@ def fetch_ajax():
                                 "snp",
                                 "assoc")
 
-        gwas_fn = os.path.join(gwas_dir, f"GAPIT.processed.{model}.{trait}.tsv")
+        gwas_fn = os.path.join(gwas_dir, f"{model}.{trait}.tsv")
 
         with open(gwas_fn, "r") as gwas_in:
             next(gwas_in)
@@ -244,8 +265,8 @@ def fetch_mplot():
     markers  = request.form["markers"]
     model    = request.form["model"]
     trait    = request.form["trait"]
-    assoc_fn = f"GAPIT.processed.{model}.{trait}.tsv"
 
+    assoc_fn = f"{model}.{trait}.feather"
     assoc_path = os.path.join(data_dir,
                               genome,
                               "GWAS",
@@ -254,58 +275,158 @@ def fetch_mplot():
                               assoc_fn)
 
     if os.path.exists(assoc_path):
-        assoc_df = pd.read_csv(assoc_path, sep="\t", header=[0])
-        return jsonify(assoc_df.head(5000).drop(["Effect"], axis=1).to_json(orient="values"))
+        df = pd.read_feather(assoc_path)
+        return jsonify(df.drop(["Effect"], axis=1).to_json(orient="values"))
 
     return jsonify(success=True)
 
 
-@app.route("/get_markers_data", methods=["POST"])
-def get_markers_data():
-    genome   = request.form["genome"]
-    markers  = request.form["markers"]
+@app.route("/fetch_bubbleplot", methods=["POST"])
+def fetch_bubbleplot():
+    #t = time()
+    form = request.form
+    genome   = form["genome"]
+    window   = int(form["window"])
+    thresh   = float(form["thresh"])
+    keys     = json.loads(form["keys"])
+    min_size = math.ceil(float(form["min_size"])) if "min_size" in form.keys() else 0
+    plot_avg = int(form["plot_avg"])
 
-    params_json = os.path.join(data_dir,
-                               genome,
-                               "GWAS",
-                               markers,
-                               "imp_filt",
-                               "imp.filt.params.json")
+    genome_data = getGenomeData(genome)
+    offsets = {k: v["offset"] for k, v in genome_data["Chromosome_data"].items()}
 
-    try:
-        with open(params_json, "r") as params_in:
-            params = json.load(params_in)
-        return jsonify([params[1:], params[0]])
+    windowed_data = list()
+    for group in keys:
+        group_data = list()
+        windowed_group = list()
 
-    except:
-        return jsonify(["Error saving filtering options.", None])
+        for key in group:
+            string_key = ", ".join(key)
+            assoc_fn = f"{key[1]}.{key[2]}.feather"
+            assoc_path = os.path.join(data_dir,
+                                      genome,
+                                      "GWAS",
+                                      key[0],
+                                      "assoc",
+                                      assoc_fn)
 
+            if not os.path.exists(assoc_path):
+                continue
 
-@app.route("/get_var_data", methods=["POST"])
-def get_var_data():
-    genome = request.form["genome"]
-    chrom  = request.form["chrom"]
-    pos    = int(request.form["pos"])
-    field  = request.form["field"]
+            df = pd.read_feather(assoc_path)
+            df = df.drop(["Effect"], axis=1)
+            df = df.set_axis(["Chr", "Pos", string_key], axis=1)
+            df = df[df[string_key] >= thresh]
+            df = df.set_index(["Chr", "Pos"])
+            group_data.append(df[string_key])
 
-    # Get the requested field for the given variant position
-    vcf_file = getFile(genome, "vcf")
-    vcf_reader = VcfReader(vcf_file)
-    vcf_reader.set_region(chrom, pos - 1, pos)
-    for record in vcf_reader:
-        if record.POS != pos:
+        if not group_data:
+            windowed_data.append(windowed_group)
             continue
-        if field == "REF":
-            data = record.REF
-            keys = None
-        elif field == "CSQ":
-            data = record.CSQ
-            keys = list(data[0].keys())
-        else:
-            data = [record.get_sample_call(field)]
-            keys = list(data[0].keys())
+            
+        group_df = pd.concat(group_data, axis=1)#.max(axis=1)
 
-    return jsonify([data, keys])
+        for chrom, data, in group_df.groupby(level=["Chr"]):
+            data.index = data.index.droplevel()
+            data = data.sort_index()
+
+            spans = data.index.map(lambda x: (x // window) * window).unique()
+            spans = spans.union((spans + window)).unique()
+
+            #for i in range(data.index[0] - data.index[0] % window, data.index[-1] + window, window):
+            for i in spans:
+                chunk = data[data.index.slice_indexer(i - window, i + window)]
+                if not chunk.empty:
+                    chunk = chunk.dropna(axis=1, how="all")
+                    if chunk.shape[1] >= min_size:
+                        if plot_avg:
+                            windowed_group.append([int(chunk.idxmax().mean()) + offsets[chrom],
+                                                   chunk.max().mean(),
+                                                   chunk.shape[1],
+                                                   f"{chrom}:{i-window:,}-{i+window:,}",
+                                                   chunk.columns.tolist()])
+                        else:
+                            agg_chunk = chunk.max(axis=1)
+                            windowed_group.append([int(agg_chunk.idxmax()) + offsets[chrom],
+                                                   agg_chunk.max(),
+                                                   chunk.shape[1],
+                                                   f"{chrom}:{i-window:,}-{i+window:,}",
+                                                   chunk.columns.tolist()])
+
+        windowed_data.append(windowed_group)
+
+    #print(time() - t)
+    return jsonify(windowed_data)
+
+
+@app.route("/contextmenu_data", methods=["POST"])
+def contextmenu_data():
+    genome = request.form["genome"]
+    action = request.form["action"]
+
+    if action == "markers":
+        params_json = os.path.join(data_dir,
+                                   genome,
+                                   "GWAS",
+                                   request.form["markers"],
+                                   "imp_filt",
+                                   "imp.filt.params.json")
+        try:
+            with open(params_json, "r") as params_in:
+                params = json.load(params_in)
+            return jsonify([params[1:], params[0]])
+
+        except:
+            return jsonify(["Error fetching parameters.", None])
+
+    elif action == "gwas_run":
+        fn = f"{request.form['model']}.{request.form['trait']}.params.json"
+        params_json = os.path.join(data_dir,
+                                   genome,
+                                   "GWAS",
+                                   request.form["markers"],
+                                   "assoc",
+                                   fn)
+        try:
+            with open(params_json, "r") as params_in:
+                params = json.load(params_in)
+            return jsonify([params[1:], params[0]])
+
+        except:
+            return jsonify(["Error fetching parameters.", None])
+
+    elif action == "vars":
+        genome = request.form["genome"]
+        chrom  = request.form["chrom"]
+        pos    = int(request.form["pos"])
+        field  = request.form["field"]
+
+        # Get the requested field for the given variant position
+        vcf_file = getFile(genome, "vcf")
+        vcf_reader = VcfReader(vcf_file)
+        vcf_reader.set_region(chrom, pos - 1, pos)
+        for record in vcf_reader:
+            if record.POS != pos:
+                continue
+            if field == "REF":
+                data = record.REF
+                keys = None
+            elif field == "CSQ":
+                csq  = record.CSQ
+                keys = list(csq[0].keys())
+                data = [[ann[key] for key in keys] for ann in csq]
+            elif field == "PROV":
+                csq  = record.parsed_info_fields()["PROV"]
+                desc = vcf_reader.metadata["INFO"]["PROV"][0]["Description"]
+                desc = desc.split("'")[1].split("'")[0]
+                keys = [label.strip() for label in desc.split("|")]
+                data = [ann.split("|") for ann in csq]
+            else:
+                qual = record.get_sample_call(field)
+                keys = list(qual.keys())
+                data = [[qual[key] for key in keys]]
+
+        return jsonify([data, keys])
 
 
 @app.route("/save_session/<user_id>/<genome>/<tool>")
@@ -315,10 +436,63 @@ def save_session(user_id, genome, tool):
                             user_id=user_id))
 
 
+@app.route("/addPhenotype/<user_id>/<genome>", methods=["POST"])
+def add_phenotype(user_id, genome):
+    """Add a new phenotype file"""
+    phe_file = getFile(genome, "phe")
+    phe = pd.read_csv(phe_file, header=[0], index_col=[0], sep="\t")
+
+    genome_data = getGenomeData(genome)
+    samples = [sample[0] for sample in genome_data["Samples"]]
+    errors = list()
+
+    for file in request.files.getlist("new_phe"):
+        fn = file.filename
+        new_phe = pd.read_csv(file, header=[0], index_col=[0],
+                              sep="," if fn.endswith(".csv") else "\t")
+
+#        i_diff = new_phe.index.difference(phe.index)
+#        if not i_diff.empty:
+#            errors.append(f"<b>Ungenotyped samples in {fn}:</b><br>{', '.join(i_diff.tolist())}")
+
+        c_same = new_phe.columns.intersection(phe.columns)
+        if not c_same.empty:
+            errors.append(f"<b>Duplicate traits in {fn}:</b><br>{', '.join(c_same.tolist())}")
+
+        if not errors:
+            phe = pd.concat([phe, new_phe], axis=1)
+
+    if not errors:
+        phe.to_csv(phe_file, sep="\t")
+        errors = 1
+
+    # Return back to GWAS options page
+    form = GWASForm(request.form)
+    markers_root = os.path.join(data_dir,
+                                genome,
+                                "GWAS")
+    form.markers.choices = [d for d in os.listdir(markers_root)
+                            if os.path.isdir(os.path.join(markers_root, d))]
+    form.traits.choices = phe.columns
+    form.chrom.choices = [""] + genome_data["Chromosomes"]
+    if "traits" in genome_data["Groups"].keys():
+        form.trait_groups.choices = [[json.dumps(g[0]), g[1]]  for g in genome_data["Groups"]["traits"]]
+
+    return render_template("GWAS/GWAS_options.html",
+                           user_id=user_id,
+                           genome=genome,
+                           form=form,
+                           phe=phe,
+                           errors=errors)
+
+    # file.save(fn)
+
+
 @app.route("/")
 def index():
     user_id = secrets.token_urlsafe(16)
-    genomes = list(enumerate(sorted(os.listdir(data_dir))))
+    genomes = list(enumerate(sorted([p for p in os.listdir(data_dir)
+                                     if os.path.isdir(os.path.join(data_dir, p))])))
 
     return render_template("index.html",
                            user_id=user_id,
@@ -351,9 +525,9 @@ def Allele_browser(user_id):
 
     form.chrom.choices = genome_data["Chromosomes"]
     if "samples" in genome_data["Groups"].keys():
-        form.sample_groups.choices = genome_data["Groups"]["samples"]
+        form.sample_groups.choices = [[json.dumps(g[0]), g[1]]  for g in genome_data["Groups"]["samples"]]
     if "genes" in genome_data["Groups"].keys():
-        form.gene_groups.choices = genome_data["Groups"]["genes"]
+        form.gene_groups.choices = [[json.dumps(g[0]), g[1]]  for g in genome_data["Groups"]["genes"]]
     form.samples.choices = genome_data["Samples"]
 
     for key, value in request.args.items():
@@ -363,7 +537,7 @@ def Allele_browser(user_id):
                            user_id        = user_id,
                            genome         = genome,
                            form           = form,
-                           genome_data    = genome_data)
+                           sample_id      = genome_data["Sample_ID"])
 
 
 @app.route("/makeDeleteGroup", methods=["POST"])
@@ -392,34 +566,23 @@ def Allele_viewer(user_id):
 
     form.chrom.choices = genome_data["Chromosomes"]
     if "samples" in genome_data["Groups"].keys():
-        form.sample_groups.choices = genome_data["Groups"]["samples"]
+        form.sample_groups.choices = [[json.dumps(g[0]), g[1]]  for g in genome_data["Groups"]["samples"]]
     if "genes" in genome_data["Groups"].keys():
-        form.gene_groups.choices = genome_data["Groups"]["genes"]
+        form.gene_groups.choices = [[json.dumps(g[0]), g[1]]  for g in genome_data["Groups"]["genes"]]
     if "expruns" in genome_data["Groups"].keys():
-        form.exprun_groups.choices = genome_data["Groups"]["expruns"]
+        form.exprun_groups.choices = [[json.dumps(g[0]), g[1]]  for g in genome_data["Groups"]["expruns"]]
     form.samples.choices = genome_data["Samples"]
 
     (genotypes,
      groups,
      genes,
      annotations,
-     errors) = HaploSmasherPipeline(genome, form.data)
+     errors) = HaploSmasherPipeline(genome, form)
 
     # Convert genes and annotations from dict to list
     genes = list(genes.values())
+    genes = [{k: v for k, v in gene.items() if k != "Region"} for gene in genes]
 
-    provean_scores = list()
-    scores = ["G|TC.CA.PGAv.1.6.scaffold567.113|CA.PGAv.1.6.scaffold567.113|CA.PGAv.1.6.scaffold567.113|CDS|missense_variant|R/K|367|-4.026161986161986|16.926312123366955|110|45|DELETERIOUS",
-              "G|TC.CA.PGAv.1.6.scaffold567.113|CA.PGAv.1.6.scaffold567.113|CA.PGAv.1.6.scaffold567.113|CDS|missense_variant|V/A|338|-2.001190476190476|10.793354124127248|110|45|TOLERATED",
-              "T|TC.CA.PGAv.1.6.scaffold567.34|CA.PGAv.1.6.scaffold567.34|CA.PGAv.1.6.scaffold567.34|CDS|missense_variant|S/N|98|0.13624662918780567|1.126718030710226|203|45|TOLERATED",
-              "A|TC.CA.PGAv.1.6.scaffold567.22|CA.PGAv.1.6.scaffold567.22|CA.PGAv.1.6.scaffold567.22|CDS|missense_variant|V/A|193|-4.5031209535027905|0.6414588843161128|482|45|DELETERIOUS",
-              "A|TC.CA.PGAv.1.6.scaffold567.22|CA.PGAv.1.6.scaffold567.22|CA.PGAv.1.6.scaffold567.22|CDS|synonymous_variant|T/T|190|0|0.0|482|45|TOLERATED",
-              "T|TC.CA.PGAv.1.6.scaffold1804.1|CA.PGAv.1.6.scaffold1804.1|CA.PGAv.1.6.scaffold1804.1|CDS|missense_variant|K/R|370|-0.3374391534391534|1.1716010118780595|193|45|TOLERATED",
-              "T|TC.CA.PGAv.1.6.scaffold532.92|CA.PGAv.1.6.scaffold532.92|CA.PGAv.1.6.scaffold532.92|CDS|missense_variant|Q/H|421|-0.5573180076628352|1.8896252487607252|102|45|TOLERATED",
-              "T|TC.CA.PGAv.1.6.scaffold532.92|CA.PGAv.1.6.scaffold532.92|CA.PGAv.1.6.scaffold532.92|CDS|synonymous_variant|A/A|376|0|0.0|102|45|TOLERATED"]
-    header = "Allele|Transcript|GeneId|GeneName|Region|VariantType|Ref_Amino_Acid/Alt_AminoAcid|Amino_position|Score|PROVEAN_stdev|PROVEAN_num_seqs|PROVEAN_num_clusters|Impact".split("|")
-    for score in scores:
-        provean_scores.append({key: value for key, value in zip(header, score.split("|"))})
 
     if genome == "Pepper v1.6 G2PSOL":
         genome_dir = os.path.join(data_dir, genome)
@@ -436,7 +599,6 @@ def Allele_viewer(user_id):
         exp_data = ""
         tb = tabix.open(os.path.join(genome_dir, exp_file))
         for gene in genes:
-            print(gene)
             for exp_entry in tb.query(gene["Chromosome"],
                                       gene["Start"],
                                       gene["End"]):
@@ -448,8 +610,11 @@ def Allele_viewer(user_id):
         run_info = ""
         project_info = ""
 
-    with open("test_colors.json", "r") as in_colors:
-        colors = json.load(in_colors)
+    try:
+        with open("test_colors.json", "r") as in_colors:
+            colors = json.load(in_colors)
+    except:
+        colors = ""
 
     seq_file = getFile(genome, "seq").split("/")[-1]
     seq_index = seq_file + ".fai"
@@ -486,6 +651,10 @@ def Allele_viewer(user_id):
        },
     }
 
+    phe_fn = getFile(genome, "phe")
+    with open(phe_fn, "r") as phe_in:
+        phe = [line.strip().split("\t") for line in phe_in]
+
     return render_template("Allele_browser/results.html",
                            user_id        = user_id,
                            genome         = genome,
@@ -495,9 +664,9 @@ def Allele_viewer(user_id):
                            annotations    = annotations,
                            errors         = errors,
                            form           = form,
-                           genome_data    = genome_data,
+                           sample_id      = genome_data["Sample_ID"],
 
-                           provean_scores = provean_scores,
+                           phe            = phe,
 
                            run_info       = run_info,
                            project_info   = project_info,
@@ -524,8 +693,8 @@ def update_locus(user_id, locus):
 
     form = HaploSmasherForm()
     form.chrom.choices = genome_data["Chromosomes"]
-    form.groups.choices  = genome_data["Groups"]
-    form.samples.choices = genome_data["Samples"]
+    form.groups.choices  = [[json.dumps(g[0]), g[1]]  for g in genome_data["Groups"]]
+    form.samples.choices = [[json.dumps(g[0]), g[1]]  for g in genome_data["Samples"]]
 
     form.fmt.data = "region"
     chrom, span = locus.split(":")
@@ -639,7 +808,7 @@ def GWAS_options(user_id):
     phe_fn = getFile(genome, "phe")
     with open(phe_fn, "r") as phe_in:
         phe = [line.split("\t") for line in phe_in.read().strip().split("\n")]
-    form.traits.choices = sorted(phe[0][1:])
+    form.traits.choices = phe[0][1:]
 
     try:
         genome_data = getGenomeData(genome)
@@ -648,13 +817,14 @@ def GWAS_options(user_id):
                                errors = error)
     form.chrom.choices = [""] + genome_data["Chromosomes"]
     if "traits" in genome_data["Groups"].keys():
-        form.trait_groups.choices = genome_data["Groups"]["traits"]
+        form.trait_groups.choices = [[json.dumps(g[0]), g[1]]  for g in genome_data["Groups"]["traits"]]
 
     return render_template("GWAS/GWAS_options.html",
                            user_id=user_id,
                            genome=genome,
                            form=form,
-                           phe=phe)
+                           phe=phe,
+                           errors=None)
 
 
 @app.route("/<user_id>/Association_analysis/Results", methods=["POST"])
@@ -669,8 +839,8 @@ def GWAS_results(user_id):
     form.markers.choices = [d for d in os.listdir(markers_root)
                             if os.path.isdir(os.path.join(markers_root, d))]
 
-    analysed_traits = set()
-    analysed_models = set()
+    analysed_traits = list()
+    analysed_models = list()
     for marker_set in form.markers.choices:
         assoc_root = os.path.join(data_dir,
                                   genome,
@@ -681,42 +851,36 @@ def GWAS_results(user_id):
             continue
 
         for fn in os.listdir(assoc_root):
-            if not fn.endswith(".tsv"):
+            if not fn.endswith(".feather"):
                 continue
-            fn_data = fn.replace(f"GAPIT.processed.", "").replace(".tsv", "")
+            fn_data = fn.rsplit(".", 1)[0]
             model, trait = fn_data.split(".", 1)
-            analysed_traits.add(trait)
-            analysed_models.add(model)
+            if trait not in analysed_traits:
+                analysed_traits.append(trait)
+            if model not in analysed_models:
+                analysed_models.append(model)
 
-    form.traits.choices = sorted(analysed_traits)
-    form.models.choices = sorted(analysed_models)
+    form.traits.choices = analysed_traits
+    form.models.choices = analysed_models
 
     try:
         genome_data = getGenomeData(genome)
     except OSError as error:
         return render_template("index.html",
                                errors = error)
-    form.chrom.choices = genome_data["Chromosomes"]
+
     if "traits" in genome_data["Groups"].keys():
-        form.trait_groups.choices = genome_data["Groups"]["traits"]
+        form.trait_groups.choices = [[json.dumps(g[0]), g[1]]  for g in genome_data["Groups"]["traits"]]
 
     chromosomes = genome_data["Chromosomes"]
     chromosome_data = genome_data["Chromosome_data"]
-
-#    mplot_fn = os.path.join(assoc_root, f"{form.models.choices}.{form.traits.choices[0]}.mplot.png")
-#    qqplot_fn = os.path.join(assoc_root, f"{form.models.choices}.{form.traits.choices[0]}.qqplot.png")
-#    mplot_fn = mplot_fn.replace(os.getcwd(), "")
-#    qqplot_fn = qqplot_fn.replace(os.getcwd(), "")
 
     return render_template("GWAS/GWAS_results.html",
                            user_id=user_id,
                            genome=genome,
                            form=form,
                            chromosomes=chromosomes,
-                           chromosome_data=chromosome_data,
-                           #mplot=mplot_fn,
-                           #qqplot=qqplot_fn,
-                           )
+                           chromosome_data=chromosome_data)
 
 
 @app.route("/<user_id>/Association_analysis/Locus", methods=["POST"])
@@ -724,27 +888,91 @@ def GWAS_locus(user_id):
     genome = session.get(user_id)["genome"]
 
     form = GWASForm(request.form)
-    model = form.data["models"]
-    trait = form.data["traits"]
+    markers = form.data["mrk"]
+    model   = form.data["mod"]
+    trait   = form.data["trt"]
+    pval    = form.data["pval"]
+    coord   = form.data["coord"]
 
-    chrom = form.data["chrom"]
-    start = form.data["start"]
-    end   = form.data["end"]
-    pval  = form.data["pval"]
+    gwas_file = f"{model}.{trait}.tsv.gz"
+    gwas_index = gwas_file + ".tbi"
 
-    assoc_root = os.path.join("GWAS",
-                              "snp",
-                              "assoc")
+    r2  = pd.DataFrame()
+    pip = pd.DataFrame()
+
+    for locus in coord.split(", "):
+        chrom, span = locus.split(":")
+        start, end  = span.replace(",", "").split("-")
+
+        # Calculate LD matrix within the regions
+        plink_path = os.path.join(root_dir,
+                                  "modules",
+                                  "tools",
+                                  "plink2")
+        gt_dir = os.path.join(data_dir,
+                              genome,
+                              "GWAS",
+                              markers,
+                              "imp_filt")
+        gt_root = os.path.join(gt_dir,
+                               "imp.filt")
+        out_root = os.path.join(gt_dir,
+                                "snp.ld")
+
+        subprocess.run([plink_path,
+                        "--bfile", gt_root,
+                        "--allow-extra-chr",
+                        "--r2-phased", "square",
+                        "--chr", chrom,
+                        "--from-bp", str(start),
+                        "--to-bp", str(end),
+                        "--out", out_root],
+                       check=True)
+
+        # Run FM using SuSiE
+        phe_file = os.path.join(root_dir, getFile(genome, "phe"))
+
+        assoc_root = os.path.join(data_dir,
+                                  genome,
+                                  "GWAS",
+                                  markers,
+                                  "assoc")
+
+        R_dir = os.path.join(root_dir,
+                             "modules",
+                             "R")
+        susie_path = os.path.join(R_dir,
+                                  "SuSiE.R")
+
+        command = ["Rscript", susie_path,
+                   "-g", os.path.join(assoc_root, gwas_file),
+                   "-r", f"{out_root}.phased.vcor2",
+                   "-p", phe_file,
+                   "-t", trait,
+                   "-c", chrom,
+                   "-s", str(start),
+                   "-e", str(end),
+                   "-o", assoc_root]
+        subprocess.run(command, check=True)
+
+        r2_locus = pd.read_csv(f"{out_root}.phased.vcor2", sep="\t", header=None, index_col=None)
+        r2_locus_vars  = pd.read_csv(f"{out_root}.phased.vcor2.vars", header=None)[0]
+        r2_locus = r2_locus.set_axis(r2_locus_vars, axis=0)
+        r2_locus = r2_locus.set_axis(r2_locus_vars, axis=1)
+        r2 = pd.merge(r2, r2_locus, left_index=True, right_index=True, how="outer")
+        r2_vars = r2.index
+
+        pip = pd.concat([pip, pd.read_csv(os.path.join(assoc_root, "pip.txt"), sep="\t")])
+
+    pip.to_csv("tmp/pip_combined.txt", sep="\t", index=False)
+    r2.to_csv("tmp/r2_combined.txt", sep="\t", index=False, header=False)
+    r2_vars.to_series().to_csv("tmp/r2_combined.vars", index=False, header=False)
+    
 
     seq_file = getFile(genome, "seq").split("/")[-1]
     seq_index = seq_file + ".fai"
     gff_file = getFile(genome, "gff").split("/")[-1]
     gff_index = gff_file + ".tbi"
-
-    gwas_file = f"GAPIT.processed.{model}.{trait}.tsv.gz"
-    gwas_index = gwas_file + ".tbi"
-
-    #get_ld_fn(genome, str(form.data["chrom"]), str(form.data["pos"]))
 
     igv_config = {
         "reference": {
@@ -752,6 +980,15 @@ def GWAS_locus(user_id):
             "fastaURL":  url_for("serve_file", genome=genome, fn=seq_file),
             "indexURL":  url_for("serve_file", genome=genome, fn=seq_index),
             "tracks": [
+                {
+                    "name": "Genes",
+                    "type": "annotation",
+                    "format": "gff3",
+                    "url": url_for("serve_file", genome=genome, fn=gff_file),
+                    "indexURL": url_for("serve_file", genome=genome, fn=gff_index),
+                    "visibilityWindow": 1000000,
+                    "order": 0,
+                },
                 {
                     "name": "GWAS",
                     "type": "gwas",
@@ -768,30 +1005,15 @@ def GWAS_locus(user_id):
                     "max": pval,
                     "height": 200,
                     "dotSize": 3,
-                },
-                {
-                    "name": "LD",
-                    "type": "gwas",
-                    "format": "gwas",
-                    "posteriorProbability": True,
-                    "url": url_for("serve_ld_file"),
-                    "visibilityWindow": 1000000,
-                    "columns": {
-                        "chromosome": 1,
-                        "position": 2,
-                        "value": 3
-                    },
-                    "min": -0.1,
-                    "max": 1.1,
-                    "height": 200,
-                    "dotSize": 3,
+                    "cursor": "pointer",
+                    "color": "#3a8f1d",
                 },
                 {
                     "name": "PIP",
                     "type": "gwas",
                     "format": "gwas",
                     "posteriorProbability": True,
-                    "url": url_for("serve_pip_file"),
+                    "url": url_for("serve_pip_file", genome=genome, markers=markers),
                     "visibilityWindow": 1000000,
                     "columns": {
                         "chromosome": 1,
@@ -802,16 +1024,26 @@ def GWAS_locus(user_id):
                     "max": 1.1,
                     "height": 200,
                     "dotSize": 3,
+                    "color": "#3a8f1d",
                 },
-                {
-                    "name": "Genes",
-                    "type": "annotation",
-                    "format": "gff3",
-                    "url": url_for("serve_file", genome=genome, fn=gff_file),
-                    "indexURL": url_for("serve_file", genome=genome, fn=gff_index),
-                    "visibilityWindow": 1000000,
-                    "order": 0,
-                },
+#                {
+#                    "name": "LD",
+#                    "type": "gwas",
+#                    "format": "gwas",
+#                    "posteriorProbability": True,
+#                    "url": url_for("serve_ld_file"),
+#                    "visibilityWindow": 1000000,
+#                    "columns": {
+#                        "chromosome": 1,
+#                        "position": 2,
+#                        "value": 3
+#                    },
+#                    "min": -0.1,
+#                    "max": 1.1,
+#                    "height": 200,
+#                    "dotSize": 3,
+#                    "color": "#3a8f1d",
+#                },
 #                {
 #                    "name": "Variants",
 #                    "type": "variant",
@@ -824,13 +1056,14 @@ def GWAS_locus(user_id):
 #                },
             ],
        },
-       "locus": f"{chrom}:{start}-{end}"
+       "locus": coord
     }
 
     return render_template("GWAS/GWAS_Locus.html",
-                           user_id=user_id,
-                           genome=genome,
-                           igv_config=igv_config)
+                           user_id    = user_id,
+                           genome     = genome,
+                           markers    = markers,
+                           igv_config = igv_config)
 
 
     """

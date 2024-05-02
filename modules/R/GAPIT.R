@@ -5,8 +5,8 @@
 #devtools::install_github("jiabowang/GAPIT",force=TRUE)
 
 library(optparse)
-library(glue)
 library(GAPIT)
+library(glue)
 
 setwd("/mnt/c/Users/polac001/OneDrive - Wageningen University & Research/PhD/HS/TBD_pipeline/modules/R")
 #setwd("C:/Users/polac001/OneDrive - Wageningen University & Research/PhD/HS/TBD_pipeline/modules/R")
@@ -26,7 +26,7 @@ option_list <- readRDS("GAPIT_params.RDS")
 setwd("/mnt/c/Users/polac001/OneDrive - Wageningen University & Research/PhD/HS/TBD_pipeline/")
 #setwd("C:/Users/polac001/OneDrive - Wageningen University & Research/PhD/HS/TBD_pipeline/")
 opt_parser = OptionParser(option_list=option_list,
-                          epilogue="Created by Peter Polacek");
+                          epilogue="");
 opts <- parse_args(opt_parser)
 
 #opts <- list(genotype="data/Tomato/GWAS/snp-prune/imp_filt/imp.filt.raw",

@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileAllowed
+
 from wtforms import (widgets,
                      FileField,
                      FloatField,
@@ -12,13 +14,15 @@ from wtforms import (widgets,
                      BooleanField,
                      DecimalField,
                      IntegerField,
+                     MultipleFileField,
                      SelectMultipleField,
                      #, Form, FieldList, BooleanField, HiddenField, FormField
                     )
-from wtforms.validators import (InputRequired,
+
+from wtforms.validators import (Email,
                                 DataRequired,
-                                ValidationError,
-                                Email)
+                                InputRequired,
+                                ValidationError)
 
 from modules.getQueryOptions import getVariantConsequences
 
@@ -50,7 +54,8 @@ class EmailForm(FlaskForm):
 class HaploSmasherForm(FlaskForm):
     fmt             = SelectField("Format:",
                                   choices=[("region", "Region"),
-                                           ("gene",   "Gene ID")])
+                                           ("gene",   "Gene ID"),
+                                           ("coord",   "Coordinates")])
     target          = SelectField("Target:",
                                   choices=[("cds",    "Coding regions"),
                                            ("prom",   "Promoter regions"),
@@ -62,6 +67,7 @@ class HaploSmasherForm(FlaskForm):
     chrom           = SelectField("Chrom:", choices=[])
     start           = IntegerField("Start:")
     end             = IntegerField("End:")
+    coord           = StringField("")
 
     impact          = MultiCheckboxField("Variant impact:",
                                          choices=[("HIGH", "High"),
@@ -116,14 +122,25 @@ class GWASForm(FlaskForm):
     traits  = MultiCheckboxField("Trait:",  choices=[])
 
     trait_groups  = MultiCheckboxField("Trait group:",  choices=[])
+    new_phe = MultipleFileField()
+
+    coord   = StringField("")
+    fmt     = SelectField("Format:",
+                          choices=[("region", "Region"),
+                                   ("gene",   "Gene ID"),
+                                   ("coord",   "Coordinates")])
 
     chrom   = SelectField("Chrom:", choices=[])
     start   = IntegerField("Start:")
     end     = IntegerField("End:")
 
+    mrk     = StringField("")
+    mod     = StringField("")
+    trt     = StringField("")
+
     pval    = HiddenField("")
-    fm_tool = RadioField("Fine-map tool:", choices=[("", "(none)"),
-                                                    ("susie", "SuSiE")])
+    #fm_tool = RadioField("Fine-map tool:", choices=[("", "(none)"),
+    #                                                ("susie", "SuSiE")])
 
     submit = SubmitField("Submit")
 

@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 
 import re
+import json
 import os.path
 import gffutils
+import numpy as np
 
+from collections import OrderedDict
 from sortedcontainers import SortedDict
 from gffutils.exceptions import FeatureNotFoundError
 
@@ -42,7 +45,7 @@ def compress_sv(seq):
         return seq
 
 
-def HaploSmasherPipeline(genome, query):
+def HaploSmasherPipeline(genome, form):
     """Main HaploSmasher pipeline"""
 
 ###############################################################################
@@ -53,7 +56,7 @@ def HaploSmasherPipeline(genome, query):
 
     groups         = SortedDict()  # {group: [sample_1, ..., sample_n]}
 
-    genes          = SortedDict()  # [{gene_id: {"ID":          gene_id,
+    genes          = OrderedDict() # [{gene_id: {"ID":          gene_id,
                                    #             "Chromosome":  chromosome,
                                    #             "Start":       start,
                                    #             "End":         end,
@@ -79,20 +82,55 @@ def HaploSmasherPipeline(genome, query):
 ### Initialise input parameters
 ###############################################################################
 
+    query = form.data
     # Format
     if query["fmt"] == "gene":
         if query["gene"]:
             query["gene"] = [gene.strip() for gene in
-                             query["gene"].split(",")]
+                             query["gene"].split(", ")]
         else:
             query["gene"] = []
 
         for group in query["gene_groups"]:
-            query["gene"] += [gene.strip() for gene in
-                               group.split(",")]
+            query["gene"] += json.loads(group)
 
     elif query["fmt"] == "region":
-        query["region"] = [query["chrom"], query["start"], query["end"]]
+        query["region"] = [[query["chrom"], query["start"], query["end"]]]
+        _ = query.pop("gene")
+
+    elif query["fmt"] == "coord":
+        regions = list()
+        for region in query["coord"].split(", "):
+            if region.strip():
+                if region.count(":") != 1 or region.count("-") > 1:
+                    errors.append("Invalid coordinates: " + region)
+                    continue
+                
+                chrom, span = region.split(":")
+                start, end = span.split("-") if "-" in span else [span, span]
+                try:
+                    start = int(start.replace(",", "").replace(" ", ""))
+                    end   = int(end.replace(",", "").replace(" ", ""))
+                    assert start <= end
+                except:
+                    errors.append("Invalid coordinates: " + region)
+                    continue
+
+                chrom = chrom.strip()
+                if chrom not in form.chrom.choices:
+                    errors.append("Invalid coordinates: " + region)
+                    continue
+
+                regions.append([chrom, start, end])
+
+        if not regions:
+            return (genotypes,
+                    groups,
+                    genes,
+                    annotations,
+                    errors)
+
+        query["region"] = regions
         _ = query.pop("gene")
 
     for group in query["sample_groups"]:
@@ -163,44 +201,85 @@ def HaploSmasherPipeline(genome, query):
                     annotations,
                     errors)
 
+        # Compose a list of records
+        for record in records:
+            if target_region == "prom":
+                # Get promoter upstream of transcription start
+                # (for genes with multiple transcripts, get each promoter)
+                transcripts = db.children(record.id,
+                                          featuretype="mRNA")
+                prom_size = query["prom_size"]
+                promoters = [(
+                              (t.start - prom_size,
+                               t.start - 1,
+                               t["ID"][0])
+                              if t.strand == "+" else
+                              (t.end + 1,
+                               t.end + prom_size,
+                               t["ID"][0])
+                              )
+                             for t in transcripts]
+            else:
+                promoters = None
+
+            genes[record.id] = {"ID":              record.id,
+                                "Chromosome":      record.chrom,
+                                "Start":           record.start,
+                                "End":             record.end,
+                                "Length":          abs(record.start -
+                                                       record.end) + 1,
+                                "Strand":          record.strand,
+                                #"Promoters":       promoters,
+                                "Variants":        0,
+                                "Region":          None}
+
+
+            for key, value in record.attributes.items():
+                if key != "ID":
+                    genes[record.id][key] = value[0]
+
     # If input is a chromosome region
     elif "region" in query.keys():
-        records = db.region(region=(query["region"]),
-                            featuretype="gene", completely_within=False)
+        for i, region in enumerate(query["region"]):
+            records = db.region(region=(region),
+                                featuretype="gene",
+                                completely_within=False)
 
-    # Compose a list of records
-    for record in records:
+            # Compose a list of records
+            for record in records:
+                if target_region == "prom":
+                    # Get promoter upstream of transcription start
+                    # (for genes with multiple transcripts, get each promoter)
+                    transcripts = db.children(record.id,
+                                              featuretype="mRNA")
+                    prom_size = query["prom_size"]
+                    promoters = [(
+                                  (t.start - prom_size,
+                                   t.start - 1,
+                                   t["ID"][0])
+                                  if t.strand == "+" else
+                                  (t.end + 1,
+                                   t.end + prom_size,
+                                   t["ID"][0])
+                                  )
+                                 for t in transcripts]
+                else:
+                    promoters = None
 
-        if target_region == "prom":
-            # Get promoter upstream of transcription start
-            # (for genes with multiple transcripts, get each promoter)
-            transcripts = db.children(record.id,
-                                      featuretype="mRNA")
+                genes[record.id] = {"ID":              record.id,
+                                    "Chromosome":      record.chrom,
+                                    "Start":           record.start,
+                                    "End":             record.end,
+                                    "Length":          abs(record.start -
+                                                           record.end) + 1,
+                                    "Strand":          record.strand,
+                                    #"Promoters":       promoters,
+                                    "Variants":        0,
+                                    "Region":          i}
 
-            prom_size = query["prom_size"]
-            promoters = [(
-                          (t.start - prom_size,
-                           t.start - 1,
-                           t["ID"][0])
-                          if t.strand == "+" else
-                          (t.end + 1,
-                           t.end + prom_size,
-                           t["ID"][0])
-                          )
-                         for t in transcripts]
-
-        else:
-            promoters = None
-
-        genes[record.id] = {"ID":              record.id,
-                            "Chromosome":      record.chrom,
-                            "Start":           record.start,
-                            "End":             record.end,
-                            "Length":          abs(record.start -
-                                                   record.end) + 1,
-                            "Strand":          record.strand,
-                            "Promoters":       promoters,
-                            "Variants":        0}
+                for key, value in record.attributes.items():
+                    if key != "ID":
+                        genes[record.id][key] = value[0]
 
 ###############################################################################
 ### Set the regions to search through
@@ -221,11 +300,11 @@ def HaploSmasherPipeline(genome, query):
         else:
             # Get full query region,
             # with no entry for affected gene or transcript
-            regions = [[query["region"][0],
-                        query["region"][1],
-                        query["region"][2],
+            regions = [[region[0],
+                        region[1],
+                        region[2],
                         None,
-                        None]]
+                        None] for region in query["region"]]
 
     else:
         if target_region == "cds":
@@ -236,7 +315,8 @@ def HaploSmasherPipeline(genome, query):
                         gene["Start"],
                         gene["End"],
                         gene["ID"],
-                        None]
+                        None,
+                        gene["Region"]]
                        for gene in genes.values()]
 
         elif target_region == "prom":
@@ -254,15 +334,17 @@ def HaploSmasherPipeline(genome, query):
 
         # Clip regions partly outside query
         if "region" in query.keys():
-            query_start  = query["region"][1]
-            query_end    = query["region"][2]
-
             regions = [[region[0],
-                        max(region[1], query_start),
-                        min(region[2], query_end),
+                        max(region[1], query["region"][region[5]][1]),
+                        min(region[2], query["region"][region[5]][2]),
                         region[3],
-                        region[4]]
+                        region[4],
+                        region[5]]
                        for region in regions]
+
+        # Information on which gene came from which region kep for clipping
+        # Removed after clipping finished
+        regions = [region[:-1] for region in regions]
 
 ###############################################################################
 ### Iterate over variant records in regions
@@ -342,6 +424,7 @@ def HaploSmasherPipeline(genome, query):
                         annotations[ann_index][2].append(region[3])
                     if target_region == "prom":
                         annotations[ann_index][2].append(region[4])                 ## CORRECT THIS LATER
+                continue
 
             # Annotation may be missing (record.CSQ returns an error)
             # Handled below by keeping empty annotation entry
@@ -418,12 +501,27 @@ def HaploSmasherPipeline(genome, query):
 
                     print_anns.append(" | ".join(print_ann))
 
+            except:
+                print_anns = ""
+
+###############################################################################
+### Get and process severity score (if available)
+###############################################################################
+
+            prov_anns = list()
+            for prov_ann in record.parsed_info_fields().get("PROV", ""):
+                fields = prov_ann.split("|")
+                try:
+                    var_num = record.ALLELES.index(fields[0])
+                    var = typ + str(var_num)
+                except:
+                    var = "Unknown"
+                score = str(round(float(fields[7]), 2))
+                prov_anns.append(" | ".join((var, fields[0], score, fields[11])))
+
 ###############################################################################
 ### Save variant entry
 ###############################################################################
-
-            except:
-                print_anns = ""
 
             if target_region == "prom":
                 affected_genes = [region[4]]
@@ -437,7 +535,7 @@ def HaploSmasherPipeline(genome, query):
             if len(ref) > 5:
                 ref = compress_sv(ref)
 
-            annotations.append([chrom, record.POS, affected_genes, ref, print_anns])
+            annotations.append([chrom, record.POS, affected_genes, ref, print_anns, prov_anns])
             ann_positions.add((chrom, pos))
 
 ###############################################################################
@@ -527,9 +625,9 @@ def HaploSmasherPipeline(genome, query):
 ### Group samples based on haplotype
 ###############################################################################
 
-    var_count = len(genotypes[0])
+    varnum = len(genotypes[0])
     for sample, sample_gts in zip(samples, genotypes):
-        haplotype = " ".join([sample_gts[pos][0] for pos in range(var_count)])
+        haplotype = tuple(sample_gts[pos][0] for pos in range(varnum))
 
         sample_name = sample_dict[sample] if sample_dict else sample
         groups.setdefault(haplotype, list()).append(sample_name)
@@ -545,7 +643,7 @@ def HaploSmasherPipeline(genome, query):
     # all samples will always be visible
     if not query["skip_no_var"]:
         for sample_index, (sample, sample_gts) in enumerate(zip(samples, genotypes)):
-            calls = {sample_gts[pos][0] for pos in range(var_count)}
+            calls = {sample_gts[pos][0] for pos in range(varnum)}
 
             if calls.issubset(query["skip_samples"]):
                 sample_remove.append(sample_index)
@@ -579,6 +677,7 @@ def HaploSmasherPipeline(genome, query):
                                                            annotations[x][1]))
     annotations = [annotations[i] for i in order]
     genotypes = [[sample_data[i] for i in order] for sample_data in genotypes]
+    groups = [([k[i] for i in order], v) for k, v in groups.items()]
 
     genotypes = [[sample] + gt for sample, gt in zip(samples, genotypes)]
 

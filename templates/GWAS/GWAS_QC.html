@@ -21,12 +21,12 @@
 		</div>
 		<div class="results-container">
 			<div style="display: flex;">
-				<form method = "POST"
-					  action    = "{{ url_for('GWAS_filter', user_id=user_id) }}"
-					  onkeydown = "if(event.keyCode === 13) { event.target.blur(); }"
-					  onsubmit  = "checkName(event);">
-					{{ form.hidden_tag() }}
-					<div class="object-div param-div-flexheight">
+				<div class="object-div param-div-flexheight">
+					<form method = "POST"
+						  action    = "{{ url_for('GWAS_filter', user_id=user_id) }}"
+						  onkeydown = "if(event.keyCode === 13) { event.target.blur(); }"
+						  onsubmit  = "checkName(event);">
+						{{ form.hidden_tag() }}
 
 						<div class="row-input-div justified padded-top padded-bottom">
 							{{ form.plot.label(class="default-label bold") }}

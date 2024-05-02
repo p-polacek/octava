@@ -5,7 +5,7 @@ function validateForm() {
 			return false;
 		}
 	}
-	else {
+	else if (document.getElementById("fmt-field").value == "region") {
 		var start = document.getElementById("start-field").value;
 		var end = document.getElementById("end-field").value;
 		if (start == "") {

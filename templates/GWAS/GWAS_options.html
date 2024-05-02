@@ -12,6 +12,27 @@
 
 	<div id="help-popup" class="help-popup collapsed"></div>
 
+	{% if errors %}
+		{% if errors == 1 %}
+			<div class="padded-left">
+				<h3 class="padded-left bold"> Phenotypes saved successfully. </h3>
+			</div>
+		{% else %}
+			<div class="padded-left">
+				<h2 class="padded-left"> Warnings: </h2>
+				{% for error in errors %}
+					<h3 class="padded-left mini-padded-top taller-line">
+						{{ error|safe }}
+					<br>
+					</h3>
+				{% endfor %}
+				<h3 class="padded-left mini-padded-top taller-line bold red-text">
+					Phenotype files were not saved, check input files and re-submit.
+				</h3>
+			</div>
+		{% endif %}
+	{% endif %}
+
 	<div class="results-wrapper">
 		<div class="results-container padded-top padded-bottom">
 
@@ -38,9 +59,9 @@
 								<button type="button" onclick="toggleAll(visibleDropdown)"> Select all </button>
 							</div>
 							{% for choice in form.markers %}
-								<div class="checkbox-row" oncontextmenu="getMarkersData(event, this);">
+								<div class="checkbox-row" oncontextmenu="contextmenuData(event, {'action': 'markers', 'markers': this.querySelector('label').textContent});">
 									{{ choice(onchange="updateCount(this.parentElement.parentElement);") }}
-									{{ choice.label }}
+									{{ choice.label(class="checkbox-label") }}
 								</div>
 							{% endfor %}
 						</div>
@@ -61,7 +82,7 @@
 							{% for choice in form.models %}
 								<div class="checkbox-row">
 									{{ choice(onchange="updateCount(this.parentElement.parentElement);") }}
-									{{ choice.label }}
+									{{ choice.label(class="checkbox-label") }}
 								</div>
 							{% endfor %}
 						</div>
@@ -87,7 +108,7 @@
 							{% for choice in form.traits %}
 								<div class="checkbox-row">
 									{{ choice(class="traits-checkbox", onchange="updateCount(this.parentElement.parentElement);") }}
-									{{ choice.label }}
+									{{ choice.label(class="checkbox-label") }}
 								</div>
 							{% endfor %}
 						</div>
@@ -108,10 +129,28 @@
 							{% for choice in form.trait_groups %}
 								<div class="checkbox-row group-option">
 									{{ choice(class="traits_group-checkbox", onchange="updateCount(this.parentElement.parentElement);") }}
-									{{ choice.label }}
+									{{ choice.label(class="checkbox-label") }}
 								</div>
 							{% endfor %}
 						</div>
+					</div>
+				</div>
+				<div class="object-div param-div-default">
+					<div class="row-div padded-bottom">
+						<h2>Add phenotype file:</h2>
+						<button class="aux-button button-help" type="button" title="Help" onclick="showHelp(event, 'new-phe')">
+							&#63;
+						</button>
+					</div>
+					<div class="row-div small-padded-top">
+						<div class="row-input-div" style="height: 25px;">
+							{{ form.new_phe(id="new-phe", style="width: 200px;", accept=".txt,.tsv,.csv,.phe") }}
+						</div>
+					</div>
+					<div class="row-div small-padded-top">
+						<button type="submit" style="height: 25px; display: inline-flex; align-items: center;" title="Upload phenotype file" onclick="submitPhe(event);">
+							<label class="default-label bold"> Save files </label>
+						</button>
 					</div>
 				</div>
 
@@ -150,7 +189,7 @@
 {% block script %}
 
 	<script src="{{url_for('static', filename='js/make_delete_group.js')}}"></script>
-	<script src="{{url_for('static', filename='js/get_markers_data.js')}}"></script>
+	<script src="{{url_for('static', filename='js/contextmenu_data.js')}}"></script>
 	<script src="{{url_for('static', filename='js/help_texts.js')}}"></script>
 	<script src="{{url_for('static', filename='js/popups.js')}}"></script>
 
@@ -161,6 +200,29 @@
 		var user_id = '{{ user_id }}';
 		var genome = '{{ genome }}';
 		var visibleDropdown = null;
+		var submitPheURL = "{{ url_for('add_phenotype', user_id=user_id, genome=genome) }}"
+
+		function submitPhe(event) {
+			var form = document.querySelector("form");
+			var pheFiles = document.getElementById("new-phe").files;
+			if (pheFiles.length === 0) {
+				event.preventDefault();
+				return;
+			}
+
+			// Validate submitted files
+			for (let i = 0; i < pheFiles.length; i++) {
+				var fn = pheFiles[i].name;
+				if (!(fn.endsWith(".txt") || fn.endsWith(".tsv") || fn.endsWith(".csv") || fn.endsWith(".phe"))) {
+					alert("Unsupported extension (.txt, .tsv, .csv, .phe allowed).");
+					event.preventDefault();
+					return;
+				}
+			}
+
+			form.enctype = "multipart/form-data";
+			form.action = submitPheURL;
+		}
 
 		// Hide shown popup on click
 		document.addEventListener("click", function(event) {
@@ -171,17 +233,11 @@
 		});
 
 		document.addEventListener("DOMContentLoaded", function() {
+			document.getElementById("new-phe").value = "";
+
 			// Show samples list when right-clicking group
-			document.querySelectorAll(".group-option").forEach(option => {
-				option.addEventListener("contextmenu", function(event) {
-					// Don't show default menu
-					event.preventDefault();
-					const helpPopup = document.getElementById("help-popup");
-					helpPopup.innerHTML = option.innerText + ":<br>" + option.children[0].value.split(",").join("<br>");
-					helpPopup.style.left = event.clientX + "px";
-					helpPopup.style.top = event.clientY + "px";
-					helpPopup.classList.remove("collapsed");
-				});
+			document.querySelectorAll(".group-option").forEach(checkboxRow => {
+				showGroupContents(checkboxRow);
 			});
 
 			// Prevent hiding help popup when clicked within

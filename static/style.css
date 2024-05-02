@@ -36,9 +36,6 @@ h3 {
 	margin: 0px 0px 2px 0px;
 }
 
-hr {
-	margin: 10px;
-}
 /*
 ####################               Hyperlinks              ####################
 */
@@ -224,6 +221,14 @@ a:active {
 	padding-top: 7px;
 }
 
+.mini-padded-top {
+	padding-top: 5px;
+}
+
+.small-padded-bottom {
+	padding-bottom: 7px;
+}
+
 .margin-top {
 	margin-top: 10px;
 }
@@ -359,20 +364,6 @@ button {
 	padding: 2.5px;
 }
 
-.default-button {
-	background-color: #66BA48;
-	color: white;
-	font-weight: bold;
-	font-size: 1.2em;
-	height: 40px;
-	padding: 7.5px 15px;
-	border: none;
-	border-radius: 8px;
-	box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.4); /* Add shadow */
-	cursor: pointer;
-	max-width: 250px;
-}
-
 .help-popup {
     position: absolute;
 	z-index: 500;
@@ -383,9 +374,11 @@ button {
 	border-radius: 8px;
 	padding: 4px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-	max-height: 800px;
-	max-width: 800px;
+	max-height: 700px;
+	max-width: 700px;
 	overflow: auto;
+	white-space: nowrap;
+	word-break: keep-all;
 }
 
 .dropdown-menu {
@@ -406,6 +399,17 @@ button {
 .dropdown-item {
 	display: block;
 	white-space: nowrap;
+}
+
+.dropdown-tag {
+    background-color: #014e60;
+	font-size: 0.9em;
+	color: #fff;
+    border-radius: 4px;
+    padding: 5px 10px;
+    margin: 5px 5px 0px 5px;
+	display: inline-flex;
+	align-items: center;
 }
 
 .dropdown-choice-label {
@@ -458,7 +462,7 @@ button {
 }
 
 .checkbox-label {
-	font-size: 0.85em;
+	font-size: 0.9em;
 }
 
 .bp-text {

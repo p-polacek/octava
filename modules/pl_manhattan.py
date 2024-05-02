@@ -7,18 +7,8 @@ import pandas as pd
 from itertools import cycle
 import matplotlib.pyplot as plt
 
-def read_file(in_fn):
-    if in_fn.endswith(".csv"):
-    	in_df = pd.read_csv(in_fn, sep=",")
-    elif in_fn.endswith((".tsv", ".txt")):
-        in_df = pd.read_csv(in_fn, sep="\t")
-    else:
-        return None
-    return in_df
 
-
-def manhattanplot(in_fn, spans_fn, ch_col="Chr", pos_col="Pos", pval_col="P.value"):
-    in_df = read_file(in_fn)
+def manhattanplot(in_df, spans_fn, ch_col="Chr", pos_col="Pos", pval_col="P.value"):
 
     with open(spans_fn, "r") as spans_in:
         last_pos = 0
@@ -32,7 +22,6 @@ def manhattanplot(in_fn, spans_fn, ch_col="Chr", pos_col="Pos", pval_col="P.valu
 
     in_df[ch_col] = in_df[ch_col].astype(str)
     in_df[pos_col] = in_df[pos_col] + in_df[ch_col].map(offsets)
-    in_df[pval_col] = -np.log10(in_df[pval_col])
 
     fig = plt.figure(figsize=(6, 4))
     colors = cycle(["#014e60", "#47b023"]) # Wageningen colors #3a8f1d
@@ -54,9 +43,8 @@ def manhattanplot(in_fn, spans_fn, ch_col="Chr", pos_col="Pos", pval_col="P.valu
     return fig
 
 
-def qqplot(in_fn, pval_col="P.value"):
-    in_df = read_file(in_fn)
-    in_df[pval_col] = -np.log10(in_df[pval_col])
+def qqplot(in_df, pval_col="P.value"):
+
     in_df = in_df.sort_values(by=pval_col)
 
     num_tests = in_df.shape[0]

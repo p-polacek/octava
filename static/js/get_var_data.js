@@ -14,19 +14,20 @@ function getVarData(event, chrom, pos, field) {
 
 			if (typeof varData === "object") {
 				var fieldText = "<table>";
-				keys.forEach( function(row) {
-					fieldText += "<tr><th>" + row + "</th>";
+				for (let i = 0; i < keys.length; i++) {
+					fieldText += "<tr><th>" + keys[i] + "</th>";
 					varData.forEach( function(elem) {
-						fieldText += "<td>" + elem[row] + "</td>";
+						fieldText += "<td>" + elem[i] + "</td>";
 					});
 					fieldText += "</tr>";
-				});
+				}
 				fieldText += "</table>";
 			} else {
 				var fieldText = "<table><th>" + varData + "</th></table>";
 			}
 			showHelp(event, null, fieldText);
 			return;
+
 		}
 	});
 }

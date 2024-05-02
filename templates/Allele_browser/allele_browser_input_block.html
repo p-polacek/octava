@@ -86,6 +86,16 @@
 					{{ form.end(class="default-input", id="end-field") }}
 			</div>
 		</div>
+		<div class="object-div param-div-default"
+			 id="coord-div">
+			<div class="row-div padded-bottom">
+				<h2>Genomic coordinates:</h2>
+				<button class="aux-button button-help" title="Help" type="button" onclick="showHelp(event, 'coord')"> &#63; </button>
+			</div>
+			<div class="row-input-div justified small-padded-top">
+				{{ form.coord(class="default-input", style="width: 200px;", id="coord-field") }}
+			</div>
+		</div>
 		<div class="object-div param-div-default">
 			<div class="row-div padded-bottom">
 				<h2>

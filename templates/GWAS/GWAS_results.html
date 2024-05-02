@@ -19,98 +19,156 @@
 			</h1>
 			<button class="aux-button bold button-help" title="Help" type="button" onclick="showHelp(event, 'gwas_res')"> &#63; </button>
 		</div>
-		<div class="results-container">
+		<div class="results-container padded-top">
 			<div style="display: flex;">
-				<form method = "POST">
-					<div class="object-div param-div-flexheight">
-						<h2 class="padded-top padded-bottom">
-							Plot GWAS results:
-						</h2>
-						{# Loop to iteratively create the four input fields #}
-						{% for field in ["markers", "models", "traits", "trait_groups"] %}
-							{% set field_count = field + "_count" %}
-							{% set option_class = field + "-option" %}
+				<form method = "POST" onkeydown = "if(event.keyCode === 13) { event.target.blur(); showPlot(); }">
+					<div class="scrollable" style="max-height: 65vh; flex: 1;">
+						<div class="object-div param-div-flexheight">
+							{# Loop to iteratively create the four input fields #}
+							{% for field in ["markers", "models", "traits", "trait_groups"] %}
+								{% set field_count = field + "_count" %}
+								{% set option_class = field + "-option" %}
+								<div class="row-div small-padded-bottom">
+									<button onclick="showDropdown(event, this);" class="dropdown-button" type="button">
+										{{ form[field].label(class="default-label bold") }}
+										<span class="default-label counter" id="{{ field_count }}"> 0 selected </span>
+									</button>
+									<div class="dropdown-menu collapsed">
+										<div class="sticky non-transparent small-padding">
+											<input type="text" class="search-bar" placeholder="Search..." onkeyup="filterDropdown(visibleDropdown)">
+											<button type="button" onclick="toggleAll(visibleDropdown)"> Select all </button>
+										</div>
+										{% for choice in form[field] %}
+											<div class="checkbox-row {{ option_class }}"
+											{% if field == "markers" %}
+												 oncontextmenu="contextmenuData(event, {'action': 'markers', 'markers': this.querySelector('label').textContent});"
+											{% endif %}
+											>
+												{{ choice(onchange="updateCount(this.parentElement.parentElement);") }}
+												{{ choice.label }}
+											</div>
+										{% endfor %}
+									</div>
+								</div>
+							{% endfor %}
+
+							<div class="row-div mini-padded-top">
+								<label class="default-label bold">
+									Options:
+								</label>
+								<button class="aux-button button-help" title="Help" type="button" onclick="showHelp(event, 'mp-vis')"> &#63; </button>
+							</div>
+							<div class="row-input-div justified small-padded-top">
+								<label for="thresh" class="default-label bold">
+									Threshold:
+								</label>
+								<input type="number" class="small-num-input" id="thresh" min="0" value="5" />
+							</div>
+							<div class="row-input-div justified small-padded-top padded-bottom">
+								<label for="window" class="default-label bold">
+									Window (kb): 
+								</label>
+								<input type="number" class="small-num-input", id="window" min="0" step="1" value="100" />
+							</div>
+							<div class="row-input-div justified">
+								<label class="checkbox-label bold" for="as-group">
+									Plot as groups
+								</label>
+								<input type="checkbox" id="as-group" onclick="document.getElementById('grouping-opt-div').classList.toggle('collapsed', !this.checked);">
+							</div>
+							<div id="grouping-opt-div" class="collapsed">
+								<div class="row-input-div small-padded-top justified">
+									<label class="checkbox-label bold" for="plot-avg">
+										Plot averages by window
+									</label>
+									<input type="checkbox" id="plot-avg">
+								</div>
+								<div class="row-input-div small-padded-top justified">
+									<label class="checkbox-label bold" for="groups-separate">
+										Combinations separately
+									</label>
+									<input type="checkbox" id="groups-separate">
+								</div>
+								<div class="row-input-div justified small-padded-top">
+									<label for="min-size" class="default-label bold">
+										Num of traits ≥
+									</label>
+									<input type="number" class="small-num-input", id="min-size" min="0" step="1" value="0" />
+								</div>
+							</div>
+
+							<div class="row-input-div justified padded-top padded-bottom">
+								<button onclick="showPlot();" type="button">
+									<label class="default-label bold"> Update plot </label>
+								</button>
+								&nbsp;&nbsp;
+								<button onclick="toggleStatic();" type="button">
+									<label class="default-label bold"> Switch plots </label>
+								</button>
+							</div>
+
+							<div class="row-div padded-top small-padded-bottom">
+								<button onclick="showDropdown(event, this);" class="dropdown-button" type="button">
+									<label class="default-label bold">
+										Loci of interest:
+									</label>
+									<span class="default-label counter" id="loci_count"> 0 selected </span>
+								</button>
+								<button type="button" class="aux-button button-save" id="add-locus" title="Mark current locus as locus of interest" onclick="addLocus();"> &#43; </button>
+								<div class="dropdown-menu collapsed" id="loci-dropdown">
+								</div>
+							</div>
+							<div class="row-input-div small-padded-bottom justified">
+								<label class="checkbox-label bold" for="add-window">
+									Add +/- window to locus
+								</label>
+								<input type="checkbox" id="add-window">
+							</div>
+
+							<div class="collapsed">
+								{% for field in ["pval", "coord", "fmt", "mrk", "mod", "trt"] %}
+									{{ form[field](id=field + "-field") }}
+								{% endfor %}
+							</div>
+
+							{#
 							<div class="row-div padded-bottom">
 								<button onclick="showDropdown(event, this);" class="dropdown-button" type="button">
-									{{ form[field].label(class="default-label bold") }}
-									<span class="default-label counter" id="{{ field_count }}"> 0 selected </span>
+									<label class="default-label bold"> {{ form.fm_tool.label }} </label>
+										<span class="default-label dropdown-choice-label counter" id="fm-tool-tracker"></span>
 								</button>
+								<button type="button" class="aux-button button-help" title="Help" onclick="showHelp(event, 'fm-tool')"> &#63; </button>
 								<div class="dropdown-menu collapsed">
 									<div class="sticky non-transparent small-padding">
-										<input type="text" class="search-bar" placeholder="Search..." onkeyup="filterDropdown(visibleDropdown)">
-										<button type="button" onclick="toggleAll(visibleDropdown)"> Select all </button>
+										<input type="text" class="search-bar" placeholder="---Disabled---" disabled>
+										<button type="button" disabled> Select all </button>
 									</div>
-									{% for choice in form[field] %}
-										<div class="checkbox-row {{ option_class }}"
-										{% if field == "markers" %}
-											 oncontextmenu="getMarkersData(event, this);"
-										{% endif %}
-										>
-											{{ choice(onchange="updateCount(this.parentElement.parentElement);") }}
-											{{ choice.label }}
-										</div>
+									{% for choice in form.fm_tool %}
+										{{ choice(onchange="updateFM()") }}
+										{{ choice.label }}
+										<br>
 									{% endfor %}
 								</div>
 							</div>
-						{% endfor %}
-						<div class="row-input-div justified small-padded-top padded-bottom">
-							<button onclick="showPlot();" type="button">
-								<label class="default-label bold"> Update plot </label>
-							</button>
-							&nbsp;&nbsp;
-							<button onclick="showStatic();" type="button">
-								<label class="default-label bold"> Show static plots </label>
-							</button>
-						</div>
+							#}
 
-						<h2 class="padded-top">
-							Analyze locus:
-						</h2>
+							<div class="row-input-div justified padded-top">
+								<button class="submit-button" type="button" value="fm">
+									<label class="default-label bold"> Fine-map </label>
+								</button>
 
-						<div class="collapsed">
-							{% for field in ["chrom", "start", "end", "pval"] %}
-								{{ form[field](id=field + "-field") }}
-							{% endfor %}
-						</div>
-
-						<div class="row-div padded-top padded-bottom">
-							<button onclick="showDropdown(event, this);" class="dropdown-button" type="button">
-								<label class="default-label bold"> {{ form.fm_tool.label }} </label>
-									<span class="default-label dropdown-choice-label counter" id="fm-tool-tracker"></span>
-							</button>
-							<button type="button" class="aux-button button-help" title="Help" onclick="showHelp(event, 'fm-tool')"> &#63; </button>
-							<div class="dropdown-menu collapsed">
-								<div class="sticky non-transparent small-padding">
-									<input type="text" class="search-bar" placeholder="---Disabled---" disabled>
-									<button type="button" disabled> Select all </button>
-								</div>
-								{% for choice in form.fm_tool %}
-									{{ choice(onchange="updateFM()") }}
-									{{ choice.label }}
-									<br>
-								{% endfor %}
+								<button class="submit-button" type="button" value="av">
+									<label class="default-label bold"> Go to allele viewer </label>
+								</button>
 							</div>
-						</div>
-
-						<br>
-						<br>
-
-						<div class="row-input-div justified small-padded-top padded-bottom">
-							<button type="submit" value="fm">
-								<label class="default-label bold"> Fine-map </label>
-							</button>
-							
-							<button type="submit" value="av">
-								<label class="default-label bold"> Go to allele viewer </label>
-							</button>
 						</div>
 					</div>
 				</form>
 
 				<div class="scrollable" style="max-height: 65vh; flex: 1;">
-					<div id="static-plot" class="collapsed" style="height: 65vh;">
-						<img id="mplot">
-						<img id="qqplot">
+					<div id="static-plot" class="row-div collapsed" style="height: 65vh;">
+						<img id="mplot" style="height: 100%; width: 100%; object-fit: contain;">
+						<img id="qqplot" style="height: 100%; width: 100%; object-fit: contain;">
 					</div>
 					<div id="live-plot" style="height: 65vh;"></div>
 				</div>
@@ -122,7 +180,7 @@
 
 {% block script %}
 
-	<script src="{{url_for('static', filename='js/get_markers_data.js')}}"></script>
+	<script src="{{url_for('static', filename='js/contextmenu_data.js')}}"></script>
 	<script src="{{url_for('static', filename='js/help_texts.js')}}"></script>
 	<script src="{{url_for('static', filename='js/popups.js')}}"></script>
 
@@ -155,25 +213,33 @@
 			}
 		}
 
-		function showStatic() {
-			var visibleTraces = [];
-			document.getElementById("live-plot").data.forEach( function(trace) {
-				if (!trace.hasOwnProperty("visible") || trace.visible !== "legendonly") {
-					visibleTraces.push(trace);
-				}
-			});
-			if (visibleTraces.length !== 1) {
-				alert("Select exactly one dataset to fine-map.");
-				event.preventDefault();
-			} else {
-				var [m, l, t] = visibleTraces[0].Id;
-				var mplotFn = `/image/data/${genome}/GWAS/${m}/assoc/${l}.${t}.mplot.png`;
-				document.getElementById("mplot").src = mplotFn;
-				var qqFn = `/image/data/${genome}/GWAS/${m}/assoc/${l}.${t}.qqplot.png`;
-				document.getElementById("qqplot").src = qqFn;
+		function toggleStatic() {
+			var liveDiv = document.getElementById("live-plot");
+			var staticDiv = document.getElementById("static-plot");
 
-				document.getElementById("live-plot").classList.add("collapsed");
-				document.getElementById("static-plot").classList.remove("collapsed");
+			if (liveDiv.classList.contains("collapsed")) {
+				staticDiv.classList.add("collapsed");
+				liveDiv.classList.remove("collapsed");
+			} else {
+				var visibleTraces = [];
+				document.getElementById("live-plot").data.forEach( function(trace) {
+					if (!trace.hasOwnProperty("visible") || trace.visible !== "legendonly") {
+						visibleTraces.push(trace);
+					}
+				});
+				if (visibleTraces.length !== 1 || visibleTraces[0].Id == null) {
+					showHelp(event, null, "Select exactly one dataset to plot.");
+					event.preventDefault();
+				} else {
+					var [m, l, t] = visibleTraces[0].Id;
+					var mplotFn = `/image/data/${genome}/GWAS/${m}/assoc/${l}.${t}.mplot.png`;
+					document.getElementById("mplot").src = mplotFn;
+					var qqFn = `/image/data/${genome}/GWAS/${m}/assoc/${l}.${t}.qqplot.png`;
+					document.getElementById("qqplot").src = qqFn;
+
+					liveDiv.classList.add("collapsed");
+					staticDiv.classList.remove("collapsed");
+				}
 			}
 		}
 
@@ -193,22 +259,129 @@
 			document.getElementById("static-plot").classList.add("collapsed");
 			document.getElementById("live-plot").classList.remove("collapsed");
 
+			var asGroup = document.getElementById("as-group").checked;
+			var thresh  = Math.max(3, document.getElementById("thresh").value);
+			var window  = Math.max(0, document.getElementById("window").value);
+			var minSize = Math.max(0, document.getElementById("min-size").value);
+			var plotAvg = +document.getElementById("plot-avg").checked;
+
 			var checkboxClasses = [".markers-option", ".models-option", ".traits-option"];
 			var checkedArr = [];
 			checkboxClasses.forEach( function(cls) {
 				checkedArr.push(checkedBoxes(cls));
 			});
-			checkedBoxes(".trait_groups-option").forEach( function(group) {
-				var traits = group.split(",");
-				traits.forEach( function(trait) {
-					if (!checkedArr[2].includes(trait)) {
-						checkedArr[2].push(trait);
-					}
-				});
-			});
 
 			// Fetch all GWAS result data to plot
 			var requests = [];
+			var traces = [];
+			var yMax = 0;
+
+			if (asGroup) {
+				var separate = document.getElementById("groups-separate").checked;
+				if (checkedArr[0].length === 1 && checkedArr[1].length === 1) {
+					separate = false;
+				}
+
+				var allKeys = [];
+				var groupNames = [];
+
+				var checkedRows = [];
+				var checkboxRows = document.querySelectorAll(".trait_groups-option");
+				checkboxRows.forEach( function(checkboxRow) {
+					var checkbox = checkboxRow.querySelector("input");
+					if (checkbox.checked) {
+						checkedRows.push(checkboxRow);
+					}
+				});
+
+				checkedRows.forEach( function(checkedRow) {
+					var groupKeys = [];
+					var groupName = checkedRow.querySelector("label").textContent.trim();
+					if (!separate) {
+						groupNames.push(groupName);
+					}
+
+					var traits = JSON.parse(checkedRow.querySelector("input[type='checkbox']").value);
+					for (let i = 0; i < checkedArr[0].length; i++) {
+						markers = checkedArr[0][i];
+
+						for (let j = 0; j < checkedArr[1].length; j++) {
+							model = checkedArr[1][j];
+
+							if (separate) {
+								groupNames.push([markers, model, groupName].join(", "));
+							}
+
+							var groupKey = [];
+							traits.forEach( function(trait) {
+								groupKey.push([markers, model, trait]);
+							});
+							groupKeys.push(groupKey);
+						}
+					}
+					if (!separate) {
+						groupKeys = [groupKeys.flat()];
+					}
+					allKeys = allKeys.concat(groupKeys);
+				});
+
+				// Assemble bubble plot data server-side
+				var request = $.ajax({
+					url: "/fetch_bubbleplot",
+					method: "POST",
+					data: {
+						genome: genome,
+						keys: JSON.stringify(allKeys),
+						window: parseInt(window) * 1000,
+						thresh, thresh,
+						min_size: minSize,
+						plot_avg: plotAvg,
+					},
+					success: function(data) {
+						for (let i = 0; i < data.length; i++) {
+							var traceData = data[i];
+							if (traceData !== []) {
+								var yVals = traceData.map(entry => entry[1]);
+								yMax = Math.max(yMax, ...yVals);
+
+								const trace = {
+									name: groupNames[i],
+									mode: "markers",
+									type: "scatter",
+
+									x: traceData.map(entry => entry[0]),
+									y: yVals,
+
+									marker: {
+										size: traceData.map(entry => entry[2] * 4 + 2),
+		//								opacity: 0.3,
+									},
+									text: traceData.map(entry => `${entry[3]}<br><br>${entry[4].join("<br>")}`),
+									hoverinfo: "y+text",
+									hovertemplate: "log10(p): %{y}<br>%{text}",
+										hoverlabel: {
+											namelength: 0,
+										},
+								};
+								traces.push(trace);
+							}
+						}
+					}
+				});
+
+				requests.push(request);
+
+			} else {
+				checkedBoxes(".trait_groups-option").forEach( function(group) {
+					var traits = JSON.parse(group);
+					traits.forEach( function(trait) {
+						if (!checkedArr[2].includes(trait)) {
+							checkedArr[2].push(trait);
+						}
+					});
+				});
+			}
+
 			var dataKeys = [];
 			for (var i = 0; i < checkedArr[0].length; i++) {
 				for (var j = 0; j < checkedArr[1].length; j++) {
@@ -246,33 +419,18 @@
 				})(dataKey);
 			});
 
-			var plotTitle = [];
 			$.when.apply($, requests).done(function() {
-				var traces = [];
-				var yMax = 0;
 				var lastChrom = chromosomeLabels[chromosomeLabels.length - 1];
 				var xMax = chromosomeData[lastChrom]["offset"] + chromosomeData[lastChrom]["size"];
+
 				dataKeys.forEach( function(key) {
 					var stringKey = JSON.stringify(key);
 					if (mplotData[stringKey] != null) {
 						var data = mplotData[stringKey];
 						yMax = Math.max(yMax, data[0][2]);
-						var dataTitle = [];
-						plotTitle = [];
-
-						// Construct title for the data and for the plot
-						for (i = 0; i < 3; i++) {
-							if (checkedArr[i].length > 1) {
-								dataTitle.push(key[i]);
-							} else {
-								plotTitle.push(key[i]);
-							}
-						}
-						dataTitle = dataTitle.join(", ");
-						plotTitle = plotTitle.join(", ");
 
 						const trace = {
-										name: dataTitle,
+										name: key.join(", "),
 										Id: key,
 										mode: "markers",
 										type: "scatter",
@@ -291,22 +449,17 @@
 						traces.push(trace);
 					}
 				});
+
 				// Break long legend titles by newlines
 				for (i = 0; i < traces.length; i++) {
 				  traces[i].name = traces[i].name.replace(/(.{10,}?)\s/g, "$1<br>");
 				}
 
 				var layout = {
-					title: {
-						text: plotTitle,
-						font: {
-							size: 14,
-						},
-					},
 					xaxis: {
-						title: 'Chromosome',
-						tickvals: chromosomeTicks,
-						ticktext: chromosomeLabels,
+						title: "Chromosome",
+						tickvals: chromosomeTicks.slice(0, 13),
+						ticktext: chromosomeLabels.slice(0, 13),
 						tickangle: 20,
 						range: [0, xMax],
 					},
@@ -328,7 +481,7 @@
 				};
 
 				var chromosomeSpans = [];
-				for (i = 0; i < chromosomeLabels.length; i+= 2) {
+				for (i = 0; i < chromosomeLabels.slice(0, 13).length; i+= 2) {
 					var chr = chromosomeLabels[i];
 					var shape = {
 						type: "rect",
@@ -348,78 +501,241 @@
 				}
 				layout.shapes = chromosomeSpans;
 
+				var thresh = document.getElementById("thresh").value;
+				if (thresh != null) {
+					layout.shapes.push({
+						type: "line",
+						x0: 0,
+						x1: 1,
+						y0: thresh,
+						y1: thresh,
+						xref: "paper",
+						line: {
+							color: "red",
+							width: 2,
+						},
+					});
+				}
+
 				Plotly.newPlot("live-plot", traces, layout);
-				//Plotly.relayout("live-plot", layout);
+
+				var traceLabels = document.querySelectorAll(".legendtoggle");
+				traceLabels.forEach( function(label) {
+					label.addEventListener("contextmenu", function(event) {
+						event.preventDefault();
+						//event.stopPropagation();
+					});
+				});
+
+				var plotDiv = document.getElementById("live-plot");
+				var pval = plotDiv.layout.yaxis.range[1];
+				document.getElementById("pval-field").value  = pval;
+
+				plotDiv.on("plotly_legendclick", function(data) {
+					if (data.event.button === 2) {
+						var traces = plotDiv.data;
+						var traceId = traces[data.curveNumber].Id;
+						if (traceId != null) {
+							var [markers, model, trait] = traceId;
+							contextmenuData(event, {"action": "gwas_run",
+													"markers": markers,
+													"model":   model,
+													"trait":   trait});
+							return false;
+						}
+					}
+				});
+
+				plotDiv.on("plotly_click", function(data) {
+					var markerPos = data.points[0].text.split("<br>")[0];
+					addLocus(markerPos);
+				});
 
 			}).fail(function() {
 				alert("Something went wrong, please try again.");
 			});
 		}
 
-		function updateFM() {
-			var selected = document.querySelector('input[name="fm_tool"]:checked');
-			var selectedLabel = document.querySelector('label[for="' + selected.id + '"]').textContent;
-			document.getElementById("fm-tool-tracker").innerHTML = selectedLabel; 
-			hideDropdown(visibleDropdown);
+		function addLocus(locus) {
+			if (locus == null) {
+				var locus = validateLocus();
+				if (locus == null) {
+					showHelp(event, null, "Select a range within a single chromosome.");
+					event.preventDefault();
+					return;
+				}
+				var [chrom, start, end] = locus;
+				if (document.getElementById("add-window").checked) {
+					var window = parseInt(document.getElementById("window").value) * 1000;
+					start -= window;
+					start = Math.max(1, start);
+					end += window;
+					end = Math.min(end, chromosomeData[chrom]["size"]);
+				}
+				start = start.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+				end = end.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+				var locusString = `${chrom}:${start}-${end}`;
+			} else {
+				var [chrom, pos] = locus.split(":");
+				if (document.getElementById("add-window").checked) {
+					var window = parseInt(document.getElementById("window").value) * 1000;
+					pos = parseInt(pos.replaceAll(",", ""));
+					start = pos - window;
+					start = Math.max(1, start);
+					end = pos + window;
+					end = Math.min(end, chromosomeData[chrom]["size"]);
+
+					start = start.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+					end = end.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+					var locusString = `${chrom}:${start}-${end}`;
+				} else {
+					var locusString = `${chrom}:${pos}`;
+				}
+			}
+
+			var dropdown = document.getElementById("loci-dropdown");
+
+			var savedLoci = [...dropdown.querySelectorAll(".dropdown-tag")].map(x => x.id);
+			if (!savedLoci.includes(locusString)) {
+				var locusRow = document.createElement("div");
+				locusRow.classList.add("row-div");
+
+				var locusButton = document.createElement("div");
+				locusButton.id = locusString;
+				locusButton.className = "dropdown-tag";
+
+				var deleteButton = document.createElement("button");
+				deleteButton.type = "button";
+				deleteButton.classList.add("aux-button", "button-delete");
+				deleteButton.style.marginLeft = "0px";
+				deleteButton.style.marginRight = "8px";
+				deleteButton.addEventListener("click", function() {
+					removeTag(this);
+				});
+				deleteButton.innerHTML = "&times;"
+
+				var locusTitle = document.createElement("span");
+				locusTitle.innerHTML = locusString;
+
+				locusButton.appendChild(deleteButton);
+				locusButton.appendChild(locusTitle);
+				locusRow.appendChild(locusButton);
+
+				dropdown.appendChild(locusRow);
+				updateCount(dropdown);
+			}
 		}
 
-		// Process form submit to send to fine-mapping or allele viewer
-		document.querySelector("form").addEventListener("submit", function(event) {
-			var form = this;
-			var submitButton = event.submitter;
+		function removeTag(element) {
+			var dropdown = document.getElementById("loci-dropdown");
+			dropdown.removeChild(element.parentNode.parentNode);
+			updateCount(dropdown);
+		}
 
-			var pval = document.getElementById("live-plot").layout.yaxis.range[1];
-			var start = document.getElementById("live-plot").layout.xaxis.range[0];
-			start = Math.max(0, start);
-			var end = document.getElementById("live-plot").layout.xaxis.range[1];
+		function validateLocus() {
+			var plotDiv = document.getElementById("live-plot");
+
 			var lastChrom = chromosomeLabels[chromosomeLabels.length - 1];
 			var lastSize = chromosomeData[lastChrom]["size"];
 			var lastOffset = chromosomeData[lastChrom]["offset"];
 
-			end = Math.min(end, lastOffset + lastSize);
+			var start = Math.max(1, Math.floor(plotDiv.layout.xaxis.range[0]));
+			var end = Math.min(Math.ceil(plotDiv.layout.xaxis.range[1]), lastOffset + lastSize);
+
+			var buffer = (end - start) / 10;
+			var bufferedStart = start + buffer;
+			var bufferedEnd = end - buffer;
 
 			var startChrom, endChrom;
 			for (let i = 0; i < chromosomeLabels.length; i++) {
 				let chrom = chromosomeLabels[i];
-				if (start >= chromosomeData[chrom]["offset"] &&
-				    start <= chromosomeData[chrom]["offset"] + chromosomeData[chrom]["size"]) {
+				if (bufferedStart >= chromosomeData[chrom]["offset"] &&
+					bufferedStart <= chromosomeData[chrom]["offset"] + chromosomeData[chrom]["size"]) {
 					startChrom = chrom;
 				}
-				if (end >= chromosomeData[chrom]["offset"] &&
-				    end <= chromosomeData[chrom]["offset"] + chromosomeData[chrom]["size"]) {
+				if (bufferedEnd >= chromosomeData[chrom]["offset"] &&
+					bufferedEnd <= chromosomeData[chrom]["offset"] + chromosomeData[chrom]["size"]) {
 					endChrom = chrom;
 				}
 			}
-
 			if (startChrom !== endChrom) {
-				alert("Select a range within a single chromosome.");
-				event.preventDefault();
 				return;
 			}
 			start -= chromosomeData[startChrom]["offset"];
-			end -= chromosomeData[startChrom]["offset"];
+			start  = Math.max(1, start);
+			end   -= chromosomeData[startChrom]["offset"];
+			end    = Math.min(end, chromosomeData[startChrom]["size"]);
 
-			document.getElementById("chrom-field").value = startChrom;
-			document.getElementById("start-field").value = Math.floor(start);
-			document.getElementById("end-field").value   = Math.ceil(end);
-			document.getElementById("pval-field").value  = pval;
+			return [startChrom, start, end];
+		}
 
-			if (submitButton && submitButton.value === "fm") {
-				var visibleTraces = [];
-				document.getElementById("live-plot").data.forEach( function(trace) {
-					if (!trace.hasOwnProperty("visible") || trace.visible !== "legendonly") {
-						visibleTraces.push(trace.name);
-					}
-				});
-				if (visibleTraces.length !== 1) {
-					alert("Select exactly one dataset to fine-map.");
+		// Process form submit to send to fine-mapping or allele viewer
+		document.querySelectorAll(".submit-button").forEach(function(button) {
+			button.addEventListener("click", function(event) {
+				var form = document.querySelector("form");
+
+				var lociDropdown = document.getElementById("loci-dropdown");
+				var savedLoci = [...lociDropdown.querySelectorAll(".dropdown-tag")].map(x => x.id);
+				if (savedLoci.length === 0) {
+					showHelp(event, null, "Select at least one locus of interest.");
 					event.preventDefault();
-				} else {
-				form.action = "{{ url_for('GWAS_locus', user_id=user_id) }}";
+					return;
 				}
-			} else if (submitButton && submitButton.value === "av") {
-				form.action = "{{ url_for('Allele_browser', user_id=user_id) }}";
-			}
+				document.getElementById("coord-field").value = savedLoci.join(", ");
+				document.getElementById("fmt-field").value = "coord";
+
+				if (button.value === "fm") {
+					var visibleTraces = [];
+					document.getElementById("live-plot").data.forEach( function(trace) {
+						if (!trace.hasOwnProperty("visible") || trace.visible !== "legendonly") {
+							if (trace.Id != null) {
+								visibleTraces.push(trace.Id);
+							}
+						}
+					});
+					if (visibleTraces.length !== 1) {
+						showHelp(event, null, "Select exactly one dataset to fine-map.");
+						event.preventDefault();
+						return;
+					}
+					var trace = visibleTraces[0];
+
+					var invalidLoci = [];
+					for (let i = 0; i < savedLoci.length; i++) {
+						var locus = savedLoci[i];
+						var [chrom, span] = locus.split(":");
+						if (!span.includes("-")) {
+							invalidLoci.push(locus);
+						} else {
+							var [start, end] = span.split("-");
+							start = parseInt(start.replaceAll(",", ""));
+							end = parseInt(end.replaceAll(",", ""));
+							if (end - start > 50000000) {
+								invalidLoci.push(locus);
+							}
+						}
+					}
+				
+					if (invalidLoci.length > 0) {
+						var skipPrompt = window.confirm("Loci cannot be single markers or longer than 5 Mb.\nInvalid loci:\n" + invalidLoci.join("\n") + "\nSkip selected loci?");
+						if (skipPrompt == true) {
+							savedLoci = savedLoci.filter(l => !invalidLoci.includes(l) );
+						} else {
+							return;
+						}
+					}
+
+					document.getElementById("mrk-field").value = trace[0];
+					document.getElementById("mod-field").value = trace[1];
+					document.getElementById("trt-field").value = trace[2];
+
+					form.action = "{{ url_for('GWAS_locus', user_id=user_id) }}";
+
+				} else if (button.value === "av") {
+					form.action = "{{ url_for('Allele_browser', user_id=user_id) }}";
+				}
+				form.submit();
+			});
 		});
 
 		// Hide shown popup on click
@@ -431,26 +747,18 @@
 		});
 
 		document.addEventListener("DOMContentLoaded", function() {
+			document.getElementById("grouping-opt-div").classList.toggle("collapsed", !document.getElementById("as-group").checked);
 			// Show samples list when right-clicking group
-			document.querySelectorAll(".trait_groups-option").forEach(option => {
-				option.addEventListener("contextmenu", function(event) {
-					// Don't show default menu
-					event.preventDefault();
-					const helpPopup = document.getElementById("help-popup");
-					helpPopup.innerHTML = option.innerText + ":<br>" + option.children[0].value.split(",").join("<br>");
-					helpPopup.style.left = event.clientX + "px";
-					helpPopup.style.top = event.clientY + "px";
-					helpPopup.classList.remove("collapsed");
-				});
+			document.querySelectorAll(".trait_groups-option").forEach(checkboxRow => {
+				showGroupContents(checkboxRow);
 			});
 
 			// Prevent hiding help popup when clicked within
 			const helpPopup = document.getElementById("help-popup");
 			popupClickedRetain(helpPopup);
 
-			document.querySelector('input[name="fm_tool"]').checked = true;
-			updateFM();
 			showPlot();
+			//document.getElementById("sel-locus").value = "";
 		});
 
 		function resizePlot() {

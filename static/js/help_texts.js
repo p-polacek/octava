@@ -11,5 +11,7 @@ var helpTexts = {"format":        "<table><tr><th>Coding regions</th><td>Start t
 				 "vars-table":    'Annotation: <br>Severity score: <br>Right-click reference, annotation, severity score or genotype for more info<br>Genotypes color-coded by their error probability: <br><table><tr class="center-text"><td style="width:45px; background-color: rgba(204, 0, 0, 0.65);">100%</td><td style="width:45px; background-color: rgba(204, 80, 0, 0.65);">10%</td><td style="width:45px; background-color: rgba(204, 160, 0, 0.65);">1%</td><td style="width:45px; background-color: rgba(168, 204, 0, 0.65);">0.1%</td><td style="width:45px; background-color: rgba(88, 204, 0, 0.65);">0.01%</td><td style="width:45px; background-color: rgba(8, 204, 0, 0.65);"><0.001%</td></tr></table>More info about interpreting genotype qualities <a target="_blank" href="https://samtools.github.io/hts-specs/VCFv4.1.pdf#subsubsection.1.4.2">here</a>',
 				 "genes-table":   "",
 				 "select-column": "Choose a column to plot from the field above.",
-				 "select-gene":   "Choose a gene to plot from the field above.",
+				 "select-gene":   "Choose one or more genes from the Genes table.",
+				 "select-var":    "Choose one or more variants from the Variants table.",
+				 "select-phe":    "Choose a phenotype to plot from the field above.",
 				};

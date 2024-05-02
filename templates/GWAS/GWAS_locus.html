@@ -5,17 +5,15 @@
 
 {% block style %}
 
-	<link rel="stylesheet" href="{{ url_for('static', filename='locuszoom/css/locuszoom.css') }}">
+	{# <link rel="stylesheet" href="{{ url_for('static', filename='locuszoom/css/locuszoom.css') }}"> #}
 
 {% endblock %}
 
 
 {% block content %}
 
-	<div class="page">
-		<div class="centered-div">
-			<div id="igvDiv"></div>
-		</div>
+	<div class="results-wrapper">
+		<div id="igv-div" class="results-container margin-top"></div>
 	</div>
 
 {% endblock %}
@@ -23,17 +21,18 @@
 {% block script %}
 
 	<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
-
+	<script src="https://cdn.jsdelivr.net/npm/igv@2.15.5/dist/igv.min.js"></script>
+	
 	<script type="module">
 
-		var genome = '{{ genome }}';
+		var genome  = '{{ genome }}';
+		var markers = '{{ markers }}';
 
-		import igv from "{{ url_for('static', filename='igv.esm.min.js') }}";
 		const igvConfig = {{ igv_config|tojson|safe }};
-		const browser = await igv.createBrowser(document.getElementById("igvDiv"), igvConfig);
+		const browser = await igv.createBrowser(document.getElementById("igv-div"), igvConfig);
 
 		browser.on("trackclick", function (track, popoverData) {
-			if ((track.name == "GWAS") & (popoverData.length > 0))  {
+			if (popoverData.length > 0) {
 				var ch = popoverData[0].value;
 				var pos = popoverData[1].value;
 
@@ -43,14 +42,14 @@
 
 				browser.removeTrack(trackToAccess);
 
-				$.get('/ld/' + genome + '/' + ch + '/' + pos, function() {
+				$.get('/ld/' + genome + '/' + markers + '/' + ch + '/' + pos, function() {
 
 					const LDTrack = {
 							name: "LD",
 							type: "gwas",
 							format: "gwas",
 							posteriorProbability: "true",
-							url: "{{ url_for('serve_ld_file') }}",
+							url: "{{ url_for('serve_ld_file', genome=genome, markers=markers) }}",
 							visibilityWindow: 1000000,
 							columns: {
 								chromosome: 1,

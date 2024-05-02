@@ -28,7 +28,10 @@ function showDropdown(event, clickedElem) {
 		dropdown.style.left = (clickedRect.left + window.scrollX) + "px";
 
 		// Focus on the search bar
-		dropdown.querySelector("input[type='text']").focus();
+		var searchBar = dropdown.querySelector("input[type='text']");
+		if (searchBar != null) {
+			searchBar.focus();
+		}
 	}
 }
 
@@ -37,14 +40,23 @@ function filterDropdown(dropdownData) {
 	if (dropdownData != null) {
 		var dropdown = dropdownData[0];
 		var term = dropdown.querySelector("input[type='text']").value.toUpperCase();
+		var term = term.split(", ").map(i => { return i.trim(); }).filter(i => { return i !== ""; });
 		var options = dropdown.querySelectorAll(".checkbox-row");
 
-		for (i = 0; i < options.length; i++) {
-			var label = options[i].textContent || options[i].innerText;
-			if (label.toUpperCase().indexOf(term) > -1) {
+		if (term.length === 0) {
+			for (let i = 0; i < options.length; i++) {
 				options[i].classList.remove("collapsed");
-			} else {
+			}	
+		} else {
+			for (let i = 0; i < options.length; i++) {
+				var label = options[i].textContent || options[i].innerText;
 				options[i].classList.add("collapsed");
+				for (let j = 0; j < term.length; j++) {
+					if (label.toUpperCase().indexOf(term[j]) > -1) {
+						options[i].classList.remove("collapsed");
+						break;
+					}
+				}
 			}
 		}
 	}
@@ -55,8 +67,11 @@ function hideDropdown(dropdownData) {
 	if (dropdownData != null) {
 		var dropdown = dropdownData[0];
 		dropdown.classList.add("collapsed");
-		dropdown.querySelector("input[type='text']").value = "";
-		filterDropdown(dropdownData);
+		var searchBar = dropdown.querySelector("input[type='text']");
+		if (searchBar != null) {
+			searchBar.value = "";
+			filterDropdown(dropdownData);
+		}
 
 		if ((dropdown.parentElement.querySelector("span") != null) &&
 		    (dropdown.parentElement.querySelector("span").innerHTML.includes("selected"))) {
@@ -73,11 +88,16 @@ function updateCount(dropdown, counter) {
 	}
 	if (counter != null) {
 		var checkboxes = dropdown.querySelectorAll("input[type='checkbox']");
-		var count = 0;
-		checkboxes.forEach(function(checkbox) {
-			if (checkbox.checked) { count++ }
-		});
-		counter.innerHTML = count + " selected";
+		if (checkboxes.length > 0) {
+			var count = 0;
+			checkboxes.forEach(function(checkbox) {
+				if (checkbox.checked) { count++ }
+			});
+			counter.innerHTML = count + " selected";
+		} else {
+			var options = dropdown.querySelectorAll(".dropdown-tag");
+			counter.innerHTML = options.length + " selected";
+		}
 	}
 }
 
@@ -140,7 +160,7 @@ function showGroupContents(checkboxRow) {
 		// Don't show default menu
 		event.preventDefault();
 		const helpPopup = document.getElementById("help-popup");
-		helpPopup.innerHTML = checkboxRow.innerText + ":<br>" + checkboxRow.children[0].value.split(",").join("<br>");
+		helpPopup.innerHTML = checkboxRow.innerText + ":<br>" + JSON.parse(checkboxRow.children[0].value).join("<br>");
 		helpPopup.style.left = event.clientX + "px";
 		helpPopup.style.top = event.clientY + "px";
 		helpPopup.classList.remove("collapsed");
@@ -171,4 +191,11 @@ document.addEventListener("DOMContentLoaded", function() {
 		button.style.width = shapeLim + "px";
 		document.body.removeChild(clone);
 	});
+
+});
+
+document.addEventListener("keydown", function(event) {
+	if (event.which === 27) {
+		hideDropdown(visibleDropdown);
+	}
 });

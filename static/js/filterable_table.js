@@ -187,6 +187,7 @@ function makeDropdown(tableId, colIndex, uniqueValues) {
 
 		var label = document.createElement("label");
 		label.htmlFor = checkbox.id;
+		label.classList.add("checkbox-label");
 		if (!value) {
 			label.appendChild(document.createTextNode("(blank)"));
 			label.classList.add("gray-text");
@@ -294,6 +295,23 @@ function applyFilters(dropdownData, checkedVals, checked) {
 			rows[i].classList.add("collapsed");
 		}
 	}
+
+	// Highlight columns with filters applied
+	var header = table.getElementsByTagName("th");
+	Object.keys(dropdowns[tableId]).forEach(function(colIndex) {
+		var toHighlight = false;
+		checkboxes = dropdowns[tableId][colIndex].querySelectorAll('input[type="checkbox"]')
+		for (let i = 0; i < checkboxes.length; i++) {
+			var checkbox = checkboxes[i];
+			var checkboxRow = checkbox.parentElement;
+
+			if (!checkbox.checked && !checkboxRow.classList.contains("grayed-out")) {
+				toHighlight = true;
+				break;
+			}
+		}
+		header[colIndex].style.color = toHighlight ? "#ff9c78" : "";
+	});
 }
 
 function sortGray(dropdown) {

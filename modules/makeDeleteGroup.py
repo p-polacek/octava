@@ -22,7 +22,7 @@ def makeDeleteGroup(genome, data):
 
         # If making a group from a list of items
         if "name" in data.keys():
-            group_entry = (",".join(data["items"]), data["name"])
+            group_entry = (data["items"], data["name"])
 
             # If a group with the given name exists, return error
             for group in genome_data["Groups"][data["set"]]:

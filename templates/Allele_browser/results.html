@@ -11,23 +11,22 @@
 	<div id="help-popup" class="help-popup collapsed"></div>
 
 	{% if errors %}
-		<div class="padded-left">
-			<h2 class="padded-left padded-bottom"> Warnings: </h2>
+		<div class="padded-left padded-bottom">
+			<h2 class="padded-left red-text"> Warnings: </h2>
 			{% for error in errors %}
-				<h3 class="padded-left taller-line">
+				<h3 class="padded-left taller-line bold">
 					{{ error }}
 				<br>
 				</h3>
 			{% endfor %}
 		</div>
-		<hr>
 	{% endif %}
 
 		<div class="row-div padded-left">
 			<h3 class="padded-left bold taller-line">
-				Click section to show/hide
+				Click section header to show/hide
 				<br>
-				Click and drag header handle to resize column
+				Click and drag column handle to resize
 				<br>
 				<a href="javascript:saveExcel();">
 					Click to download variants table as .xlsx file
@@ -38,15 +37,20 @@
     {% if form.data["impact"] != ["geneonly"] %}
 
 		<div class="results-wrapper">
-			<div class="row-div">
+			<div class="justified" style="display: flex;">
 				{% if not annotations %}
 					<h3 class="bold"> No variants found for query. </h3>
 			</div>
 				{% else %}
-					<h1 class="clickable" onclick="toggleSection(this, 'vars-div');">
-						Variants:
-					</h1>
-					<button class="aux-button button-help" title="Help" type="button" onclick="showHelp(event, 'vars-table')"> &#63; </button>
+					<div class="row-div">
+						<h1 class="clickable" onclick="toggleSection(this, 'vars-div'); document.getElementById('var-button').classList.toggle('collapsed', document.getElementById('vars-div').classList.contains('collapsed'));">
+							Variants:
+						</h1>
+						<button class="aux-button button-help" title="Help" type="button" onclick="showHelp(event, 'vars-table')"> &#63; </button>
+					</div>
+					<div style="position: relative;">
+						<button type="button" id="var-button" class="collapsed" style="position: absolute; right: 0; top: 0; white-space: nowrap;" onclick="toggleVariants();">Select all</button>
+					</div>
 			</div>
 				<div id="vars-div" class="results-container collapsed margin-top">
 					<table id="vars-table">
@@ -60,7 +64,11 @@
 									</div>
 								</div>
 							</th>
-
+							{% for ann in annotations %}
+								<td class="center-text clickable" onclick="this.children[0].checked = !this.children[0].checked;">
+									<input type="checkbox" class="var-checkbox" id="{{ 'var' + loop.index0|string }}" pos="{{ ann[0] + ':' + '{:,}'.format(ann[1]) }}" onclick="event.stopPropagation();">
+								</td>
+							{% endfor %}
 						<tr>
 							<th class="header-left"> Chromosome </th>
 								{% for ann in annotations %}
@@ -85,14 +93,14 @@
 						<tr>
 							<th class="header-left"> Reference </th>
 							{% for ann in annotations %}
-								<td class="center-text help-cursor" oncontextmenu="getVarData(event, '{{ ann[0] }}', '{{ ann[1] }}', 'REF');">
+								<td class="center-text help-cursor" oncontextmenu="contextmenuData(event, {'action': 'vars', 'chrom': '{{ ann[0] }}', 'pos': '{{ ann[1] }}', 'field': 'REF'});">
 									{{ ann[3] }}
 								</td>
 							{% endfor %}
 						<tr class="header-top">
 							<th class="header-left"> Annotation </th>
 							{% for ann in annotations %}
-								<td class="help-cursor" oncontextmenu="getVarData(event, '{{ ann[0] }}', '{{ ann[1] }}', 'CSQ');">
+								<td class="help-cursor" oncontextmenu="contextmenuData(event, {'action': 'vars', 'chrom': '{{ ann[0] }}', 'pos': '{{ ann[1] }}', 'field': 'CSQ'});">
 								{% for ann_entry in ann[4] %}
 									{{ ann_entry }} <br>
 								{% endfor %}
@@ -100,17 +108,17 @@
 							{% endfor %}
 						<tr>
 							<th class="header-left"> Severity score </th>
-							{% for provean_pred in provean_scores %}
-								<td>
-									<span title="{{ " | ".join((provean_pred.values()|list)[:13])|safe }}">
-										 snp1 | {{ provean_pred["Allele"] }} | {{ provean_pred["Score"]|float|round(2) }} <br>
-										{{ "<span class='red-text'>"|safe if provean_pred["Impact"] == "DELETERIOUS" else "<span>"|safe }}
-											{{ provean_pred["Impact"] }} <br>
-										</span>
-									</span>
-								</td>
+							{% for ann in annotations %}
+								{% if ann[5] %}
+									<td class="help-cursor" oncontextmenu="contextmenuData(event, {'action': 'vars', 'chrom': '{{ ann[0] }}', 'pos': '{{ ann[1] }}', 'field': 'PROV'});">
+									{% for ann_entry in ann[5] %}
+										{{ ann_entry }} <br>
+									{% endfor %}
+									</td>
+								{% else %}
+									<td></td>
+								{% endif %}
 							{% endfor %}
-
 						{% for gt in genotypes %}
 							{% set sample = gt[0] %}
 							<tr>
@@ -123,19 +131,62 @@
 									{% if qual != "" %}
 										style="background-color: rgba({{ (255 - [0, (qual * 10 - 255)]|max) *0.8 }}, {{ [255, qual * 10]|min *0.8 }}, 0, 0.65);"
 									{% endif %}
-									oncontextmenu="(function(chrom, pos, sample) { getVarData(event, chrom, pos, sample); })('{{ ann[0] }}', '{{ ann[1] }}', '{{ sample }}');">
+									oncontextmenu="(function(chrom, pos, sample) { contextmenuData(event, {'action': 'vars', 'chrom': chrom, 'pos': pos, 'field': sample}); })('{{ ann[0] }}', '{{ ann[1] }}', '{{ sample }}');">
 										{{ call }}
-{#
-									<td class="center-text help-cursor"
-										oncontextmenu="getVarData(event, '{{ ann[0] }}', '{{ ann[1] }}', '{{ gt[0] }}');">
-										{{ call_data }}
-#}
 								{% endfor %}
 							</tr>
 						{% endfor %}
 					</table>
 				</div>
 			{% endif %}
+		</div>
+	{% endif %}
+
+    {% if form.data["impact"] != ["geneonly"] and annotations %}
+
+		<div class="results-wrapper">
+			<div class="row-div">
+				<h1 class="clickable" onclick="toggleSection(this, 'var-phe-div');">
+					Variant-phenotype correlation:
+				</h1>
+				<button class="aux-button button-help" title="Help" type="button" onclick="showHelp(event, 'var-phe')"> &#63; </button>
+			</div>
+			<div id="var-phe-div" class="results-container collapsed">
+				<div style="display: flex;">
+					<div class="param-div-flexheight padded-top">
+						<div class="row-div padded-top padded-bottom">
+							<button onclick="showDropdown(event, this);" class="dropdown-button" type="button">
+								<label class="default-label bold"> Phenotype: </label>
+									<span class="default-label dropdown-choice-label counter" id="var-phe-tracker"></span>
+							</button>
+							<div class="dropdown-menu collapsed">
+								<div class="sticky non-transparent small-padding">
+									<input type="text" class="search-bar" placeholder="Search..." onkeyup="filterDropdown(visibleDropdown);">
+									<button type="button" disabled> Select all </button>
+								</div>
+								{% for choice in phe[0][1:] %}
+									<div class="checkbox-row">
+										<input type="radio" name="phe-choice" id="{{ 'phe' + loop.index0|string }}" value="{{ loop.index0 }}" onclick="updatePhe();">
+										<label for="{{ 'phe' + loop.index0|string }}">{{ choice }}</label>
+									</div>
+								{% endfor %}
+							</div>
+						</div>
+						<div class="row-input-div justified padded-bottom">
+							<label for="jitter" class="default-label bold">Show all points</label>
+							<input type="checkbox" id="phe-jitter">
+						</div>
+						<div class="row-div padded-bottom padded-top">
+							<button onclick="showGtoP();" type="button">
+								<label class="default-label bold"> Update plot </label>
+							</button>
+						</div>
+					</div>
+					<div class="scrollable" style="max-height: 65vh; flex: 1;">
+						<div id="var-phe-plot" style="height: 65vh;"></div>
+					</div>
+				</div>
+			</div>
 		</div>
 	{% endif %}
 
@@ -163,30 +214,7 @@
 				<div id="genexp-div" class="results-container collapsed">
 					<div style="display: flex;">
 						<div class="param-div-flexheight padded-top">
-							<div class="row-div padded-top padded-bottom">
-								<button onclick="showDropdown(event, this);" class="dropdown-button" type="button">
-									<label class="default-label bold"> Gene: </label>
-									<span class="default-label counter" id="genes-count"> 0 selected</span>
-								</button>
-								<button type="button" class="aux-button button-update" title="Copy selection from Genes table" onclick="genesToExp()">
-									&#8617;
-								</button>
-								<div class="dropdown-menu collapsed">
-									<div class="sticky non-transparent small-padding">
-										<input type="text" class="search-bar" placeholder="Search..." onkeyup="filterDropdown(visibleDropdown)">
-										<button type="button" onclick="toggleAll(visibleDropdown)"> Select all </button>
-									</div>
-									{% for gene_data in genes %}
-										{% set gene = gene_data["ID"] %}
-										{% set checkbox_id = 'genexp_' + gene %}
-										<div class="checkbox-row">
-											<input type="checkbox" class="genexp-gene-checkbox" id= "{{ checkbox_id }}" value="{{ gene }}" onchange="updateCount(this.parentElement.parentElement);" />
-											<label for="{{ checkbox_id }}" class="checkbox-label"> {{ gene }} </label>
-										</div>
-									{% endfor %}
-								</div>
-							</div>
-							<h2 class="padded-bottom">Plot data by:</h2>
+							<h2 class="padded-top padded-bottom">Plot data by:</h2>
 							<div class="row-div padded-bottom">
 								<button onclick="toggleExp('projects-table');" class="dropdown-button" type="button">
 									<label class="default-label bold"> Project: </label>
@@ -230,6 +258,10 @@
 										<button type="button" disabled> Select all </button>
 									</div>
 								</div>
+							</div>
+							<div class="row-input-div justified mini-padded-top padded-bottom">
+								<label for="jitter" class="default-label bold">Show all points</label>
+								<input type="checkbox" id="exp-jitter">
 							</div>
 							<div class="row-div padded-bottom padded-top">
 								<button onclick="showPlot();" type="button">
@@ -289,7 +321,7 @@
 				</h1>
 				<button class="aux-button button-help" title="Help" type="button" onclick="showHelp(event, 'groups')"> &#63; </button>
 			</div>
-				<div id="groups-div" class="results-container collapsed margin-top">
+			<div id="groups-div" class="results-container collapsed margin-top">
 				<table id="groups-table"></table>
 			</div>
 		</div>
@@ -306,7 +338,6 @@
 		</div>
 	</div>
 
-
 {% endblock %}
 
 
@@ -315,7 +346,7 @@
 	<script src="{{url_for('static', filename='js/validate_alleleview_input.js')}}"></script>
 	<script src="{{url_for('static', filename='js/make_delete_group.js')}}"></script>
 	<script src="{{url_for('static', filename='js/filterable_table.js')}}"></script>
-	<script src="{{url_for('static', filename='js/get_var_data.js')}}"></script>
+	<script src="{{url_for('static', filename='js/contextmenu_data.js')}}"></script>
 	<script src="{{url_for('static', filename='js/help_texts.js')}}"></script>
 	<script src="{{url_for('static', filename='js/popups.js')}}"></script>
 
@@ -328,27 +359,35 @@
 
 		const igvConfig = {{ igv_config|tojson|safe }};
 		var igvDiv = document.getElementById("igv-div");
-		var igvParent = igvDiv.parentElement;
+		if (igvDiv != null) {
+			var igvParent = igvDiv.parentElement;
 
-		// IGV container needs to be rendered (not collapsed) to load properly
-		igvParent.removeChild(igvDiv);
-		igvDiv.classList.add("hidden");
-		document.body.appendChild(igvDiv);
-		let browserPromise = (async () => {
-			return await igv.createBrowser(igvDiv, igvConfig);
-		})();
-		document.body.removeChild(igvDiv);
-		igvParent.appendChild(igvDiv);
-		igvDiv.classList.remove("hidden");
+			// IGV container needs to be rendered (not collapsed) to load properly
+			igvParent.removeChild(igvDiv);
+			igvDiv.classList.add("hidden");
+			document.body.appendChild(igvDiv);
+			var browserPromise = (async () => {
+				return await igv.createBrowser(igvDiv, igvConfig);
+			})();
+			document.body.removeChild(igvDiv);
+			igvParent.appendChild(igvDiv);
+			igvDiv.classList.remove("hidden");
+		}
 
 		var genome = '{{ genome }}';
 		var visibleDropdown = null;
 		var dropdowns = {}; // Array to store dropdown menus for each column
 		var colors = JSON.parse('{{ colors|tojson|safe }}');
+		var phe = JSON.parse('{{ phe|tojson|safe }}');
+		var pheCols = phe[0].slice(1);
+		var pheData = Object.fromEntries(phe.slice(1).map( x => [x[0], x.slice(1)]));
 
 		function saveExcel() {
-			var wb = XLSX.utils.table_to_book(document.getElementById("vars-table"));
-			XLSX.writeFile(wb, "variant_data.xlsx");
+			var varsTable = document.getElementById("vars-table");
+			if (varsTable != null) {
+				var wb = XLSX.utils.table_to_book(varsTable);
+				XLSX.writeFile(wb, "variant_data.xlsx");
+			}
 		}
 
 		function toggleSection(clickedElem, section) {
@@ -362,6 +401,24 @@
 			} 
 			else {
 				sectionDiv.classList.add("collapsed");
+			}
+		}
+
+		function toggleVariants() {
+			var varCheckboxes = document.querySelectorAll(".var-checkbox");
+			var selectAll = !varCheckboxes[0].checked;
+			varCheckboxes.forEach( function(checkbox) {
+				checkbox.checked = selectAll;
+			});
+		}
+
+		function updatePhe() {
+			var selected = document.querySelector('input[name="phe-choice"]:checked');
+			if (selected) {
+				var selectedLabel = document.querySelector('label[for="' + selected.id + '"]').textContent;
+				document.getElementById("var-phe-tracker").innerHTML = "&nbsp;&nbsp;&nbsp;" + selectedLabel; 
+				hideDropdown(visibleDropdown);
+				//processHideDropdown(visibleDropdown);
 			}
 		}
 
@@ -416,6 +473,126 @@
 			}
 		}
 
+		function showGtoP() {
+			var plotDiv = document.getElementById("var-phe-plot");
+			var table = document.getElementById("vars-table");
+			var pheJitter = document.getElementById("phe-jitter").checked;
+			var pheIndex = document.querySelector('input[name="phe-choice"]:checked').value;
+			if (pheIndex == null) {
+				showHelp(event, "select-phe");
+				return;
+			}
+
+			var selectedVars = [...document.querySelectorAll(".var-checkbox")].filter( c => { return c.checked; }).map( c => { return parseInt(c.id.replace("var", "")); });
+			if (selectedVars.length === 0) {
+				showHelp(event, "select-var");
+				return;
+			}
+
+			var positions = table.querySelectorAll("tr")[2].querySelectorAll("td");
+			var chroms = table.querySelectorAll("tr")[1].querySelectorAll("td");
+			positions = selectedVars.map( i => positions[i]);
+			chroms = selectedVars.map( i => chroms[i]);
+
+			var varsArr = chroms.map((v, i) => { return [v.textContent.trim(), positions[i].textContent.trim()].join(":"); });
+			var varNum = varsArr.length;
+
+			// Separate genotype data by genotype trace, get phenotype data
+			var traceData = {};
+
+			var rows = [...table.querySelectorAll("tr")];
+			var samples = rows.slice(7).map(function(row) { return row.querySelector("th").textContent.trim() });
+
+			for (let i = 0; i < samples.length; i++) {
+				const cells = rows[i+7].querySelectorAll("td");
+
+				for (let j = 0; j < selectedVars.length; j++) {
+					var gt = cells[selectedVars[j]].textContent.trim().replace(/[a-zA-Z]+/g, "var").replace("|", "/");
+
+					if (pheData[samples[i]]) {
+						if (!traceData[gt]) {
+							traceData[gt] = [[varsArr[j]], [pheData[samples[i]][pheIndex]], [samples[i]]];
+						} else {
+							traceData[gt][0].push(varsArr[j]);
+							traceData[gt][1].push(pheData[samples[i]][pheIndex]);
+							traceData[gt][2].push(samples[i]);
+						}
+					}
+				}
+			}
+
+			var traces = [];
+			var gts = ["—", "·", "·/var1", "var1"];
+			gts.concat(Object.keys(traceData).filter( e => { return !gts.includes(e) }));
+
+			gts.forEach( key => {
+				if (Object.keys(traceData).includes(key)) {
+					var [positions, values, samples] = traceData[key]
+					var trace = {
+						x: positions,
+						y: values,
+						type: "box",
+						name: key,
+						hoverinfo: "x+text",
+						boxpoints: pheJitter ? "all" : "outliers",
+						jitter: 0.9,
+						pointpos: 0,
+						hovertext: samples,
+					};
+					traces.push(trace);
+				}
+			});
+
+			var layout = {
+				//boxgap: 0,
+				//boxgroupgap: 0,
+				boxmode: "group",
+				showlegend: true,
+				hoverdistance: 5,
+				font: {
+					size: 12,
+				},
+				yaxis: {
+					title: "Phenotype",
+					tickformat: ".2f",
+				},
+				xaxis: {
+					tickangle: 20,
+					automargin: true,
+					showgrid: true,
+					categoryorder: "array",
+					categoryarray: varsArr,
+				},
+//				automargin: true,
+				margin: {
+					l: 100,
+					r: 20,
+					b: 20,
+					t: 20,
+					pad: 4,
+				},
+			};
+
+			Plotly.newPlot("var-phe-plot", traces, layout);
+			var plotDiv = document.getElementById("var-phe-plot");
+
+			plotDiv.on("plotly_click", function(data){
+				var selectedPos = data.points[0].x;
+				var checkbox = document.querySelector('[pos="' + selectedPos + '"]');
+				checkbox.checked = !checkbox.checked;
+
+				// Change the color of the clicked x-axis tick label
+				var xClicked = data.points[0].x;
+				var ticks = plotDiv.getElementsByClassName('xtick');
+				for (var i = 0; i < ticks.length; i += 1) {
+					var tickText = ticks[i].getElementsByTagName("text")[0];
+					if (tickText.innerHTML === xClicked) {
+						tickText.style.fill = !checkbox.checked ? "red" : "limegreen";
+					}
+				}
+			});
+		}
+
 		function filterRunsTable() {
 			var projectsTable = document.getElementById("projects-table");
 
@@ -429,13 +606,12 @@
 				}
 			}
 
-
 			var groupRuns = [];
 			var checkboxes = document.querySelectorAll(".expruns_group-checkbox");
 			// Get filters based on run groups selection
 			for (let i = 0; i < checkboxes.length; i++) {
 				if (checkboxes[i].checked) {
-					groupRuns = groupRuns.concat(checkboxes[i].value.split(","));
+					groupRuns = groupRuns.concat(JSON.parse(checkboxes[i].value));
 				}
 			}
 
@@ -481,8 +657,7 @@
 			var colIndex = clickedElem.id.split(/[_]+/).pop();
 			var table = findParentTable(clickedElem);
 			var tableId = table.id
-			var tableDropdowns = dropdowns[tableId];
-			if (tableDropdowns) {
+			if (dropdowns[tableId]) {
 				var dropdown = dropdowns[tableId][colIndex];
 			} else {
 				dropdowns[tableId] = {};
@@ -578,20 +753,20 @@
 				var header = table.getElementsByTagName("th");
 
 				// Highlight columns with filters applied
-				Object.keys(dropdowns[tableId]).forEach(function(colIndex) {
-					var toHighlight = false;
-					checkboxes = dropdowns[tableId][colIndex].querySelectorAll('input[type="checkbox"]')
-					for (let i = 0; i < checkboxes.length; i++) {
-						var checkbox = checkboxes[i];
-						var checkboxRow = checkbox.parentElement;
+//				Object.keys(dropdowns[tableId]).forEach(function(colIndex) {
+//					var toHighlight = false;
+//					checkboxes = dropdowns[tableId][colIndex].querySelectorAll('input[type="checkbox"]')
+//					for (let i = 0; i < checkboxes.length; i++) {
+//						var checkbox = checkboxes[i];
+//						var checkboxRow = checkbox.parentElement;
 
-						if (!checkbox.checked) {
-							toHighlight = true;
-							break;
-						}
-					}
-					header[colIndex].style.color = toHighlight ? "#ff9c78" : "";
-				});
+//						if (!checkbox.checked) {
+//							toHighlight = true;
+//							break;
+//						}
+//					}
+//					header[colIndex].style.color = toHighlight ? "#ff9c78" : "";
+//				});
 			}
         }
 
@@ -599,16 +774,16 @@
 			var colField = document.querySelector('input[name="plot-by-choice"]:checked');
 			if (colField == null) {
 				showHelp(event, "select-column");
+				//console.log(event.clientY);
 				return;
 			}
 			var colToPlot = colField.value.split(/[_]+/).pop();
 			var colLabel = colField.labels[0].textContent;
+			var expJitter = document.getElementById("exp-jitter").checked;
 
-			var geneCheckboxes = document.querySelectorAll(".genexp-gene-checkbox"); 
-			var selectedGenes = [];
-			geneCheckboxes.forEach(function(checkbox) {
-				if (checkbox.checked) { selectedGenes.push(checkbox.value) } 
-			});
+			var geneRows = [...document.getElementById("genes-table").querySelectorAll("tr")].slice(1);
+			var selectedGenes = geneRows.filter(r => !r.classList.contains("collapsed")).map(r => r.querySelector("td").textContent.trim());
+
 			if (selectedGenes.length === 0) {
 				showHelp(event, "select-gene");
 				return;
@@ -630,6 +805,7 @@
 			for (uniqueVal of uniqueValues) {
 				var expValues = [];
 				var geneValues = [];
+				var hoverValues = [];
 
 				for (var i=0; i<visibleRows.length; i++) {
 					var cells = visibleRows[i].getElementsByTagName("td");
@@ -638,6 +814,11 @@
 							if (expDict[gene] != null) {
 								expValues.push(expDict[gene][cells[0].textContent]);
 								geneValues.push(gene);
+								hoverValues.push(Array.prototype.slice.call(cells)
+									.filter((c, i) => [0,1,2,3,4,5,6,7,8,10,11].includes(i) &&
+									                  c.textContent.trim() !== "")
+									.map(c => c.textContent)
+									.join("<br>"));
 							} else {
 								selectedGenes.splice(selectedGenes.indexOf(gene), 1);
 							}
@@ -653,6 +834,11 @@
 					y: expValues,
 					type: "box",
 					name: uniqueVal + " (n=" + Math.round(expValues.length / selectedGenes.length) + ")",
+					hoverinfo: "x+text",
+					hovertext: hoverValues,
+					boxpoints: expJitter ? "all" : "outliers",
+					jitter: 0.9,
+					pointpos: 0,
 				};
 				if (false && colors[colLabel]) {
 					trace["marker"] = { color: colors[colLabel][uniqueVal] };
@@ -664,6 +850,7 @@
 			var layout = {
 				boxmode: "group",
 				showlegend: true,
+				hoverdistance: 5,
 				font: {
 					size: 12,
 				},
@@ -697,11 +884,30 @@
 
 			Plotly.newPlot("genexp-plot", traces, layout);
 
-			document.getElementById("genexp-plot").on("plotly_click", function(data){
+			// Trigger Gene_ID dropdown to use for filtering gene expression plot
+			var geneHeader = document.getElementById("genes-table").querySelector("th");
+			var clickableHeader = geneHeader.firstChild.firstChild;
+			if (dropdowns["genes-table"] == null || dropdowns["genes-table"][0] == null) {
+				dropDown(event, clickableHeader);
+				processHideDropdown();
+			}
+
+			var plotDiv = document.getElementById("genexp-plot");
+			plotDiv.on("plotly_click", function(data){
 				var selectedGene = data.points[0].x;
-				var checkbox = document.getElementById("genexp_" + selectedGene);
+				var checkbox = document.getElementById("genes-table0" + selectedGene);
 				checkbox.checked = !checkbox.checked;
-				updateCount(checkbox.parentElement.parentElement)
+				applyFilters([dropdowns["genes-table"][0], "genes-table"], [], false);
+
+				// Change the color of the clicked x-axis tick label
+				var xClicked = data.points[0].x;
+				var ticks = plotDiv.getElementsByClassName("xtick");
+				for (var i = 0; i < ticks.length; i += 1) {
+					var tickText = ticks[i].getElementsByTagName("text")[0];
+					if (tickText.innerHTML === xClicked) {
+						tickText.style.fill = !checkbox.checked ? "red" : "limegreen";
+					}
+				}
 			});
 		};
 
@@ -722,20 +928,13 @@
 		function makeGroupsTable() {
 			var tableId = "groups-table";
 			var table = document.getElementById(tableId);
-			if (table != null && table.innerHTML != null) {
+			if (table.innerHTML == "") {
 				var groups = JSON.parse('{{ groups|tojson|safe }}');
 				var groupCols = ["Variant sequence", "Samples"];
 				var groupsData = [];
-				for (var [groupVars, samples] of Object.entries(groups)) {
+				for (var [groupVars, samples] of groups) {
 					groupsData.push([groupVars, samples.join(", ")]);
 				}
-				groupsData.sort(function(a, b) {
-					return a[0].localeCompare(b[0]);
-				});
-				for (let i = 0; i < groupsData.length; i++) {
-					groupsData[i][0] = groupsData[i][0].split(" ");
-				}
-
 				groupsData.unshift(groupCols);
 				createTable(groupsData, table);
 			}
@@ -803,19 +1002,32 @@
 			// Create Genes table
 			var tableId = "genes-table";
 			var table = document.getElementById(tableId);
-			var genes = JSON.parse('{{ genes|tojson|safe }}');
-			var geneCols = ["ID", "Chromosome", "Start",
-			                "End", "Length", "Strand", "Variants"];
-			var genesData = [];
-			genesData.push(geneCols);
-			genes.forEach( function(gene) {
-				var geneData = [];
-				geneCols.forEach( function(col) {
-					geneData.push(gene[col]);
+			if (table != null) {
+				var genes = JSON.parse('{{ genes|tojson|safe }}');
+				var geneCols = ["ID", "Chromosome", "Start",
+								"End", "Length", "Strand", "Variants"];
+
+				Object.keys(genes[0]).forEach( function(key) {
+					if (!geneCols.includes(key)) {
+						geneCols.push(key);
+					}
 				});
-				genesData.push(geneData);
-			});
-			createTable(genesData, table)
+
+				var genesData = [];
+				genesData.push(geneCols);
+				genes.forEach( function(gene) {
+					var geneData = [];
+					geneCols.forEach( function(col) {
+						if (gene[col] != null) {
+							geneData.push(gene[col]);
+						} else {
+							geneData.push("");
+						}
+					});
+					genesData.push(geneData);
+				});
+				createTable(genesData, table)
+			}
 
 			// Create RNA-seq projects table
 			var tableId = "projects-table";
@@ -861,6 +1073,8 @@
 				}
 			}
 
+			// Fill Phe tracker of var-phe-corr
+			updatePhe();
 
 			// Uncheck all groups selected
 			var checkboxes = document.querySelectorAll(".expruns_group-checkbox");
@@ -885,16 +1099,20 @@
 			document.getElementById("help-popup").classList.add("collapsed");
 		});		
 
-		function resizePlot() {
+		function resizePlots() {
 			plotDiv = document.getElementById("genexp-plot");
 			if (plotDiv != null && plotDiv.innerHTML && !plotDiv.classList.contains("collapsed")) {
 				Plotly.Plots.resize("genexp-plot");
 			}
+			plotDiv = document.getElementById("var-phe-plot");
+			if (plotDiv != null && plotDiv.innerHTML && !plotDiv.classList.contains("collapsed")) {
+				Plotly.Plots.resize("var-phe-plot");
+			}
 		}
-		window.addEventListener("resize", function() { resizePlot() });
+		window.addEventListener("resize", function() { resizePlots() });
 
 		{% include "Allele_browser/allele_browser_input_scripts.html" %}
-		helpTexts["genes"] = 'Example format: <u>{{ genome_data["Sample_ID"] }}</u><br>Enter multiple genes separated wuth a comma (,)';
+		helpTexts["genes"] = 'Example format: <u>{{ sample_id }}</u><br>Enter multiple genes separated wuth a comma (,)';
 
     </script>
 

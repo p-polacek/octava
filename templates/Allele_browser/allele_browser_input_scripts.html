@@ -4,16 +4,13 @@
 		var visibleDropdown = null;
 
 		function toggleFormat() {
-			// Toggle between "Region" and "Gene ID" as input format
-			var format = document.getElementById("fmt-field").value;
-			if (format == "gene") {
-			  document.getElementById("gene-div").classList.remove("collapsed");
-			  document.getElementById("region-div").classList.add("collapsed");
-			}
-			else {
-			  document.getElementById("gene-div").classList.add("collapsed");
-			  document.getElementById("region-div").classList.remove("collapsed");
-			}
+			var fmt = document.getElementById("fmt-field").value;
+			["gene", "region", "coord"].forEach( function(sel) {
+				document.getElementById(sel + "-div").classList.add("collapsed");
+				if (fmt === sel) {
+				  document.getElementById(sel + "-div").classList.remove("collapsed");
+				}
+			});
 		}
 
 		function toggleImpact() {
