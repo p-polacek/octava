@@ -111,6 +111,7 @@ class GWASQCform(FlaskForm):
     hwe    = DecimalField("-log10(P) HWE ≤", places=None)
     prune  = DecimalField("LD ≤", places=None, default=0.95)
     window = IntegerField("Window (kb):", default=200)
+    hap    = BooleanField("Make Haplotypes")
 
     name   = StringField("Set name:")
 

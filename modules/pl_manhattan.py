@@ -6,19 +6,14 @@ import numpy as np
 import pandas as pd
 from itertools import cycle
 import matplotlib.pyplot as plt
+from modules.getQueryOptions import getGenomeData
 
+def manhattanplot(genome, in_df, ch_col="Chr", pos_col="Pos", pval_col="P.value"):
 
-def manhattanplot(in_df, spans_fn, ch_col="Chr", pos_col="Pos", pval_col="P.value"):
-
-    with open(spans_fn, "r") as spans_in:
-        last_pos = 0
-        spans = [line.split("\t")
-                 for line in spans_in.read().strip().split("\n")]
-        spans = [(ch, int(span)) for ch, span in spans]
-        offsets = dict()
-        for ch, span in spans:
-            offsets[ch] = last_pos
-            last_pos += span
+    genome_data = getGenomeData(genome)
+    chroms  = genome_data["Chromosomes"]
+    spans   = {k: v["size"] for k, v in genome_data["Chromosome_data"].items()}
+    offsets = {k: v["offset"] for k, v in genome_data["Chromosome_data"].items()}
 
     in_df[ch_col] = in_df[ch_col].astype(str)
     in_df[pos_col] = in_df[pos_col] + in_df[ch_col].map(offsets)
@@ -33,8 +28,8 @@ def manhattanplot(in_df, spans_fn, ch_col="Chr", pos_col="Pos", pval_col="P.valu
 
     plt.axhline(y=-np.log10(0.05/in_df.shape[0]), color="red", lw=1, zorder=0)
 
-    plt.xticks(ticks=[(span + offsets[ch]) - span//2 for ch, span in spans],
-               labels=list(range(len(spans))))
+    plt.xticks(ticks=list(range(len(chroms))),
+               labels=[(spans[ch] + offsets[ch]) - spans[ch]//2 for ch in chroms])
     plt.xlabel("Chromosomes")
     plt.ylabel("$-log_{10}$(p) values")
 

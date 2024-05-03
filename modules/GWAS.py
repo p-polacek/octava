@@ -209,27 +209,59 @@ def filter_QC(genome, data, shet_exclude, vhet_exclude):
                     f"out={beagle_root}"],
                    check=True)
 
-    # Convert to tab-separated genotype file
-    final_root = beagle_root
-    subprocess.run([plink_path,
-                    "--vcf", f"{beagle_root}.vcf.gz",
-                    "--allow-extra-chr",
-                    "--export", "A", "ped",
-                    "--out", final_root],
-                   check=True)
+    if data["hap"]:
+        blocktool_path = os.path.join(tool_dir, "blocktool.py")
+        # Convert to plink binary
+        final_root = beagle_root
+        subprocess.run([plink_path,
+                        "--vcf", f"{beagle_root}.vcf.gz",
+                        "--allow-extra-chr",
+                        "--make-bed",
+                        "--export", "tped",
+                        "--out", final_root],
+                       check=True)
+        # Make haplotype blocks
+        subprocess.run([blocktool_path,
+                        "block",
+                        "--type", "gab",
+                        "--gab-max-kb", "1000",
+                        "--gt-dir", filt_dir],
+                       check=True)
 
-    os.rename(f"{final_root}.raw", f"{final_root}.varA.raw")
+        subprocess.run([blocktool_path,
+                        "call",
+                        "--format", "per-hap",
+                        "--block-dir", filt_dir,
+                        "--gt-dir", filt_dir,
+                        "--transpose", "per-hap",
+                        "--maf", "0.05",
+                        "--min-hap", "1",
+                        "--tab"],
+                       check=True)
 
-    with open(f"{final_root}.varA.raw", "r") as raw_in:
-        with open(f"{final_root}.raw", "w") as raw_out:
-            header = next(raw_in)
-            header = [var.rsplit("_", 1)[0] for var in header.split("\t")]
-            _ = raw_out.write("\t".join(header) + "\n")
-            for line in raw_in:
-                _ = raw_out.write(line)
+    
+    else:
+        # Convert to tab-separated genotype file
+        final_root = beagle_root
+        subprocess.run([plink_path,
+                        "--vcf", f"{beagle_root}.vcf.gz",
+                        "--allow-extra-chr",
+                        "--export", "A", "ped",
+                        "--out", final_root],
+                       check=True)
 
-    os.remove(f"{final_root}.ped")
-    os.remove(f"{final_root}.varA.raw")
+        os.rename(f"{final_root}.raw", f"{final_root}.varA.raw")
+
+        with open(f"{final_root}.varA.raw", "r") as raw_in:
+            with open(f"{final_root}.raw", "w") as raw_out:
+                header = next(raw_in)
+                header = [var.rsplit("_", 1)[0] for var in header.split("\t")]
+                _ = raw_out.write("\t".join(header) + "\n")
+                for line in raw_in:
+                    _ = raw_out.write(line)
+
+        os.remove(f"{final_root}.ped")
+        os.remove(f"{final_root}.varA.raw")
 
     # Create file describing the filtering parameters
     with open(f"{final_root}.params.json", "w") as params_out:
@@ -350,7 +382,6 @@ def run_GWAS(genome, params):
                               genome,
                               "plink2.top3.eigenvec.txt")
 
-        """
         command = ["Rscript", gapit_path,
                    "-g", f"{in_root}.raw",
                    "-m", f"{in_root}.map",
@@ -369,7 +400,7 @@ def run_GWAS(genome, params):
             command += ["-e", params["end"]]
                    
         subprocess.run(command, check=True)
-        """
+
         raw_dir = os.path.join(out_dir, "raw")
 
         models = models if isinstance(models, list) else [models]
@@ -384,12 +415,15 @@ def run_GWAS(genome, params):
             if all([os.path.exists(os.path.join(out_dir,
                                                 f"{out_root}.{ext}")
                                    )
-                    for ext in ("tsv.gz",
+                    for ext in ("feather",
+                                "tsv.gz",
                                 "tsv.gz.tbi")]):
                 continue
 
             in_fn = os.path.join(raw_dir,
                                  f"GAPIT.Association.GWAS_Results.{model}.{trait}.csv")
+            out_feather = os.path.join(out_dir,
+                                   f"{out_root}.feather")
             out_tsv = os.path.join(out_dir,
                                    f"{out_root}.tsv")
             out_gz = os.path.join(out_dir,
@@ -421,14 +455,14 @@ def run_GWAS(genome, params):
                            check=True)
 
             res["P.value"] = -np.log10(res["P.value"])
-            res.sort_values(by="P.value", ascending=False).to_csv(out_tsv, sep="\t", index=False)
 
-            spans_fn = os.path.join("data", genome, "spans.txt")
-
-            mplot_fig = manhattanplot(res, spans_fn)
+            mplot_fig = manhattanplot(genome, res)
             mplot_fig.savefig(mplot_fn, dpi=300, format="png")
 
             qqplot_fig = qqplot(res)
             qqplot_fig.savefig(qqplot_fn, dpi=300, format="png")
+
+            res.sort_values(by="P.value", ascending=False).head(5000).to_feather(out_feather)
+            
 
             os.remove(out_tsv)
