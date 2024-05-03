@@ -6,7 +6,7 @@ import gffutils
 import numpy as np
 import pandas as pd
 from .parseVcf import VcfReader
-#from gffutils.inspect import inspect
+from .gff_annotator import annotate_pepper
 
 """
 Haplosmasher v2.0 input processing functions
@@ -154,6 +154,9 @@ def getGenomeData(genome):
         gffutils.create_db(gff_file,
                            dbfn=f"{db_dir}/{genome}.db",
                            merge_strategy="merge")
+    
+        if gff_file.endswith("nameAdded.noChr.Annuum.v.2.0.chromosome.gff3.gz"):
+            annotate_pepper(f"{db_dir}/{genome}.db")
 
     # Create a genome data file if none exists
     if not os.path.exists(f"data/{genome}/genome_data.json"):

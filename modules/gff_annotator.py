@@ -1,12 +1,12 @@
 import gffutils
 import pandas as pd
 
-def annotate_pepper():
-    ann = pd.read_csv("data/2.0.renamed.annotation.final.tsv", sep="\t", index_col=[0])
+def annotate_pepper(db_fn):
+    ann = pd.read_csv("2.0.renamed.annotation.final.tsv", sep="\t", index_col=[0])
     ann["Annotation"] = ann["Annotation"].astype(object)
     ann["Existence"] = ann["Existence"].astype(object)
 
-    db = gffutils.FeatureDB("res/gffutils_db/Pepper v1.6 G2PSOL.db")
+    db = gffutils.FeatureDB(db_fn)
     cols = ann.columns
 
     new_entries = list()
