@@ -111,7 +111,6 @@ a:active {
 	align-items: center;
 }
 
-
 .row-input-div {
 	display: flex;
 	align-items: center;
@@ -137,12 +136,22 @@ a:active {
 }
 
 .results-container {
-	overflow: auto;
+	overflow-y: auto;
 	max-height: 70vh;
+}
+
+.results-subcontainer {
+	height: 65vh;
 }
 
 .promsize-div {
 	font-size: 0.8em;
+}
+
+.static-plot-half {
+	height: 100%;
+	width: 100%;
+	object-fit: contain;
 }
 
 /*
@@ -191,6 +200,14 @@ a:active {
 
 .flex {
 	flex: 1;
+}
+
+.disp-flex {
+	display: flex;
+}
+
+.relative {
+	position: relative;
 }
 
 .padded {
@@ -270,8 +287,20 @@ a:active {
 	left: 0;
 }
 
+.row-input-sized {
+	width: 200px;
+}
+
+.input-field-sized {
+	height: 25px;
+}
+
 .non-transparent {
 	background-color: #f9f9f9;
+}
+
+.no-min-width {
+	min-width: 0;
 }
 
 /*
@@ -304,6 +333,11 @@ a:active {
 
 button {
 	padding: 4px;
+}
+
+.input-sized-button {
+    display: inline-flex;
+	align-items: center;
 }
 
 .default-label {
@@ -462,11 +496,18 @@ button {
 }
 
 .checkbox-label {
-	font-size: 0.9em;
+	font-size: 0.95em;
 }
 
 .bp-text {
 	font-size: 1em;
+}
+
+.toggle-var-button {
+	position: absolute;
+	right: 0;
+	top: 0;
+	white-space: nowrap;
 }
 
 /* Hide increment arrows for number input field */
@@ -505,7 +546,7 @@ table td {
 }
 
 .default-col {
-	max-width: 200px;
+    max-width: 200px;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -513,6 +554,13 @@ table td {
 
 .wider-col {
 	min-width: 200px;
+}
+
+.qc-col {
+    width: 120px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .th-style {
@@ -550,6 +598,11 @@ tr.clickable:hover td {
 .resizable {
   resize: horizontal;
   overflow: auto;
+}
+
+.resiz-render {
+    flex: 0 0 auto;
+    width: 17px;
 }
 
 td .resizable {

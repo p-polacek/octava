@@ -94,36 +94,41 @@ load_input <- function(opts, tool) {
 	#colnames(map) <- c("CHR", "ID", "DIST", "POS")
 	map <- subset(map, select=c(V2, V1, V4))
 
-    if (length(rownames(map)) != length(colnames(gt)) - 1) {
-      stop("Genotype and map files have different number of markers.",
+  if (length(rownames(map)) != length(colnames(gt)) - 1) {
+    stop("Genotype and map files have different number of markers.",
+         call.=FALSE)
+  }
+
+  if (Q_given) {
+    q_sep <- if (opts$q_tsv) "\t"  else ","
+    Q <- read.csv(opts$pop_structure,
+                  sep=q_sep,
+                  header=T,
+                  row.names=2)[, -c(1)]
+
+    if (length(colnames(Q)) == 0) {
+      stop("No data found or wrong separator specified for Q file.",
            call.=FALSE)
     }
-
-    if (Q_given) {
-      q_sep <- if (opts$q_tsv) "\t"  else ","
-      Q <- read.csv(opts$pop_structure,
-                    sep=q_sep,
-                    header=T,
-                    row.names=1)
-
-      if (length(colnames(Q)) == 0) {
-        stop("No data found or wrong separator specified for Q file.",
-             call.=FALSE)
-      }
+    if (opts$top_q == 0) {
+      Q <- NULL
+    } else {
+      Q <- Q[colnames(Q)[1:min(length(colnames(Q)), opts$top_q)]]
     }
+  }
 
-    if (K_given) {
-      k_sep <- if (opts$k_tsv) "\t"  else ","
-      K <- read.csv(opts$kinship,
-                    sep=k_sep,
-                    header=T,
-                    row.names=1)
+  if (K_given) {
+    k_sep <- if (opts$k_tsv) "\t"  else ","
+    K <- read.csv(opts$kinship,
+                  sep=k_sep,
+                  header=T,
+                  row.names=1)
 
-      if (length(colnames(K)) == 1) {
-        stop("No data found or wrong separator specified for K file.",
-             call.=FALSE)
-      }
+    if (length(colnames(K)) == 1) {
+      stop("No data found or wrong separator specified for K file.",
+           call.=FALSE)
     }
+  }
 
 ################################################################################
 #### Filter input files
@@ -150,6 +155,7 @@ load_input <- function(opts, tool) {
       Q <- Q %>% mutate_at(colnames(Q)[2:length(colnames(Q))], as.numeric)
     }
     if (K_given) {
+      colnames(K) <- rownames(K)
       K <- K[rownames(K) %in% filtered_accessions,
              colnames(K) %in% filtered_accessions]
       K <- cbind(Accession = rownames(K), K)

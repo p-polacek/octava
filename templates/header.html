@@ -1,43 +1,46 @@
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<title> HS -{% block title %} {% endblock %} </title>
-		<link rel="stylesheet"
-		      type="text/css"
-			  href="{{ url_for('static', filename='style.css') }}">
-			<link rel="icon" href="{{ url_for('favicon') }}" type="image/vnd.microsoft.icon">
-	{% block style %} {% endblock %}
+  <head>
+    <title> HS -{% block title %} {% endblock %} </title>
+    <link 
+     rel="stylesheet"
+     type="text/css"
+     href="{{ url_for('static', filename='style.css') }}">
+    <link
+     rel="icon"
+     href="{{ url_for('favicon') }}"
+     type="image/vnd.microsoft.icon">
+    {% block style %} {% endblock %}
+  </head>
+  <body>
+    <div class="row-div">
+      <a href="{{ url_for('index') }}">
+        <img
+         class="logo"
+         src="{{ url_for('static', filename='WUR_RGB_standard_2021.png') }}"
+         alt="Wageningen University" />
+      </a>
+      <div class="padded-left">
+	     <h2 id="genome-title">
+          {{ genome }}
+        </h2>
+      </div>
+    </div>
+    {% block content %} {% endblock %}
+    <div id="empty"></div>
 
-	</head>
-	<body>
-		<div class="row-div">
-			<a href="{{ url_for('index') }}">
-				<img class="logo"
-					 src="{{ url_for('static', filename='WUR_RGB_standard_2021.png') }}"
-					 alt="Wageningen University">
-			</a>
-			<div class="padded-left" id="genome-title">
-				{{ genome }}
-			</div>
-		</div>
+    <script>
+      // Enable scrolling past the bottom of the page
+      function extendScroll() {
+        var empty = document.getElementById("empty");
+        empty.style.height = window.outerHeight / 2 + "px";
+      }
 
-		{% block content %} {% endblock %}
-
-		<div id="empty-space"></div>
-
-		<script>
-
-			// Enable scrolling past the bottom of the page
-			function extendScroll() {
-				document.getElementById("empty-space").style.height = window.outerHeight / 2 + "px";
-			}
-
-			extendScroll();
-			window.addEventListener("resize", function() { extendScroll() });
-
-		</script>
-
-		{% block script %} {% endblock %}
-
-	</body>
+      extendScroll();
+      window.addEventListener("resize", function() {
+        extendScroll()
+      });
+    </script>
+    {% block script %} {% endblock %}
+  </body>
 </html>

@@ -2,100 +2,117 @@
 
 {% block title %} Homepage {% endblock %}
 
-
 {% block style %}
+  <style>
+    {% for genome in genomes %}
+      {% set genome_idx = genome[0]|string %}
+      {% set genome_label = "label" + genome_idx %}
+      {% set genome_div = "div" + genome_idx %}
 
-	<style>
-		{% for genome in genomes %}
-			{% set genome_index = genome[0]|string %}
-			{% set genome_label = "label" + genome_index %}
-			{% set genome_div = "div" + genome_index %}
+      #{{ genome_label }} {
+        visibility: hidden;
+        text-align: center;
+      }
 
-			#{{ genome_label }} {
-				visibility: hidden;
-				text-align: center;
-			}
+      #{{ genome_div }}:hover .genome-icon-div #{{ genome_label }} {
+        visibility: visible;
+      }
+    {% endfor %}
 
-			#{{ genome_div }}:hover .genome-icon-div #{{ genome_label }} {
-				visibility: visible;
-			}
-		{% endfor %}
+    {% for tool in (
+	 "Allele_miner",
+	 "Genome_browser",
+	 "Association_analysis",
+	 "Phylogeny_analysis") %}
 
-		{% for tool in ("Allele_browser", "Genome_browser", "Association_analysis", "Phylogeny_analysis") %}
+      {% set tool_label = tool + "-label" %}
+      {% set tool_div = tool + "-div" %}
 
-			{% set tool_label = tool + "-label" %}
-			{% set tool_div = tool + "-div" %}
+      #{{ tool_label }} {
+        visibility: hidden;
+        text-align: center;
+      }
 
-			#{{ tool_label }} {
-				visibility: hidden;
-				text-align: center;
-			}
+      #{{ tool_div }}:hover #{{ tool_label }} {
+        visibility: visible;
+      }
 
-			#{{ tool_div }}:hover #{{ tool_label }} {
-				visibility: visible;
-			}
-
-		{% endfor %}
-	</style>
-
+    {% endfor %}
+  </style>
 {% endblock %}
 
-
 {% block content %}
-
-	<div class="page">
-		<div class="centered-div clickable"
-		     id="genome-sel-div">
-			{% for genome in genomes %}
-				{% set genome_index = genome[0]|string %}
-				{% set genome_name = genome[1] %}
-				<div class="object-div"
-				     id="{{ 'div' + genome_index }}"
-				     onclick="showTools('{{ genome_name }}')">
-					<div class="genome-icon-div">
-						<img class="genome-icon"
-						     src="{{ url_for('serve_icon', filename=genome_name) }}"
-							 alt="{{ genome_name }}">
-						<h2 class="text-wrap padded-top" id="{{ 'label' + genome_index }}">{{ genome_name }}</h2>
-					</div>
-				</div>
-			{% endfor %}
-		</div>
-		<div class="tool-selection-div clickable collapsed"
-		     id="tool-sel-div">
-			{% for tool in ("Allele_browser", "Genome_browser", "Association_analysis", "Phylogeny_analysis") %}
-				{% set tool_name = tool.replace("_", " ") %}
-				<div class="object-div"
-					 id="{{ tool + '-div' }}"
-					 onclick="loadAnalysis('{{ tool }}')">
-					<img class="tool-icon"
-					     src="{{ url_for('static', filename='tools/' + tool + '.png') }}"
-						 alt="{{ tool_name }}">
-					<h2 class="text-wrap" id="{{ tool + '-label' }}">{{ tool_name }}</h2>
-				</div>
-			{% endfor %}
-		</div>
-	</div>
+  <div class="page">
+    <div
+	 class="centered-div clickable"
+     id="genome-sel-div">
+      {% for genome in genomes %}
+        {% set genome_idx = genome[0]|string %}
+        {% set genome_name = genome[1] %}
+        <div
+		 class="object-div"
+		 id="{{ 'div' + genome_idx }}"
+		 onclick="showTools('{{ genome_name }}');">
+          <div class="genome-icon-div">
+            <img
+			 class="genome-icon"
+			 src="{{ url_for(
+			  'serve_icon',
+			  fn=genome_name) }}"
+		     alt="{{ genome_name }}">
+            <h2
+			 class="text-wrap padded-top"
+			 id="{{ 'label' + genome_idx }}">
+			  {{ genome_name }}
+			</h2>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+    <div
+	 class="tool-selection-div clickable collapsed"
+	 id="tool-sel-div">
+      {% for tool in (
+	   "Allele_miner",
+	   "Genome_browser",
+	   "Association_analysis",
+	   "Phylogeny_analysis") %}
+        {% set tool_name = tool.replace("_", " ") %}
+        <div
+		 class="object-div"
+	     id="{{ tool + '-div' }}"
+         onclick="loadAnalysis('{{ tool }}')">
+          <img
+            class="tool-icon"
+            src="{{ url_for('static', filename='tools/' + tool + '.png') }}"
+            alt="{{ tool_name }}">
+          <h2
+		   class="text-wrap"
+		   id="{{ tool + '-label' }}">
+		    {{ tool_name }}
+	      </h2>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
 
 {% endblock %}
 
 {% block script %}
+  <script>
+    function showTools(name) {
+      document.getElementById("genome-sel-div").style.display = "none";
+      document.getElementById("tool-sel-div").style.display = "block";
+      window.genome = name;
+      document.getElementById("genome-title").innerHTML = name;
+    }
+    function loadAnalysis(tool) {
+      window.location.href = "/" + genome + "/" + tool;
+    }
 
-	<script>
-		function showTools(name) {
-			document.getElementById("genome-sel-div").style.display = "none";
-			document.getElementById("tool-sel-div").style.display = "block";
-			window.genome = name;
-			document.getElementById("genome-title").innerHTML = name;
-		}
-		function loadAnalysis(tool) {
-			var user_id = "{{ user_id }}";
-			window.location.href = "/save_session/" + user_id + "/" + genome + '/' + tool;
-		}
+    // Remove bottom spacer that is only used for other pages
+    document.getElementById("empty").classList.add("collapsed");
 
-		// Remove bottom spacer that is only used for other pages
-		document.getElementById("empty-space").classList.add("collapsed");
-
-	</script>
+  </script>
 
 {% endblock %}

@@ -1,150 +1,243 @@
 #!/usr/bin/env python
 
 from flask_wtf import FlaskForm
-from flask_wtf.file import FileAllowed
 
 from wtforms import (widgets,
-                     FileField,
-                     FloatField,
                      RadioField,
                      HiddenField,
                      SelectField,
                      StringField,
-                     SubmitField,
                      BooleanField,
                      DecimalField,
                      IntegerField,
                      MultipleFileField,
                      SelectMultipleField,
-                     #, Form, FieldList, BooleanField, HiddenField, FormField
                     )
 
-from wtforms.validators import (Email,
-                                DataRequired,
-                                InputRequired,
-                                ValidationError)
+from modules.csq import var_csq
 
-from modules.getQueryOptions import getVariantConsequences
 
-models = ["BLINK", "CMLM", "FarmCPU",
-          "GLM", "MMLM", "MLM", "SUPER"]
+models = [
+  "BLINK",
+  "CMLM",
+  "FarmCPU",
+  "GLM",
+  "MMLM",
+  "MLM",
+  "SUPER"]
 
-types_ch = [("snp", "Single nucleotide variant"),
-            ("mnp", "Multi-nucleotide variant"),
-            ("ins", "Insertion"),
-            ("del", "Deletion"),
-            ("dup", "Duplication"),
-            ("inv", "Inversion"),
-            ("cnv", "Copy number variant"),
-            ("bnd", "Breakend variant")]
-            
-csqs_ch = getVariantConsequences()
+types = [
+  ("snp",
+   "Single nucleotide variant"),
+  ("mnp",
+   "Multi-nucleotide variant"),
+  ("ins",
+   "Insertion"),
+  ("del",
+   "Deletion"),
+  ("dup",
+   "Duplication"),
+  ("inv",
+   "Inversion"),
+  ("cnv",
+   "Copy number variant"),
+  ("bnd",
+   "Breakend variant")]
+
+csqs = var_csq()
 
 
 class MultiCheckboxField(SelectMultipleField):
     widget = widgets.ListWidget(prefix_label=False)
     option_widget = widgets.CheckboxInput()
 
+class RegionForm(FlaskForm):
+    fmt = SelectField(
+      "Format:",
+      choices = [
+        ("region",
+         "Region"),
+        ("gene",
+         "Gene ID"),
+        ("coord",
+         "Coordinates")])
+    chrom = SelectField(
+      "Chrom:",
+      choices = [])
+    start = IntegerField(
+      "Start:")
+    end = IntegerField(
+      "End:")
+    coord = StringField(
+      "")
 
-class EmailForm(FlaskForm):
-    email = StringField("Email", validators=[DataRequired(), Email()])
-    submit = SubmitField("Login")
+class AlleleMinerForm(RegionForm):
+    target = SelectField(
+      "Target:",
+      choices = [
+        ("cds",
+         "Coding regions"),
+        ("prom",
+         "Promoter regions"),
+        ("full",
+         "Entire region")])
+    gene = StringField(
+      "Gene:")
+    gene_groups = MultiCheckboxField(
+      "Gene group:",
+      choices = [])
+    prom_size = IntegerField(
+      "Size:",
+      default = 2000)
+    impact = MultiCheckboxField(
+      "Variant impact:",
+      choices=[
+        ("HIGH",
+         "High"),
+        ("MODERATE",
+         "Moderate"),
+        ("LOW",
+         "Low"),
+        ("MODIFIER",
+         "Modifier"),
+        ("geneonly",
+         "Don't show variants"),
+        ("SEV",
+         "Only deleterious variants")])
 
+    samples = MultiCheckboxField(
+      "Sample:",
+      choices = [])
+    sample_groups = MultiCheckboxField(
+      "Sample group:",
+      choices = [])
+    types = MultiCheckboxField(
+      "Type:",
+      choices = types)
+    csqs = MultiCheckboxField(
+      "Consequence:",
+      choices = csqs)
 
-class HaploSmasherForm(FlaskForm):
-    fmt             = SelectField("Format:",
-                                  choices=[("region", "Region"),
-                                           ("gene",   "Gene ID"),
-                                           ("coord",   "Coordinates")])
-    target          = SelectField("Target:",
-                                  choices=[("cds",    "Coding regions"),
-                                           ("prom",   "Promoter regions"),
-                                           ("full",   "Entire region")])
-    prom_size       = IntegerField("Size:", default=2000)
+    skip_samples = MultiCheckboxField(
+      "",
+      choices=[
+        ("·",
+         "Reference-only samples"),
+        ("—",
+         "Absent-only samples")],
+     default = [])
+    skip_variants = MultiCheckboxField(
+      "",
+      choices=[
+        ("·",
+         "Reference-only variants"),
+        ("—",
+         "Absent-only variants")],
+      default = [])
+    skip_no_var = BooleanField(
+      "Variants without variation")
 
-    gene            = StringField("Gene:")
-    gene_groups     = MultiCheckboxField("Gene group:",  choices=[])
-    chrom           = SelectField("Chrom:", choices=[])
-    start           = IntegerField("Start:")
-    end             = IntegerField("End:")
-    coord           = StringField("")
+    exprun_groups = MultiCheckboxField(
+      "Run group:",
+      choices = [])
+    exp_col = RadioField(
+      "Column:",
+      choices=[])
 
-    impact          = MultiCheckboxField("Variant impact:",
-                                         choices=[("HIGH", "High"),
-                                                  ("MODERATE", "Moderate"),
-                                                  ("LOW", "Low"),
-                                                  ("MODIFIER", "Modifier"),
-                                                  ("geneonly", "Don't show variants")])
+    enr_col = RadioField(
+      "Attribute:",
+      choices=[])
 
-    samples         = MultiCheckboxField("Sample:",        choices=[])
-    sample_groups   = MultiCheckboxField("Sample group:",  choices=[])
-    types           = MultiCheckboxField("Type:",          choices=types_ch)
-    csqs            = MultiCheckboxField("Consequence:",   choices=csqs_ch)
+class PlotForm(FlaskForm):
+    plot = SelectField(
+      "Plot:",
+      choices = [
+        ("dens",
+         "Marker density"),
+        ("smiss",
+         "Sample missingness"),
+        ("vmiss",
+         "Marker missingness"),
+        ("shet",
+         "Sample heterozygosity"),
+        ("vhet",
+         "Marker heterozygosity"),
+        ("maf",
+         "Minor allele frequency"),
+        ("hwe",
+         "-log10(P) HW equilibrium")])
 
-    skip_samples    = MultiCheckboxField("",
-                                         choices=[("·", "Reference-only samples"),
-                                                  ("—", "Absent-only samples")],
-                                         default=["·", "—"])
-    skip_variants   = MultiCheckboxField("",
-                                         choices=[("·", "Reference-only variants"),
-                                                  ("—", "Absent-only variants")],
-                                         default=["·", "—"])
-    skip_no_var     = BooleanField("Variants without variation")
+class AssocQCform(PlotForm):
+    smiss = DecimalField(
+      "sample ≤",
+      places  = None,
+      default = 0.1)
+    vmiss = DecimalField(
+      "marker ≤",
+      places  = None,
+      default = 0.1)
+    shet = DecimalField(
+      "sample ≤",
+      places  = None,
+      default = 0.1)
+    vhet = DecimalField(
+      "marker ≤",
+      places  = None,
+      default = 0.1)
+    maf = DecimalField(
+      "Minor AF ≥",
+      places  = None,
+      default = 0.05)
+    hwe = DecimalField(
+      "-log10(P) HWE ≤",
+      places  = None)
+    prune = DecimalField(
+      "LD ≤",
+      places  = None,
+      default = 0.95)
+    window = IntegerField(
+      "Window (kb):",
+      default = 200)
+    imp = BooleanField(
+      "Impute",
+      default="checked")
+    hap = BooleanField(
+      "Make Haplotypes")
+    name = StringField(
+      "Set name:")
 
-    exprun_groups   = MultiCheckboxField("Run group:",  choices=[])
-
-
-class GWASQCform(FlaskForm):
-    plot   = SelectField("Plot:",
-                         choices=[("smiss", "Sample missingness"),
-                                  ("vmiss", "Marker missingness"),
-                                  ("shet",  "Sample heterozygosity"),
-                                  ("vhet",  "Marker heterozygosity"),
-                                  ("maf",   "Minor allele frequency"),
-                                  ("hwe",   "-log10(P) HW equilibrium")])
-
-    smiss  = DecimalField("sample ≤", places=None, default=0.1)
-    vmiss  = DecimalField("marker ≤", places=None, default=0.1)
-    shet   = DecimalField("sample ≤", places=None, default=0.1)
-    vhet   = DecimalField("marker ≤", places=None, default=0.1)
-    maf    = DecimalField("Minor AF ≥", places=None, default=0.05)
-    hwe    = DecimalField("-log10(P) HWE ≤", places=None)
-    prune  = DecimalField("LD ≤", places=None, default=0.95)
-    window = IntegerField("Window (kb):", default=200)
-    hap    = BooleanField("Make Haplotypes")
-
-    name   = StringField("Set name:")
-
-
-class GWASForm(FlaskForm):
-    markers = MultiCheckboxField("Marker set:", choices=[])
-    models  = MultiCheckboxField("Model:", 
-                                 choices=models)
-    traits  = MultiCheckboxField("Trait:",  choices=[])
-
-    trait_groups  = MultiCheckboxField("Trait group:",  choices=[])
+class AssocResForm(RegionForm, PlotForm):
+    markers_sgl = RadioField(
+      "Marker set:",
+      choices = [])
+    markers = MultiCheckboxField(
+      "Marker set:",
+      choices = [])
+    models = MultiCheckboxField(
+      "Model:",
+      choices = models)
+    traits = MultiCheckboxField(
+      "Trait:",
+      choices = [])
+    trait_groups = MultiCheckboxField(
+      "Trait group:",
+      choices = [])
     new_phe = MultipleFileField()
-
-    coord   = StringField("")
-    fmt     = SelectField("Format:",
-                          choices=[("region", "Region"),
-                                   ("gene",   "Gene ID"),
-                                   ("coord",   "Coordinates")])
-
-    chrom   = SelectField("Chrom:", choices=[])
-    start   = IntegerField("Start:")
-    end     = IntegerField("End:")
-
-    mrk     = StringField("")
-    mod     = StringField("")
-    trt     = StringField("")
-
-    pval    = HiddenField("")
-    #fm_tool = RadioField("Fine-map tool:", choices=[("", "(none)"),
-    #                                                ("susie", "SuSiE")])
-
-    submit = SubmitField("Submit")
-
-
-if __name__ == "__main__":
-    pass
+    k = BooleanField(
+      "Kinship (K) correction")
+    q = BooleanField(
+      "PCA (Q) correction")
+    q_num = IntegerField(
+      "Number of PCs:",
+      default = 3)
+    kq_from = RadioField(
+      "K/Q from:",
+      choices=[])
+    mrk  = StringField(
+      "")
+    mod  = StringField(
+      "")
+    trt  = StringField(
+      "")
+    pval = HiddenField(
+      "")

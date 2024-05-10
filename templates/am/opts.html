@@ -1,0 +1,34 @@
+{% extends "header.html" %}
+{% block title %} Allele viewer {% endblock %}
+{% block style %}{% endblock %}
+{% block content %}
+  <div
+   id="help-popup"
+   class="help-popup collapsed"></div>
+  <div class="results-wrapper">
+    <div
+     id="params-div"
+     class="results-container padded-top padded-bottom">
+      {% include "am/opts_body.html" %}
+    </div>
+  </div>
+{% endblock %}
+{% block script %}
+  <script src="{{url_for(
+   'static',
+   filename='js/validate_alleleview_input.js')}}"></script>
+  <script src="{{url_for(
+   'static',
+   filename='js/help_texts.js')}}"></script>
+  <script src="{{url_for(
+   'static',
+   filename='js/popups.js')}}"></script>
+  <script src="{{url_for(
+   'static',
+   filename='js/group.js')}}"></script>
+  <script type="text/javascript">
+    {% include "am/opts_scripts.html" %}
+    helpTexts["genes"] = "Example format: {{ id_fmt }}"
+                       + "<br>Separate genes with comma and space (, )";
+  </script>
+{% endblock %}

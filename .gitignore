@@ -3,7 +3,6 @@ app/
 data/
 modules/__pycache__
 modules/Original_scripts/
-modules/tools/
 modules/R/BGLR.R
 modules/R/UNUSED_manhattanly.R
 modules/sort_gff.txt
@@ -11,5 +10,5 @@ modules/igv_config.py
 res/gffutils_db/
 templates/Old/
 templates/Multi_manhattan/
-static/icons/
 static/js/hypergeom.js
+packrat/lib*/

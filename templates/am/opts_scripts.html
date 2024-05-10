@@ -1,0 +1,67 @@
+{% block input_scripts %}
+    var genome = '{{ genome }}';
+    var visibleDropdown = null;
+    function toggleFormat() {
+      var fmt = document.getElementById("fmt-field").value;
+      ["gene", "region", "coord"].forEach( function(sel) {
+        var selDiv = document.getElementById(sel + "-div");
+        selDiv.classList.add("collapsed");
+        if (fmt === sel) {
+          selDiv.classList.remove("collapsed");
+        }
+      });
+    }
+    function toggleImpact() {
+      var geneOnly = document.getElementById("impact-geneonly").checked;
+      var target = document.getElementById("target-field").value;
+      var promDiv = document.getElementById("promsize-div");
+      if (target === "cds") {
+        promDiv.classList.add("collapsed");
+      } else if (target === "prom") {
+        promDiv.classList.remove("collapsed");
+      }
+      if (!geneOnly) {
+        if (target === "cds") {
+          document.getElementById("impact-HIGH").checked = true;
+          document.getElementById("impact-MODERATE").checked = true;
+          document.getElementById("impact-MODIFIER").checked = false;
+        } else if (target === "prom") {
+          document.getElementById("impact-HIGH").checked = false;
+          document.getElementById("impact-MODERATE").checked = false;
+          document.getElementById("impact-LOW").checked = false;
+          document.getElementById("impact-MODIFIER").checked = true;
+        }
+      }
+    }
+    function noImpact(clickedElem) {
+      if (clickedElem.id === "impact-geneonly") {
+        if (clickedElem.checked) {
+          var impacts = ["HIGH", "MODERATE", "LOW", "MODIFIER", "SEV"];
+          for (let i = 0; i < impacts.length; i++) {
+            document.getElementById("impact-" + impacts[i]).checked = false;
+          }
+        } else {
+          toggleImpact();
+        }
+      }
+    }
+    // Hide shown popup on click
+    document.addEventListener("click", function(event) {
+      if (visibleDropdown !== null) {
+        hideDropdown(visibleDropdown);
+      }
+      document.getElementById("help-popup").classList.add("collapsed");
+    });
+    document.addEventListener("DOMContentLoaded", function() {
+      // Show group members when right-clicking group
+      document.querySelectorAll(".group-option").forEach(checkboxRow => {
+        showGroupContents(checkboxRow);
+      });
+      // Prevent hiding help popup when clicked within
+      const helpPopup = document.getElementById("help-popup");
+      popupClickedRetain(helpPopup);
+      toggleFormat();
+      toggleImpact();
+      document.getElementById("params-div").style.maxHeight = "none";
+    });
+{% endblock %}

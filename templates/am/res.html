@@ -1,0 +1,1130 @@
+{% extends "header.html" %}
+{% block title %} Allele viewer {% endblock %}
+{% block style %}{% endblock %}
+{% block content %}
+  <div
+   id="help-popup"
+   class="help-popup collapsed"></div>
+{# ================================================================= Errors #}
+  {% if errors %}
+    <div class="padded-left padded-bottom">
+      <h2 class="padded-left red-text">
+        Warnings:
+      </h2>
+      {% for error in errors %}
+        <h3 class="padded-left taller-line bold">
+          {{ error }}
+        <br>
+        </h3>
+      {% endfor %}
+    </div>
+  {% endif %}
+  <div class="row-div padded-left">
+    <h3 class="padded-left bold taller-line">
+      Click section header to show/hide
+      <br>
+      Click and drag column handle to resize
+      <br>
+      <a href="javascript:saveExcel();">
+        Click to download variants table as .xlsx file
+      </a>
+    </h3>
+  </div>
+{# =============================================================== Variants #}
+  {% if form.data["impact"] != ["geneonly"] %}
+    <div class="results-wrapper">
+      <div class="justified disp-flex">
+        {% if not anns %}
+          <h3 class="bold">
+            No variants found for query.
+          </h3>
+      </div>
+  {% else %}
+          <div class="row-div">
+            <h1
+             class="clickable"
+             onclick="toggleSection(this, 'vars-div'); showToggleVars();">
+              Variants:
+            </h1>
+            <button
+             type="button"
+             class="aux-button button-help"
+             title="Help"
+             onclick="showHelp(event, 'vars-table');">
+              &#63;
+            </button>
+          </div>
+          <div class="relative">
+            <button
+             type="button"
+             id="var-button"
+             class="collapsed toggle-var-button"
+             onclick="toggleVariants();">
+              Select all
+            </button>
+          </div>
+      </div>
+        <div
+         id="vars-div"
+         class="results-container collapsed margin-top">
+          <table id="vars-table">
+            <tr>
+              <th class="header-left">
+                <div class="disp-flex">
+                  <div
+                   class="clickable flex"
+                   id="vars_0"
+                   onclick="dropDown(event, this);">
+                    Filter samples&nbsp;&#9013;
+                  </div>
+                  <div
+                   class="resizable resiz-render">
+                  </div>
+                </div>
+              </th>
+              {% for ann in anns %}
+                <td
+                 class="center-text clickable"
+                 onclick="this.children[0].checked=!this.children[0].checked;">
+                  <input
+                   type="checkbox"
+                   id="{{ 'var' + loop.index0|string }}"
+                   pos="{{ ann[0] + ':' + '{:,}'.format(ann[1]) }}"
+                   class="var-checkbox"
+                   onclick="event.stopPropagation();">
+                </td>
+              {% endfor %}
+            <tr>
+              <th class="header-left">
+                Chromosome
+              </th>
+              {% for ann in anns %}
+                <td class="center-text wider-col">
+                  {{ ann[0] }}
+                </td>
+              {% endfor %}
+            <tr>
+              <th class="header-left">
+                Position
+              </th>
+              {% for ann in anns %}
+                <td class="center-text">
+                  {{ "{:,}".format(ann[1]) }}
+                </td>
+              {% endfor %}
+            <tr>
+              <th class="header-left">
+                Affected gene
+              </th>
+              {% for ann in anns %}
+                <td class="center-text">
+                {% for gene in ann[2] %}
+                  {{ gene }}
+                {% endfor %}
+                </td>
+              {% endfor %}   
+            <tr>
+              <th class="header-left">
+                Reference
+              </th>
+              {% for ann in anns %}
+                <td
+                 class="center-text help-cursor"
+                 oncontextmenu="contextMenu(
+                  event,
+                  {'action': 'vars',
+                   'chrom': '{{ ann[0] }}',
+                   'pos': '{{ ann[1] }}',
+                   'field': 'REF'});">
+                  {{ ann[3] }}
+                </td>
+              {% endfor %}
+            <tr class="header-top">
+              <th class="header-left">
+                Annotation
+              </th>
+              {% for ann in anns %}
+                {% if ann[5] %}
+                  <td
+                   class="help-cursor"
+                   oncontextmenu="contextMenu(
+                    event,
+                    {'action': 'vars',
+                     'chrom': '{{ ann[0] }}',
+                     'pos': '{{ ann[1] }}',
+                     'field': 'CSQ'});">
+                  {% for ann_entry in ann[4] %}
+                    {{ ann_entry }}
+                    <br>
+                  {% endfor %}
+                  </td>
+                {% else %}
+                  <td></td>
+                {% endif %}
+              {% endfor %}
+            <tr>
+              <th class="header-left">
+                Severity score
+              </th>
+              {% for ann in anns %}
+                {% if ann[5] %}
+                  <td
+                   class="help-cursor"
+                   oncontextmenu="contextMenu(
+                    event,
+                    {'action': 'vars',
+                     'chrom': '{{ ann[0] }}',
+                     'pos': '{{ ann[1] }}',
+                     'field': 'SEV'});">
+                  {% for ann_entry in ann[5] %}
+                    {{ ann_entry }}
+                    <br>
+                  {% endfor %}
+                  </td>
+                {% else %}
+                  <td></td>
+                {% endif %}
+              {% endfor %}
+            {% for gt in gts %}
+              {% set sample = gt[0] %}
+              <tr>
+                <th class="header-left">
+                  {{ sample }}
+                </th>
+                {% for call_data in gt[1:] %}
+                  {% set ann = anns[loop.index0] %}
+                  {% set call = call_data[0] %}
+                  {% set qual = call_data[1]|int %}
+                  <td class="center-text help-cursor"
+                    {% if qual != "" %}
+                      style="background-color: rgba(
+                        {{ (255 - [0, (qual * 10 - 255)]|max) *0.8 }},
+                        {{ [255, qual * 10]|min *0.8 }},
+                        0,
+                        0.65);"
+                    {% endif %}
+                    oncontextmenu="(function(chrom, pos, sample) {
+                      contextMenu(
+                        event,
+                        {'action': 'vars',
+                         'chrom': chrom,
+                         'pos': pos,
+                         'field': sample}); })(
+                      '{{ ann[0] }}',
+                      '{{ ann[1] }}',
+                      '{{ sample }}');">
+                    {{ call }}
+                  </td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </table>
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+{# ================================================== Variants to phenotype #}
+  {% if form.data["impact"] != ["geneonly"] %}
+    <div class="results-wrapper">
+      <div class="row-div">
+      {% if not anns %}        <h3 class="bold">          No variants found for query.        </h3>      </div>      {% elif not phe %}        <h3 class="bold">          No phenotypes found for {{ genome }}.        </h3>      </div>      {% else %}
+        <h1 class="clickable" onclick="toggleSection(this, 'var-phe-div');">
+          Variant-phenotype correlation:
+        </h1>
+        <button
+         type="button"
+         class="aux-button button-help"
+         title="Help"
+         onclick="showHelp(event, 'var-phe');">
+          &#63;
+        </button>
+      </div>
+      <div
+       id="var-phe-div"
+       class="results-container collapsed">
+        <div class="disp-flex">
+          <div class="param-div-flexheight padded-top">
+            <div class="row-div padded-top padded-bottom">
+              <button
+               type="button"
+               class="dropdown-button"
+               onclick="showDropdown(event, this);">
+                <label class="default-label bold">
+                  Phenotype:
+                </label>
+                <span class="default-label dropdown-choice-label tracker">
+                 </span>
+              </button>
+              <div class="dropdown-menu collapsed">
+                <div class="sticky non-transparent small-padding">
+                  <input
+                   type="text"
+                   class="search-bar"
+                   placeholder="Search..."
+                   onkeyup="filterDropdown(visibleDropdown);">
+                  <button
+                   type="button"
+                   disabled>
+                    Select all
+                  </button>
+                </div>
+                {% for choice in phe[0][1:] %}
+                  <div class="checkbox-row">
+                    <input
+                     type="radio"
+                     name="phe-choice"
+                     id="{{ 'phe' + loop.index0|string }}"
+                     value="{{ loop.index0 }}"
+                     onclick="                      updateTracker(this.parentElement.parentElement);">
+                    <label                     for="{{ 'phe' + loop.index0|string }}"                     class="checkbox-label">
+                      {{ choice }}
+                    </label>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="row-input-div justified padded-bottom">
+              <label
+               for="jitter"
+               class="default-label bold">
+                Show all points
+              </label>
+              <input
+               type="checkbox"
+               id="phe-jitter">
+            </div>
+            <div class="row-div padded-bottom padded-top">
+              <button
+               type="button"
+               onclick="showGtoP();">
+                <label class="default-label bold">
+                  Update plot
+                </label>
+              </button>
+            </div>
+          </div>
+          <div class="results-subcontainer scrollable flex">
+            <div
+             id="var-phe-plot"
+             class="results-subcontainer">
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+    </div>
+  {% endif %}
+{# ================================================================== Genes #}
+  {% if genes %}
+    <div class="results-wrapper">
+      <div class="row-div">
+        <h1
+         class="clickable"
+         onclick="toggleSection(this, 'genes-div');">
+          Genes:
+        </h1>
+        <button
+         type="button"
+         class="aux-button button-help"
+         title="Help"
+         onclick="showHelp(event, 'genes-table');">
+          &#63;
+        </button>
+      </div>
+      <div
+       id="genes-div"
+       class="results-container collapsed margin-top">
+        <table id="genes-table">
+        </table>
+      </div>
+    </div>
+{# ======================================================== Gene expression #}    {% if exp_data %}      <div class="results-wrapper">        <div class="row-div">          <h1           class="clickable"           onclick="toggleSection(this, 'genexp-div');">            Gene expression:          </h1>          <button           type="button"           class="aux-button button-help"           title="Help"           onclick="showHelp(event, 'exp');">            &#63;          </button>        </div>        <div         id="genexp-div"         class="results-container collapsed">          <div class="disp-flex">            <div class="param-div-flexheight padded-top">              <h2 class="padded-top padded-bottom">                Plot by:              </h2>              <div class="row-div padded-bottom">                <button                  type="button"                  class="dropdown-button"                  onclick="toggleExp('projects-table');">                  <label class="default-label bold">                    Project:                  </label>                  <span                   id="projects-count"                   class="default-label counter">                    0 selected                  </span>                </button>              </div>              <div class="row-div padded-bottom">                <button                 type="button"                 class="dropdown-button"                 onclick="toggleExp('runs-table');">                  <label class="default-label bold">                    Run:                  </label>                  <span                   id="runs-count"                   class="default-label counter">                    0 selected                  </span>                </button>                <button                 type="button"                 id="save-run-group"                 class="aux-button button-save"                 title="Save selection as group"                 onclick="makeGroup(event, 'expruns');">                  &#43;                </button>              </div>              <div class="row-div padded-bottom">                <button                 type="button"                 class="dropdown-button"                 onclick="showDropdown(event, this);">                  <label class="default-label bold">                    Run group:                  </label>                  <span                   id="run-groups-count"                   class="default-label counter">                    0 selected                  </span>                </button>                <button                  type="button"                  id="delete-run-group"                  class="aux-button button-delete"                  title="Delete selected group(s)"                  onclick="deleteGroup(event, 'expruns');">                   &times;                </button>                <div                 id="expruns_group-dropdown"                 class="dropdown-menu collapsed">                  <div class="sticky non-transparent small-padding">                    <input                     type="text"                     class="search-bar"                     placeholder="Search..."                     onkeyup="filterDropdown(visibleDropdown);">                    <button                     type="button"                     onclick="toggleAll(visibleDropdown);">                      Select all                    </button>                  </div>                  {% for choice in form.exprun_groups %}                    <div class="checkbox-row">                      {{ choice(                       class="expruns_group-checkbox",                       onchange="                        updateCount(this.parentElement.parentElement);                        filterRunsTable();") }}                      {{ choice.label(class="checkbox-label") }}                    </div>                  {% endfor %}                </div>              </div>              <div class="row-div padded-bottom">                <button                 type="button"                 class="dropdown-button"                 onclick="showDropdown(event, this);">                  <label class="default-label bold">                    Column:                  </label>                  <span class="default-label dropdown-choice-label tracker">                  </span>                </button>                <div                 class="dropdown-menu collapsed">                  <div class="sticky non-transparent small-padding">                    <input                     type="text"                     class="search-bar"                     placeholder="Search..."                     onkeyup="filterDropdown(visibleDropdown);">                    <button                     type="button"                     disabled>                      Select all                    </button>                  </div>                  {% for choice in form.exp_col %}                  <div class="checkbox-row">                    {{ choice(                     onchange="updateTracker(                      this.parentElement.parentElement);") }}                    {{ choice.label(class="checkbox-label") }}                  </div>                  {% endfor %}                </div>              </div>              <div class="               row-input-div               justified               mini-padded-top               padded-bottom">                <label                 for="jitter"                 class="default-label bold">                  Show all points                </label>                <input                 type="checkbox"                 id="exp-jitter">              </div>              <div class="row-div padded-bottom padded-top">                <button                 type="button"                 onclick="showExp();">                  <label class="default-label bold">                    Update plot                  </label>                </button>              </div>            </div>            <div             class="scrollable results-subcontainer flex">              <table id="projects-table">              </table>              <table id="runs-table">              </table>              <div               id="genexp-plot"               class="results-subcontainer">              </div>            </div>          </div>        </div>      </div>    {% else %}      <div class="results-wrapper">        <div class="row-div">          <h3 class="bold">            &nbsp;No gene expression data found for {{ genome }}.          </h3>        </div>      </div>    {% endif %}{# ======================================================== Gene enrichment #}    {% if form.enr_col.choices %}      <div class="results-wrapper">        <div class="row-div">          <h1           class="clickable"           onclick="toggleSection(this, 'genenr-div');">            Gene enrichment:          </h1>          <button           type="button"           class="aux-button button-help"           title="Help"           onclick="showHelp(event, 'enr');">            &#63;          </button>        </div>        <div         id="genenr-div"         class="results-container collapsed">          <div class="disp-flex">            <div class="param-div-flexheight padded-top">              <h2 class="padded-top padded-bottom">                Plot by:              </h2>              <div class="row-div padded-bottom">                <button                 type="button"                 class="dropdown-button"                 onclick="showDropdown(event, this);">                  {{ form.enr_col.label(class="default-label bold") }}                  <span class="default-label dropdown-choice-label tracker">                  </span>                </button>                <div                 id="exp-col-menu"                 class="dropdown-menu collapsed">                  <div class="sticky non-transparent small-padding">                    <input                     type="text"                     class="search-bar"                     placeholder="Search..."                     onkeyup="filterDropdown(visibleDropdown);">                    <button                     type="button"                     disabled>                      Select all                    </button>                  </div>                  {% for choice in form.enr_col %}                  <div class="checkbox-row">                    {{ choice(                     onchange="updateTracker(                      this.parentElement.parentElement);") }}                    {{ choice.label(class="checkbox-label") }}                  </div>                  {% endfor %}                </div>              </div>              <div class="row-div padded-bottom padded-top">                <button                 type="button"                 onclick="showEnr();">                  <label class="default-label bold">                    Update plot                  </label>                </button>              </div>            </div>            <div             class="scrollable results-subcontainer flex">              <table id="projects-table">              </table>              <table id="runs-table">              </table>              <div               id="genenr-plot"               class="results-subcontainer">              </div>            </div>          </div>        </div>      </div>    {% else %}      <div class="results-wrapper">        <div class="row-div">          <h3 class="bold">            &nbsp;No data for gene enrichment found for {{ genome }}.          </h3>        </div>      </div>    {% endif %}{# ============================================================ Gene viewer #}
+    <div class="results-wrapper">
+      <div class="row-div">
+        <h1
+         class="clickable"
+         onclick="
+          toggleSection(this, 'geneview-div');
+          genesToIGV('all');">
+          Gene view:
+        </h1>
+        <button
+         type="button"
+         class="aux-button button-update"
+         title="Copy selection from Genes table"
+         onclick="genesToIGV();">
+          &#8617;
+        </button>
+      </div>
+      <div
+       id="geneview-div"
+       class="results-container collapsed">
+        <div class="disp-flex">
+          <div
+           id="igv-div"
+           class="
+            scrollable
+            padded-top
+            padded-bottom
+            results-subcontainer
+            flex">
+          </div>
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <div class="results-wrapper">
+      <div class="row-div">
+        <h3 class="bold">
+          &nbsp;No genes found for query.
+        </h3>
+      </div>
+    </div>
+  {% endif %}
+{# ======================================================== Sample clusters #}
+  {% if gts %}
+    <div class="results-wrapper">
+      <div class="row-div">
+        <h1
+         class="clickable"
+         onclick="
+          makeClustersTable();
+          toggleSection(this, 'clusters-div');">
+          Sample clusters:
+        </h1>
+        <button
+         type="button"
+         class="aux-button button-help"
+         title="Help"onclick="showHelp(event, 'clusters');">
+          &#63;
+        </button>
+      </div>
+      <div
+       id="clusters-div"
+       class="results-container collapsed margin-top">
+        <table id="clusters-table">
+        </table>
+      </div>
+    </div>
+    {% endif %}
+{# ============================================================= Edit query #}
+  <div class="results-wrapper">
+    <div class="row-div">
+      <h1
+       class="clickable"
+       onclick="toggleSection(this, 'params-div');">
+        Edit query:
+      </h1>
+    </div>
+      <div
+       id="params-div"
+       class="results-container collapsed padded-top margin-top">
+        {% include "am/opts_body.html" %}
+    </div>
+  </div>
+{% endblock %}
+{# ========================================================== Script import #}
+{% block script %}
+  <script src="{{url_for(
+   'static',
+   filename='js/validate_alleleview_input.js')}}"></script>
+  <script src="{{url_for(
+   'static',
+   filename='js/filterable_table.js')}}"></script>
+  <script src="{{url_for(
+   'static',
+   filename='js/contextmenu.js')}}"></script>
+  <script src="{{url_for(
+   'static',
+   filename='js/help_texts.js')}}"></script>
+  <script src="{{url_for(
+  'static',
+  filename='js/popups.js')}}"></script>
+  <script src="{{url_for(
+   'static',
+   filename='js/group.js')}}"></script>
+  <script
+   src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js">
+  </script>
+  <script
+   src="https://cdn.jsdelivr.net/npm/igv@2.15.5/dist/igv.min.js">
+  </script>
+  <script
+   src="https://code.jquery.com/jquery-3.6.4.min.js">
+  </script>
+  <script
+   src="https://cdn.plot.ly/plotly-latest.min.js">
+  </script>
+{# ============================================================= JavaScript #}
+  <script type="text/javascript">
+    const igvConfig = {{ igv_conf|tojson|safe }};
+    var igvDiv = document.getElementById("igv-div");
+    if (igvDiv != null) {
+      var igvParent = igvDiv.parentElement;
+{# ============================================================= Render IGV #}
+      // IGV container needs to be rendered (not collapsed) to load properly
+      igvParent.removeChild(igvDiv);
+      igvDiv.classList.add("hidden");
+      document.body.appendChild(igvDiv);
+      var browserPromise = (async () => {
+        return await igv.createBrowser(igvDiv, igvConfig);
+      })();
+      document.body.removeChild(igvDiv);
+      igvParent.appendChild(igvDiv);
+      igvDiv.classList.remove("hidden");
+    }
+    var genome = '{{ genome }}';
+    var visibleDropdown = null;
+    var dropdowns = {}; // Array to store dropdown menus for each column
+    var colors = JSON.parse('{{ colors|tojson|safe }}');
+    var phe = JSON.parse('{{ phe|tojson|safe }}');
+    if (phe.length > 0) {
+      var pheCols = phe[0].slice(1);
+      var pheData = Object.fromEntries(phe.slice(1).map( x => {
+        return [x[0], x.slice(1)]
+      }));
+    }
+{# ============================================================= Save Excel #}
+    function saveExcel() {
+      var varsTable = document.getElementById("vars-table");
+      if (varsTable != null) {
+        var wb = XLSX.utils.table_to_book(varsTable);
+        XLSX.writeFile(wb, "variant_data.xlsx");
+      }
+    }
+{# ====================================================== Toggle containers #}
+    function toggleSection(clickedElem, section) {
+      var sectionDiv = document.getElementById(section);
+      if (sectionDiv.classList.contains("collapsed")) {
+        sectionDiv.classList.remove("collapsed");
+        window.scrollTo({
+          top: clickedElem.parentElement.offsetTop - 30,
+          behavior: "smooth",
+        });
+      }
+      else {
+        sectionDiv.classList.add("collapsed");
+      }
+    }
+    function toggleVariants() {
+      var varCheckboxes = document.querySelectorAll(".var-checkbox");
+      var selectAll = !varCheckboxes[0].checked;
+      varCheckboxes.forEach( function(checkbox) {
+        checkbox.checked = selectAll;
+      });
+    }
+    function showToggleVars() {
+      var toggleVars = document.getElementById("var-button");
+      var varsDiv = document.getElementById("vars-div");
+      var varsHidden = varsDiv.classList.contains("collapsed");
+      toggleVars.classList.toggle("collapsed", varsHidden);
+    }
+    function toggleExp(tableId) {
+      var projTable = document.getElementById("projects-table");
+      var runsTable = document.getElementById("runs-table");
+      var expPlot = document.getElementById("genexp-plot");
+      if (tableId === "projects-table") {
+        projTable.classList.remove("collapsed");
+        runsTable.classList.add("collapsed");
+      } else {
+        projTable.classList.add("collapsed");
+        runsTable.classList.remove("collapsed");
+      }
+      expPlot.classList.add("collapsed");
+    }
+{# ========================================================== Apply filters #}
+    function filterGenes() {
+      var emptyGenes = document.getElementsByName("0");
+      for (let i = 0; i < emptyGenes.length; i++) {
+        if (emptyGenes[i].classList.contains("collapsed")) {
+          emptyGenes[i].classList.remove("collapsed");
+        }
+        else {
+          emptyGenes[i].classList.add("collapsed");
+        }
+      }
+    }
+    function highlightTableRow(row) {
+      var isSelected = row.classList.contains("selected");
+      row.classList.toggle("selected", isSelected);
+      filterVariants();
+    }
+    function filterVariants() {
+      var selectedGenes = [];
+      document.querySelectorAll("selected").forEach(function(element) {
+        selectedGenes.push(element.id);
+      });
+    }
+    // Update runs-table and projects-table counters on filtering
+    function updateTableCount(tableId) {
+      var table = document.getElementById(tableId);
+      var tBody = table.querySelector("tbody")
+      var numRows = tBody.querySelectorAll("tr:not(.collapsed)").length;
+      if (tableId === "projects-table") {
+        var counter = document.getElementById("projects-count");
+      } else if (tableId === "runs-table") {
+        var counter = document.getElementById("runs-count");
+      }
+      counter.innerHTML = numRows + " selected";
+    }
+    function filterRunsTable() {
+      var projTable = document.getElementById("projects-table");
+      var visibleBPs = [];
+      var projectRows = projTable.querySelector("tbody").querySelectorAll("tr");
+      // Get filters based on projects-table selection
+      for (let i = 0; i < projectRows.length; i++) {
+        var row = projectRows[i];
+        if (!row.classList.contains("collapsed")) {
+          visibleBPs.push(row.querySelector("td").textContent);
+        }
+      }
+      var groupRuns = [];
+      var checkboxes = document.querySelectorAll(".expruns_group-checkbox");
+      // Get filters based on run groups selection
+      for (let i = 0; i < checkboxes.length; i++) {
+        if (checkboxes[i].checked) {
+          groupRuns = groupRuns.concat(JSON.parse(checkboxes[i].value));
+        }
+      }
+      // Apply filters based on runs-table selection
+      var runsTable = document.getElementById("runs-table");
+      var runRows = runsTable.querySelector("tbody").querySelectorAll("tr");
+      for (let i = 0; i < runRows.length; i++) {
+        var cells = runRows[i].children;
+        var showRow = true;
+        if (!visibleBPs.includes(cells[1].innerHTML)) {
+          showRow = false;
+        }
+        if (groupRuns.length > 0 && !groupRuns.includes(cells[0].innerHTML)) {
+          showRow = false;
+        }
+        if (showRow === true) {
+          // Loop through each filter checkbox for each dropdown menu
+          if ("runs-table" in dropdowns) {
+            Object.keys(dropdowns["runs-table"]).forEach(function(colIndex) {
+              var dropdown = dropdowns["runs-table"][colIndex];
+              var boxes = dropdown.querySelectorAll('input[type="checkbox"]');
+              boxes.forEach(function(checkbox) {
+                if (
+                 !checkbox.checked &&
+                 cells[colIndex].textContent === checkbox.value) {
+                  showRow = false;
+                }
+              });
+            });
+          }
+        }
+        // Apply hide/show to row
+        if (showRow) {
+          runRows[i].classList.remove("collapsed");
+        } else {
+          runRows[i].classList.add("collapsed");
+        }
+      }
+      updateTableCount("runs-table");
+    }
+{# =============================================================== Dropdown #}
+    function dropDown(event, clickedElem) {
+      var colIndex = clickedElem.id.split(/[_]+/).pop();
+      var table = findParentTable(clickedElem);
+      var tableId = table.id
+      if (dropdowns[tableId]) {
+        var dropdown = dropdowns[tableId][colIndex];
+      } else {
+        dropdowns[tableId] = {};
+      }
+      // Check if dropdown already exists
+      if (!dropdown) {
+        var uniqueValues = getUniqueValues(table, colIndex);
+        var dropdown = makeDropdown(tableId, colIndex, uniqueValues);
+        // Remove starting rows from "Filter samples" dropdown
+        if (tableId === "vars-table" && colIndex == 0) {
+          deleteDropdownRows(dropdown, [0,1,2,3,4,5,6]);
+        }
+        // Update runs-table and projects-table counters on filtering
+        if (["runs-table", "projects-table"].includes(tableId)) {
+          var checkboxes = dropdown.querySelectorAll("input[type='checkbox']");
+          checkboxes.forEach(function(checkbox) {
+            checkbox.addEventListener("change", function(event) {
+              updateTableCount(tableId);
+            });
+          });
+        }
+        // Update runs-table on filtering project-table
+        if (tableId === "projects-table") {
+          var checkboxes = dropdown.querySelectorAll("input[type='checkbox']");
+          checkboxes.forEach(function(checkbox) {
+            checkbox.addEventListener("change", function(event) {
+              filterRunsTable();
+            });
+          });
+        }
+      }
+      // Position the dropdown menu
+      var headerRect = clickedElem.getBoundingClientRect();
+      dropdown.style.top = (headerRect.bottom + window.scrollY) + "px";
+      dropdown.style.left = (headerRect.left + window.scrollX) + "px";
+      var clickedIsVisible = !dropdown.classList.contains("collapsed");
+      if (visibleDropdown) {
+        hideDropdown(visibleDropdown);
+      }
+      if (!clickedIsVisible) {
+        dropdown.classList.remove("collapsed");
+        visibleDropdown = [dropdown, tableId];
+        event.stopPropagation();
+        // Gray-out checkbox values only available for hidden rows
+        // Get visible unique values for the column
+        var visibleValues = [];
+        var rows = table.querySelector("tbody").getElementsByTagName("tr");
+        for (let i = 0; i < rows.length; i++) {
+          if (!rows[i].classList.contains("collapsed")) {
+            var cell = rows[i].children[colIndex].textContent;
+            if (!visibleValues.includes(cell)) {
+              visibleValues.push(cell);
+            }
+          }
+        }
+        // Loop through checkboxes and gray-out
+        var checkboxes = dropdown.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(function(checkbox) {
+          var checkboxRow = checkbox.parentElement;
+          if (!(visibleValues.includes(checkbox.value)) && checkbox.checked) {
+            checkboxRow.classList.add("grayed-out");
+          } else {
+            checkboxRow.classList.remove("grayed-out");
+          }
+        });
+        // Focus on the search bar
+        dropdown.querySelector("input[type='text']").focus();
+        sortGray(dropdown);
+        event.stopPropagation();
+      }
+    }
+    function processHideDropdown() {
+      var dropdownData = visibleDropdown;
+      var dropdown = dropdownData[0];
+      var tableId = dropdownData[1];
+      hideDropdown(dropdownData);
+      if (tableId != null) {
+        sortGray(dropdown);
+        var table = document.getElementById(tableId);
+        var header = table.getElementsByTagName("th");
+        // Highlight columns with filters applied
+//        Object.keys(dropdowns[tableId]).forEach(function(colIndex) {
+//          var toHighlight = false;
+//          checkboxes = dropdowns[tableId][colIndex].querySelectorAll('input[type="checkbox"]')
+//          for (let i = 0; i < checkboxes.length; i++) {
+//            var checkbox = checkboxes[i];
+//            var checkboxRow = checkbox.parentElement;
+//            if (!checkbox.checked) {
+//              toHighlight = true;
+//              break;
+//            }
+//          }
+//          header[colIndex].style.color = toHighlight ? "#ff9c78" : "";
+//        });
+      }
+    }
+{# ============================================== Variant-to-phenotype plot #}
+    function showGtoP() {
+      var plotDiv = document.getElementById("var-phe-plot");
+      var table = document.getElementById("vars-table");
+      var pheJitter = document.getElementById("phe-jitter").checked;
+      var field = document.querySelector('input[name="phe-choice"]:checked');
+      var pheIdx = field.value;
+      if (pheIdx == null) {
+        showHelp(event, "select-phe");
+        return;
+      }
+      var varCheckboxes = [...document.querySelectorAll(".var-checkbox")];
+      var selectedVars = varCheckboxes.filter( c => {
+        return c.checked;
+      }).map( c => {
+        return parseInt(c.id.replace("var", ""));
+      });
+      if (selectedVars.length === 0) {
+        showHelp(event, "select-var");
+        return;
+      }
+      var positions = table.querySelectorAll("tr")[2].querySelectorAll("td");
+      var chroms = table.querySelectorAll("tr")[1].querySelectorAll("td");
+      positions = selectedVars.map( i => positions[i]);
+      chroms = selectedVars.map( i => chroms[i]);
+      var varsArr = chroms.map((v, i) => {
+        return [
+          v.textContent.trim(),
+          positions[i].textContent.trim()].join(":");
+      });
+      var varNum = varsArr.length;
+      // Separate genotype data by genotype trace, get phenotype data
+      var traceData = {};
+      var rows = [...table.querySelectorAll("tr")];
+      var samples = rows.slice(7).map(function(row) {
+        return row.querySelector("th").textContent.trim();
+      });
+      for (let i = 0; i < samples.length; i++) {
+        const cells = rows[i+7].querySelectorAll("td");
+        for (let j = 0; j < selectedVars.length; j++) {
+          var gt = cells[selectedVars[j]]
+            .textContent.trim()
+            .replace(/[a-zA-Z]+/g, "var")
+            .replace("|", "/");
+          if (pheData[samples[i]]) {
+            if (!traceData[gt]) {
+              traceData[gt] = [
+                [varsArr[j]],
+                [pheData[samples[i]][pheIdx]],
+                [samples[i]]];
+            } else {
+              traceData[gt][0].push(varsArr[j]);
+              traceData[gt][1].push(pheData[samples[i]][pheIdx]);
+              traceData[gt][2].push(samples[i]);
+            }
+          }
+        }
+      }
+      var traces = [];
+      var gts = ["—", "·", "·/var1", "var1"];
+      gts.concat(Object.keys(traceData).filter( e => {
+        return !gts.includes(e)
+      }));
+      gts.forEach( key => {
+        if (Object.keys(traceData).includes(key)) {
+          var [positions, values, samples] = traceData[key]
+          var trace = {
+            x: positions,
+            y: values,
+            type: "box",
+            name: key,
+            hoverinfo: "x+text",
+            boxpoints: pheJitter ? "all" : "outliers",
+            jitter: 0.9,
+            pointpos: 0,
+            hovertext: samples,
+          };
+          traces.push(trace);
+        }
+      });
+      var layout = {
+        boxmode: "group",
+        showlegend: true,
+        hoverdistance: 5,
+        font: {
+          size: 12,
+        },
+        yaxis: {
+          title: "Phenotype",
+          tickformat: ".2f",
+        },
+        xaxis: {
+          tickangle: 20,
+          automargin: true,
+          showgrid: true,
+          categoryorder: "array",
+          categoryarray: varsArr,
+        },
+        //automargin: true,
+        margin: {
+          l: 100,
+          r: 20,
+          b: 20,
+          t: 20,
+          pad: 4,
+        },
+      };
+      Plotly.newPlot("var-phe-plot", traces, layout);
+      var plotDiv = document.getElementById("var-phe-plot");
+      plotDiv.on("plotly_click", function(data){
+        var selectedPos = data.points[0].x;
+        var checkbox = document.querySelector('[pos="' + selectedPos + '"]');
+        checkbox.checked = !checkbox.checked;
+        // Change the color of the clicked x-axis tick label
+        var xClicked = data.points[0].x;
+        var ticks = plotDiv.getElementsByClassName('xtick');
+        for (var i = 0; i < ticks.length; i += 1) {
+          var tickText = ticks[i].getElementsByTagName("text")[0];
+          if (tickText.innerHTML === xClicked) {
+            tickText.style.fill = !checkbox.checked ? "red" : "limegreen";
+          }
+        }
+      });
+    }
+{# =================================================== Gene expression plot #}
+    function showExp() {      var field = document.querySelector('input[name="exp_col"]:checked');
+      if (field == null) {        showHelp(event, "select-column");
+        return;
+      }
+      var colToPlot = field.value.split(/[_]+/).pop();
+      var colLabel = field.labels[0].textContent;
+      var expJitter = document.getElementById("exp-jitter").checked;
+      var genesTable = document.getElementById("genes-table");
+      var geneRows = [...genesTable.querySelectorAll("tr")].slice(1);
+      var selectedGenes = geneRows.filter(r => {
+        return !r.classList.contains("collapsed");
+      }).map(r => {
+        return r.querySelector("td").textContent.trim();
+      });
+      if (selectedGenes.length === 0) {
+        showHelp(event, "select-gene");
+        return;
+      }
+      var table = document.getElementById("runs-table");
+      var uniqueValues  = getUniqueValues(table, colToPlot);
+      var traces = [];
+      var rows = table.querySelector("tbody").getElementsByTagName("tr");
+      var visibleRows = [];
+      for (let i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        if (!rows[i].classList.contains("collapsed")) {
+          visibleRows.push(row);
+        }
+      }
+      for (uniqueVal of uniqueValues) {
+        var expValues = [];
+        var geneValues = [];
+        var hoverValues = [];
+        for (var i=0; i<visibleRows.length; i++) {
+          var cells = visibleRows[i].getElementsByTagName("td");
+          if (cells[colToPlot].textContent === uniqueVal) {
+            selectedGenes.forEach( function(gene) {
+              if (expDict[gene] != null) {
+                expValues.push(expDict[gene][cells[0].textContent]);
+                geneValues.push(gene);
+                hoverValues.push(Array.prototype.slice.call(cells)
+                  .filter((c, i) => [0,1,2,3,4,5,6,7,8,10,11].includes(i) &&
+                                    c.textContent.trim() !== "")
+                  .map(c => c.textContent)
+                  .join("<br>"));
+              } else {
+                selectedGenes.splice(selectedGenes.indexOf(gene), 1);
+              }
+            });
+          }
+        }
+        if (uniqueVal === "") {
+          uniqueVal = "(blank)";
+        }
+        var trace = {
+          x: geneValues,
+          y: expValues,
+          type: "box",
+          name: uniqueVal + " (n=" + Math.round(
+            expValues.length / selectedGenes.length) + ")",
+          hoverinfo: "x+text",
+          hovertext: hoverValues,
+          boxpoints: expJitter ? "all" : "outliers",
+          jitter: 0.9,
+          pointpos: 0,
+        };
+        if (false && colors[colLabel]) {
+          trace["marker"] = { color: colors[colLabel][uniqueVal] };
+          trace["fillcolor"] = colors[colLabel][uniqueVal];
+        }
+        traces.push(trace);
+      }
+      var layout = {
+        boxmode: "group",
+        showlegend: true,
+        hoverdistance: 5,
+        font: {
+          size: 12,
+        },
+        yaxis: {
+          title: "Expression quantile",
+          tickformat: ".2f",
+        },
+        xaxis: {
+          tickangle: 20,
+          automargin: true,
+          showgrid: true,
+        },
+//        automargin: true,
+        margin: {
+          l: 100,
+          r: 20,
+          b: 20,
+          t: 20,
+          pad: 4,
+        },
+      };
+      // Break long legend titles by newlines
+      for (let i = 0; i < traces.length; i++) {
+        traces[i].name = traces[i].name.replace(/(.{15,}?)\s/g, "$1<br>");
+      }
+      document.getElementById("runs-table").classList.add("collapsed");
+      document.getElementById("projects-table").classList.add("collapsed");
+      document.getElementById("genexp-plot").classList.remove("collapsed");
+      Plotly.newPlot("genexp-plot", traces, layout);
+      // Trigger Gene_ID dropdown to use for filtering gene expression plot
+      var geneHeader = genesTable.querySelector("th");
+      var clickableHeader = geneHeader.firstChild.firstChild;
+      if (
+       dropdowns["genes-table"] == null ||
+       dropdowns["genes-table"][0] == null) {
+        dropDown(event, clickableHeader);
+        processHideDropdown();
+      }
+      var plotDiv = document.getElementById("genexp-plot");
+      plotDiv.on("plotly_click", function(data){
+        var selectedGene = data.points[0].x;
+        var checkbox = document.getElementById("genes-table0" + selectedGene);
+        checkbox.checked = !checkbox.checked;
+        applyFilters([dropdowns["genes-table"][0], "genes-table"], [], false);
+        // Change the color of the clicked x-axis tick label
+        var xClicked = data.points[0].x;
+        var ticks = plotDiv.getElementsByClassName("xtick");
+        for (var i = 0; i < ticks.length; i += 1) {
+          var tickText = ticks[i].getElementsByTagName("text")[0];
+          if (tickText.innerHTML === xClicked) {
+            tickText.style.fill = !checkbox.checked ? "red" : "limegreen";
+          }
+        }
+      });
+    };
+{# =================================================== Gene enrichment plot #}    function showEnr() {      var field = document.querySelector('input[name="enr_col"]:checked');      if (field == null) {        showHelp(event, "select-column");        return;      }      var colToPlot = field.value;      var genesTable = document.getElementById("genes-table");      var colIdx = [...genesTable.querySelectorAll("th")].filter( c => {        return c.textContent.slice(0, -2) === colToPlot;      }).map(c => {        return c.children[0].children[0].id.split("_").pop();      });      var geneRows = [...genesTable.querySelectorAll("tr")].slice(1);      var attrs = geneRows.filter(r => {        return !r.classList.contains("collapsed");      }).map(r => {        return r.querySelectorAll("td")[colIdx].textContent.trim();      });      $.ajax({        url: "/enr",        method: "POST",        data: {         genome: genome,         col: colToPlot,         attrs: JSON.stringify(attrs),        },        success: function (results) {          var plotData = results["data"];          var numTests = results["num_tests"];          var xVals = plotData.map(x => x[0]);          var yVals = plotData.map(x => x[1]);          var pVals = plotData.map(x => x[2]);          // Calculate colorbar ticks          var logpMin = Math.floor(Math.min(0, ...pVals));          var logpMax = Math.ceil(Math.max(2, ...pVals));          var tickValues = [];          var tickLabels = [];          for (var i = logpMin; i <= logpMax; i++) {            tickValues.push(i);            tickLabels.push(10**(-i));          }          var trace = {            x: xVals,            y: yVals,              type: "bar",            marker: {              color: pVals,              colorscale: [               [0, "rgb(0,0,255)"],               [0.5, "rgb(128,0,128)"],               [1, "rgb(255,0,0)"]],              cmin: Math.min(0, ...pVals),              cmax: Math.max(2, ...pVals),              colorbar: {                title: "P-value",                thickness: 20,                ticks: "outside",                tickvals: tickValues,                ticktext: tickLabels,              }            },            //hoverinfo: "x+text",            //hovertext: hoverValues,          };          var layout = {            hoverdistance: 5,            font: {              size: 12,           },            yaxis: {              title: "log(2)-fold enrichment",              tickformat: ".2f",            },            xaxis: {              tickangle: 20,              automargin: true,              showgrid: true,            },        //        automargin: true,            margin: {              l: 100,              r: 20,              b: 20,              t: 20,              pad: 4,            },          };          Plotly.newPlot("genenr-plot", [trace], layout);        }      });    }{# ======================================================= Update functions #}    function genesToExp() {
+      var genesTable = document.getElementById("genes-table");
+      var rows = genesTable.querySelector("tbody").querySelectorAll("tr");
+      rows.forEach( function(row) {
+        geneName = row.querySelector("td").innerText;
+        if (!row.classList.contains("collapsed")) {
+          document.getElementById("genexp_" + geneName).checked = true;
+        } else {
+          document.getElementById("genexp_" + geneName).checked = false;
+        }
+      });
+      var counter = document.getElementById("genexp_" + geneName);
+      updateCount(counter.parentElement.parentElement);
+    }
+    function genesToIGV(toAll) {
+      var genesLoc = "";
+      var roiConfig =  [ { color: "rgba(217,144,88,0.1)", features: [] } ];
+      if (toAll == null) {
+        var genesTable = document.getElementById("genes-table");
+        var rows = genesTable.querySelector("tbody").querySelectorAll("tr");
+        for (let i = 0; i < rows.length; i++) {
+          if (!rows[i].classList.contains("collapsed")) {
+            var cells = rows[i].querySelectorAll("td");
+            var cellData = Array.from(cells).slice(0, 4);
+            var [id, chrom, start, end] = cellData.map(cell => {
+              return cell.innerText;
+            });
+            genesLoc += chrom + ":"
+            genesLoc += (parseInt(start) - 200) + "-";
+            genesLoc += (parseInt(end) + 200) + " ";
+            const roi = {
+              chr: chrom,
+              start: start,
+              end: end,
+              name: id,
+            };
+            roiConfig[0]["features"].push(roi);
+          }
+        }
+        browserPromise.then(browser => {
+          browser.clearROIs();
+          browser.loadROI(roiConfig);
+        });
+      } else {
+        genesLoc = "all";
+      }
+      browserPromise.then(browser => {
+        browser.goto(genesLoc);
+      });
+    }
+{# ======================================================= Construct tables #}
+    function makeClustersTable() {
+      var tableId = "clusters-table";
+      var table = document.getElementById(tableId);
+      if (table.innerHTML.trim() === "") {
+        var groups = JSON.parse('{{ groups|tojson|safe }}');
+        var groupCols = ["Variant sequence", "Samples"];
+        var groupsData = [];
+        for (var [groupVars, samples] of groups) {
+          groupsData.push([groupVars, samples.join(", ")]);
+        }
+        groupsData.unshift(groupCols);        createTable(groupsData, table);
+      }
+    }
+    var projData = JSON.parse('{{ proj_info|tojson|safe }}');
+    var runData  = JSON.parse('{{ runs_info|tojson|safe }}');
+    var expData  = JSON.parse('{{ exp_data|tojson|safe }}');
+    var runIds = [];
+    for (let i = 1; i < runData.length; i++) {
+      runIds.push(runData[i][0]);
+    }
+    var expDict = {};
+    var geneIds = [];	if (expData !== "") {      expData.forEach(exp => {
+        var geneExp = {};
+        for (let i = 0; i < runIds.length; i++) {
+          geneExp[runIds[i]] = exp[i + 1];
+        }
+        expDict[exp[0]] = geneExp;
+        geneIds.push(exp[0]);
+      });	}
+    document.addEventListener("DOMContentLoaded", () => {
+      // Reset scrolling
+      window.scrollTo({ top: 0 });
+      // Create Genes table
+      var tableId = "genes-table";
+      var table = document.getElementById(tableId);
+      if (table != null) {
+        var genes = JSON.parse('{{ genes|tojson|safe }}');        createTable(genes, table);
+      }
+      // Create RNA-seq projects table
+      var tableId = "projects-table";
+      var table = document.getElementById(tableId);
+      if (table != null) {
+        createTable(projData, table);
+        table.classList.add("collapsed");
+        updateTableCount(tableId);
+      }
+      // Create RNA-seq runs table
+      var tableId = "runs-table";
+      var table = document.getElementById(tableId);
+      if (table != null) {
+        createTable(runData, table);
+        table.classList.add("collapsed");
+        updateTableCount(tableId);      }
+      // Set trackers      for (dropdownType of ["phe-choice", "exp_col", "enr_col"]) {
+        var radioBtn = document.getElementsByName(dropdownType)[0];        updateTracker(radioBtn.parentElement.parentElement);      }      // Uncheck all groups selected
+      var checkboxes = document.querySelectorAll(".expruns_group-checkbox");
+      for (let i = 0; i < checkboxes.length; i++) {
+        checkboxes[i].checked = false;
+      }
+      if (checkboxes.length > 0) {
+        updateCount(checkboxes[0].parentElement.parentElement);
+        filterRunsTable();
+      }
+      // Prevent hiding help popup when clicked within
+      const helpPopup = document.getElementById("help-popup");
+      popupClickedRetain(helpPopup);
+    });
+    // Hide shown popup on click
+    document.addEventListener("click", function(event) {
+      if (visibleDropdown != null) {
+        processHideDropdown(visibleDropdown);
+      }
+      document.getElementById("help-popup").classList.add("collapsed");
+    });
+    function resizePlots() {
+      plotDiv = document.getElementById("genexp-plot");
+      if (
+       plotDiv != null &&
+       plotDiv.innerHTML &&
+       !plotDiv.classList.contains("collapsed")) {
+        Plotly.Plots.resize("genexp-plot");
+      }
+      plotDiv = document.getElementById("var-phe-plot");
+      if (
+       plotDiv != null &&
+       plotDiv.innerHTML &&
+       !plotDiv.classList.contains("collapsed")) {
+        Plotly.Plots.resize("var-phe-plot");
+      }
+      plotDiv = document.getElementById("genenr-plot");      if (       plotDiv != null &&       plotDiv.innerHTML &&       !plotDiv.classList.contains("collapsed")) {        Plotly.Plots.resize("genenr-plot");      }    }
+    window.addEventListener("resize", function() { resizePlots() });
+    {% include "am/opts_scripts.html" %}
+    helpTexts["genes"] = "Example format: {{ id_fmt }}"
+                       + "<br>Separate genes with comma and space (, )";
+    </script>
+{% endblock %}
