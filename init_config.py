@@ -4,14 +4,16 @@ import os
 import re
 import sys
 import json
+import pysam
 import gffutils
 import pandas as pd
 from collections import Counter
 
 from flask_app import data_dir
+
+from modules.assoc import run_qc
 from modules.vcf_reader import VcfReader
 from modules.load_input import load_config
-
 
 def configure(genome):
     gconfig = load_config(genome)
@@ -54,7 +56,13 @@ def configure(genome):
         with open(phe_path, "w") as phe_out:
             phe_out.write("\n")
 
-    # Create a genome data file if none exists
+    vcf_path = os.path.join(
+      data_dir,
+      genome,
+      gconfig["vcf"])
+
+    # Create a genom
+    e data file if none exists
     gdata_path = os.path.join(
       data_dir,
       genome,
@@ -91,10 +99,6 @@ def configure(genome):
             break
 
         # Save sample list
-        vcf_path = os.path.join(
-          data_dir,
-          genome,
-          gconfig["vcf"])
         vcf_reader = VcfReader(vcf_path)
         samples = vcf_reader.header.samples
 
@@ -106,7 +110,7 @@ def configure(genome):
           "length\=(\d+)",
           vcf_header)
         vcf_sizes = list(map(int, vcf_sizes))
-        if vcf_chrs != chroms or vcf_sizes != chr_sizes:
+        if vcf_chrs != chroms or vcf_sizes != sizes:
             print(
               "Chromosomes do not match in size or names between "
               "VCF and SEQ file.")
@@ -136,6 +140,49 @@ def configure(genome):
         # Save genome data to JSON file
         with open(gdata_path, "w") as gdata_out:
             json.dump(gdata, gdata_out)
+
+    # Create dummy VCF for faster IGV visualisation
+    try:
+        subprocess.run([
+          "bcftools", "--version"],
+          check=True)
+    except subprocess.CalledProcessError:
+        pass
+    else:
+        var_only = os.path.join(
+          data_dir,
+          genome,
+          "var_only.vcf.gz")
+        info_rm = subprocess.Popen(
+          ["bcftools", "annotate",
+           "-x", "INFO",
+           vcf_path],
+          stdout=subprocess.PIPE,
+          stderr=subprocess.PIPE)
+        gt_rm = subprocess.Popen(
+          ["bcftools", "view",
+           "-G",
+           "-Oz", "-o"
+           var_only],
+          stdin=info_rm.stdout
+          stdout=subprocess.PIPE,
+          stderr=subprocess.PIPE)
+        out, err = gt_rm.communicate()
+        if gt_rm.returncode != 0:
+            raise OSError(err.decode())
+        # Index VCF
+        pysam.tabix_index(
+          var_only,
+          preset="vcf")
+
+    # Run raw marker set QC
+    stats_dir = os.path.join(
+      data_dir,
+      genome,
+      "stats")
+    if not os.path.exists(stats_dir):
+        os.mkdir(stats_dir)
+    run_qc(genome)
 
 def annotate_db(genome, gconfig):
     info_path = os.path.join(

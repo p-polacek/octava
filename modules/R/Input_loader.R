@@ -61,7 +61,8 @@ load_input <- function(opts, tool) {
     phe_sep <- if (opts$phenotype_tsv) "\t"  else ","
     phe <- read.csv(opts$phenotype,
                     sep=phe_sep,
-                    header=T)
+                    header=T,
+                    check.names=F)
 
     if (length(colnames(phe)) == 0) {
       stop("No phenotypes found or wrong separator specified.",
@@ -69,7 +70,8 @@ load_input <- function(opts, tool) {
     }
 
     gt <- fread(opts$genotype,
-                sep="\t")
+                sep="\t",
+                check.names=F)
 
     if (length(colnames(gt)) == 1) {
       stop("Wrong separator specified.",
@@ -82,10 +84,9 @@ load_input <- function(opts, tool) {
 	gt <- subset(gt, select=-c(FID, PAT, MAT, SEX, PHENOTYPE))
 
 	map <- fread(opts$map,
-  #map <- read.csv(opts$map,
-  #map <- read.table(opts$map,
-                    sep="\t",
-                    header=F)
+               sep="\t",
+               header=F,
+	             check.names=F)
 
     if (length(colnames(map)) != 4) {
       stop("Map file does not contain all columns or wrong separator specified.",
@@ -141,7 +142,7 @@ load_input <- function(opts, tool) {
   phe <- phe[phe_accessions %in% filtered_accessions,]
 	gt <- gt[gt_accessions %in% filtered_accessions,]
 
-  columns <- c(colnames(phe)[1], strsplit(opts$traits, ",")[[1]])
+  columns <- c(colnames(phe)[1], strsplit(opts$traits, ", ")[[1]])
   phe <- subset(phe, select = columns)
 
 ################################################################################

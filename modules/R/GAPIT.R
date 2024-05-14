@@ -1,58 +1,87 @@
-#install.packages("optparse", repos="https://cloud.r-project.org")
+#install.packages("optparse", repos="https://cloud.r-pro  ject.org")
 #install.packages("BiocManager")
 #BiocManager::install("snpStats")
 #devtools::install_github("SFUStatgen/LDheatmap")
 #devtools::install_github("jiabowang/GAPIT",force=TRUE)
 
+library(jsonlite)
 library(optparse)
 library(GAPIT)
 library(glue)
 
-setwd("/mnt/c/Users/polac001/OneDrive - Wageningen University & Research/PhD/HS/TBD_pipeline/modules/R")
-#setwd("C:/Users/polac001/OneDrive - Wageningen University & Research/PhD/HS/TBD_pipeline/modules/R")
-#source("gapit_functions.R")
-source("save_optparse_params.R")
-source("Input_loader.R")
+source("modules/R/save_optparse_params.R")
+source("modules/R/Input_loader.R")
 
 ################################################################################
 #### load and process input
 ################################################################################
 
-if (!file.exists("GAPIT_params.RDS")) {
+if (!file.exists("modules/R/GAPIT_params.RDS")) {
   save_params()
 }
-option_list <- readRDS("GAPIT_params.RDS")
+option_list <- readRDS("modules/R/GAPIT_params.RDS")
 
-setwd("/mnt/c/Users/polac001/OneDrive - Wageningen University & Research/PhD/HS/TBD_pipeline/")
-#setwd("C:/Users/polac001/OneDrive - Wageningen University & Research/PhD/HS/TBD_pipeline/")
 opt_parser = OptionParser(option_list=option_list,
                           epilogue="");
 opts <- parse_args(opt_parser)
-
-#opts <- list(genotype="data/Tomato/GWAS/snp-prune/imp_filt/imp.filt.raw",
-#             phenotype="data/Tomato/Agronomic.phe",
-#             map="data/Tomato/GWAS/snp-prune/imp_filt/imp.filt.map",
-#             phenotype_tsv=T,
-#             chrom="SL4.0ch02",
-#             start=1000000,
-#             end=2000000,
-#             model="MLM",
-#             traits="a")
-
 input <- load_input(opts, "GAPIT")
-
 models <- strsplit(opts$models, ",")[[1]]
+
+################################################################################
+#### Test input
+################################################################################
+
+if (0) {
+  setwd("C://Users/polac001/OneDrive - Wageningen University & Research/PhD/HS/TBD_pipeline")
+  opts$genotype <- "data/Demo/assoc/D/gt/gt.raw.gz"
+  opts$phenotype <- "data/Demo/Agronomic.phe"
+  opts$map <- "data/Demo/assoc/D/gt/gt.map.gz"
+  opts$phenotype_tsv <- T
+  opts$pop_structure <- "data/Demo/assoc/D/gt/gt.eigenvec"
+  opts$q_tsv <- T
+  opts$top_q <- 3
+  opts$kinship <- "data/Demo/assoc/D/gt/gt.rel"
+  opts$k_tsv <- T
+  opts$outdir <- "data/Demo/assoc/D/res/"
+  opts$model <- "MLM"
+  opts$traits <- "Plant_growth_habit"
+}
+
+################################################################################
+#### Save run parameters
+################################################################################
+
+setwd(opts$outdir)
+for (model in models) {
+  for (col in colnames(input$phe)[2:length(colnames(input$phe))]) {
+    params <- c(
+      (length(colnames(input$gt)) - 1),
+      sum(!is.na(input$phe[[col]])),
+      dim(input$Q)[2] - 1,
+      "Yes", #is.null(input$K),
+      var(!is.na(input$phe[[col]]))
+    )
+    labels <- c(
+      "Number of markers",
+      "Number of samples",
+      "Number of PCs",
+      "Kinship",
+      "Phenotype variance"
+    )
+    write(
+      toJSON(list(labels, params), auto_unbox=TRUE),
+      glue("{model}.{col}.params"))
+  }
+}
 
 ################################################################################
 #### Run GWAS
 ################################################################################
 
-model_outdir <- file.path(opts$outdir, "raw")
-dir.create(model_outdir,
+dir.create("raw",
 		   recursive = T,
 		   showWarnings = F)
-
-setwd(model_outdir)
+setwd("raw")
 
 res <- GAPIT(Y=input$phe,
 			 GD=input$gt,
@@ -61,31 +90,3 @@ res <- GAPIT(Y=input$phe,
 			 CV=input$Q,
 			 model=models
 )
-
-q()
-
-######################## SNPs
-
-setwd("/media/scratchpad_01/guest22/RP/Data/Acc_filtered/SNPs/")
-
-gd <- fread("imp.het_filt.G2PSOLMerge.raw", sep="\t")
-gd <- subset(gd, select=-c(FID, PAT, MAT, SEX, PHENOTYPE))
-
-gm <- fread("imp.het_filt.G2PSOLMerge.map", header = F, sep="\t")
-gm <- subset(gm, select=c(V2, V1, V4))
-
-
-for (model in c("BLINK", "MLM")) {
-  
-  dir.create(file.path("/media/scratchpad_01/guest22/RP/Results/GAPIT_out/Metabolic/",
-                       glue("SNPs-{model}")), showWarnings = F)
-  setwd(glue("/media/scratchpad_01/guest22/RP/Results/GAPIT_out/Metabolic/SNPs-{model}/"))
-  
-  res <- GAPIT(Y=phe,
-               GD=gd,
-               GM=gm,
-               KI=K,
-               CV=Q,
-               model=model
-  )
-}

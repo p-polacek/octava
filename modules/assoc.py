@@ -7,8 +7,11 @@ import json
 import subprocess
 import numpy as np
 import pandas as pd
-from itertools import product
 from collections import Counter
+
+from flask import (
+  url_for,
+  redirect)
 
 from modules.wpgma import wpgma
 
@@ -38,6 +41,7 @@ R_dir = os.path.join(
 ###############################################################################
 
 def run_qc(genome, markers=None):
+    #yield "Summarizing genotype data"
     gconfig = load_config(genome)
     gdata = load_gdata(genome)
 
@@ -79,21 +83,33 @@ def run_qc(genome, markers=None):
     if not os.path.exists(stats_dir):
         os.makedirs(stats_dir)
 
+    assoc_dir = os.path.join(
+      data_dir,
+      genome,
+      "assoc")
+    if not os.path.exists(stats_dir):
+        os.makedirs(stats_dir)
+
     if any((not os.path.exists(
       f"{plink_out}.{ext}")
       for ext in (
         "bed",
         "bim",
         "fam"))):
+        #yield "Processing input genotypes"
         # Create binary PLINK files
-        subprocess.run(
+        pr = subprocess.Popen(
           [plink_path,
            "--vcf", vcf_path,
            "--make-bed",
            "--set-all-var-ids", "@:#",
            "--allow-extra-chr",
            "--out", plink_out],
-          check=True)
+          stdout=subprocess.PIPE,
+          stderr=subprocess.PIPE)
+        out, err = pr.communicate()
+        if pr.returncode != 0:
+            raise OSError(err.decode())
 
     if any((not os.path.exists(
       f"{plink_out}.{ext}")
@@ -104,7 +120,8 @@ def run_qc(genome, markers=None):
         "gcount",
         "afreq",
         "hardy"))):
-        subprocess.run(
+        #yield "Calculating genotype statistics"
+        pr = subprocess.Popen(
           [plink_path,
            "--bfile", plink_out,
            "--missing",
@@ -114,7 +131,11 @@ def run_qc(genome, markers=None):
            "--hardy",
            "--allow-extra-chr",
            "--out", plink_out],
-          check=True)
+          stdout=subprocess.PIPE,
+          stderr=subprocess.PIPE)
+        out, err = pr.communicate()
+        if pr.returncode != 0:
+            raise OSError(err.decode())
 
     metrics = (
       "smiss",
@@ -138,6 +159,7 @@ def run_qc(genome, markers=None):
       "ID",
       "ID")
 
+    #yield "Processing genotype statistics"
     for metric, ext, id_col in zip(metrics, exts, id_cols):
         qc_in = f"{plink_out}.{ext}"
         qc_df = pd.read_csv(
@@ -192,6 +214,7 @@ def run_qc(genome, markers=None):
         elif metric == "vmiss":
             var_num = data.shape[0]
 
+    #yield "Calculating marker density"
     # Histogram of marker density
     chr_vis = gconfig["chr_vis"]
     if chr_vis:
@@ -251,6 +274,43 @@ def run_qc(genome, markers=None):
     with open(os.path.join(stats_dir, "cnts"), "w") as cnts_out:
         json.dump([samp_num, var_num], cnts_out)
 
+    #yield "Calculating linkage disequilibrium"
+    # LD matrices per chromosome
+    for ch in gconfig["chr_vis"] or gdata["chr_names"]:
+        pr = subprocess.Popen(
+          [plink_path,
+           "--bfile", plink_out,
+           "--chr", str(ch),
+           "--thin-count", "1000",
+           "--r2-unphased", "square0",
+           "--out", plink_out],
+          stdout=subprocess.PIPE,
+          stderr=subprocess.PIPE)
+        out, err = pr.communicate()
+        if pr.returncode != 0:
+            raise OSError(err.decode())
+
+        r2_vals = pd.read_csv(
+          f"{plink_out}.unphased.vcor2",
+          sep="\t",
+          header=None,
+          index_col=None).round(3).fillna("")
+        r2_idx = pd.read_csv(
+          f"{plink_out}.unphased.vcor2.vars",
+          sep="\t",
+          header=None,
+          index_col=None)
+        r2_path = os.path.join(
+          stats_dir,
+          f"{ch}.r2")
+        with gzip.open(r2_path, "wt") as r2_out:
+            r2_out.write(
+              json.dumps(
+                [r2_vals.values.tolist(),
+                 r2_idx[0].tolist()]))
+    os.remove(f"{plink_out}.unphased.vcor2")
+    os.remove(f"{plink_out}.unphased.vcor2.vars")
+
     # Clean up
     for fn in os.listdir(stats_dir):
         if (fn.startswith("gt")
@@ -270,6 +330,7 @@ def filt_qc(
   data,
   shet_exc,
   vhet_exc):
+    gdata = load_gdata(genome)
     gconfig = load_config(genome)
     vcf_file = gconfig["vcf"]
     markers  = data["name"]
@@ -325,17 +386,22 @@ def filt_qc(
 
     # Prune by LD
     if data["prune"]:
+        #yield "Pruning input markers"
         data["window"] = (
           str(data["window"]) + "kb"
           if str(data["window"]) else "200kb")
 
-        subprocess.run(
+        pr = subprocess.Popen(
           [plink_path,
           "--bfile", plink_in,
           "--indep-pairwise", data["window"], str(data["prune"]),
           "--allow-extra-chr",
           "--out", plink_out],
-         check=True)
+         stdout=subprocess.PIPE,
+         stderr=subprocess.PIPE)
+        out, err = pr.communicate()
+        if pr.returncode != 0:
+            raise OSError(err.decode())
 
         prune_out_fn = plink_out + ".prune.out"
         with open(prune_out_fn, "r") as prune_out_in:
@@ -370,16 +436,14 @@ def filt_qc(
                  "--export", "vcf", "bgz", "id-paste=iid",
                  "--out", plink_out]
 
-    #pr = subprocess.Popen(
-    #  cmd,
-    #  stdout=subprocess.PIPE,
-    #  stderr=subprocess.PIPE)
-    #out, err = pr.communicate()
-    #if pr.returncode != 0:
-    #    return err.decode()
-    subprocess.run(
+    #yield "Applying filters"
+    pr = subprocess.Popen(
       cmd,
-      check=True)
+      stdout=subprocess.PIPE,
+      stderr=subprocess.PIPE)
+    out, err = pr.communicate()
+    if pr.returncode != 0:
+        raise OSError(err.decode())
 
     # Impute missing genotypes
     beagle_path = os.path.join(
@@ -392,25 +456,20 @@ def filt_qc(
       "imp.gt")
     vcf_out = f"{vcf_root}.vcf.gz"
 
-    #pr = subprocess.Popen(
-    #  ["java",
-    #   "-jar",
-    #   beagle_path,
-    #   f"gt={beagle_in}",
-    #   f"out={beagle_root}"],
-    #  stdout=subprocess.PIPE,
-    #  stderr=subprocess.PIPE)
-    #out, err = pr.communicate()
-    #if pr.returncode != 0:
-    #    return err.decode()
     if data["imp"]:
-        subprocess.run(
+        #yield "Imputing missing genotypes"
+        pr = subprocess.Popen(
           ["java",
            "-jar",
            beagle_path,
            f"gt={vcf_in}",
            f"out={vcf_root}"],
-          check=True)
+          stdout=subprocess.PIPE,
+          stderr=subprocess.PIPE)
+        out, err = pr.communicate()
+        if pr.returncode != 0:
+            raise OSError(err.decode())
+
         os.remove(vcf_in)
         os.rename(vcf_out, vcf_in)
 
@@ -418,28 +477,39 @@ def filt_qc(
     final_root = plink_out
 
     if data["hap"]:
+        #yield "Constructing haplotype blocks"
         blocktool_path = os.path.join(
           tool_dir,
           "blocktool.py")
         # Make necessary genotype format files
-        subprocess.run(
+        pr = subprocess.Popen(
           [plink_path,
            "--vcf", vcf_out,
            "--allow-extra-chr",
            "--make-bed",
            "--export", "tped",
            "--out", final_root],
-          check=True)
+          stdout=subprocess.PIPE,
+          stderr=subprocess.PIPE)
+        out, err = pr.communicate()
+        if pr.returncode != 0:
+            raise OSError(err.decode())
+
         # Make haplotype blocks
-        subprocess.run(
+        pr = subprocess.Popen(
           [blocktool_path,
            "block",
            "--type", "gab",
            "--gab-max-kb", "1000",
            "--gt-dir", filt_dir],
-          check=True)
+          stdout=subprocess.PIPE,
+          stderr=subprocess.PIPE)
+        out, err = pr.communicate()
+        if pr.returncode != 0:
+            raise OSError(err.decode())
+
         # Genotype gased on blocks
-        subprocess.run(
+        pr = subprocess.Popen(
           [blocktool_path,
            "call",
            "--format", "per-hap",
@@ -449,22 +519,34 @@ def filt_qc(
            "--maf", "0.05",
            "--min-hap", "1",
            "--tab"],
-          check=True)
+          stdout=subprocess.PIPE,
+          stderr=subprocess.PIPE)
+        out, err = pr.communicate()
+        if pr.returncode != 0:
+            raise OSError(err.decode())
+
         os.remove(f"{final_root}.tped")
         os.remove(f"{final_root}.tfam")
     
     else:
+        #yield "Processing filtered data"
         # Make necessary genotype format files
-        subprocess.run(
+        pr = subprocess.Popen(
           [plink_path,
            "--vcf", vcf_out,
            "--make-bed",
            "--allow-extra-chr",
            "--export", "A", "ped",
            "--out", final_root],
-          check=True)
+          stdout=subprocess.PIPE,
+          stderr=subprocess.PIPE)
+        out, err = pr.communicate()
+        if pr.returncode != 0:
+            raise OSError(err.decode())
 
-        os.rename(f"{final_root}.raw", f"{final_root}.varA.raw")
+        os.rename(
+          f"{final_root}.raw",
+          f"{final_root}.varA.raw")
         # Zip genotype files
         with open(f"{final_root}.varA.raw", "r") as raw_in:
             with gzip.open(f"{final_root}.raw.gz", "wt") as raw_out:
@@ -486,15 +568,21 @@ def filt_qc(
         os.remove(f"{final_root}.varA.raw")
         os.remove(vcf_out)
 
+    #yield "Calculating kinship and population structure"
     # Calculate K and Q
-    subprocess.run(
+    pr = subprocess.Popen(
       [plink_path,
        "--bfile", final_root,
        "--make-rel", "square",
        "--pca", "15",
        "--allow-extra-chr",
        "--out", final_root],
-      check=True)
+      stdout=subprocess.PIPE,
+      stderr=subprocess.PIPE)
+    out, err = pr.communicate()
+    if pr.returncode != 0:
+        raise OSError(err.decode())
+
     k_matr = pd.read_csv(
       f"{final_root}.rel",
       sep="\t",
@@ -541,13 +629,17 @@ def filt_qc(
       gt_stats_dir,
       "kin")
 
-    subprocess.run(
+    pr = subprocess.Popen(
       [plink1_path,
        "--bfile", final_root,
        "--distance", "square",
        "--allow-extra-chr",
        "--out", hamm_out],
-      check=True)
+      stdout=subprocess.PIPE,
+      stderr=subprocess.PIPE)
+    out, err = pr.communicate()
+    if pr.returncode != 0:
+        raise OSError(err.decode())
 
     hamm_matrix = np.loadtxt(
       f"{hamm_out}.dist",
@@ -582,6 +674,7 @@ def filt_qc(
             gt_stats_dir,
             fn))
 
+    #yield "Saving filtering summary"
     # Create file describing the filtering parameters
     params_fn = os.path.join(
       gt_stats_dir,
@@ -743,6 +836,12 @@ def filt_qc(
              ".rel"))):
             os.remove(os.path.join(filt_dir, fn))
 
+    #yield "Finished applying filters"
+    run_qc(
+      genome,
+      markers = data["name"])
+    return "Done."
+
 ###############################################################################
 ### Run association analysis and process output
 ###############################################################################
@@ -755,15 +854,10 @@ def run_assoc(genome, params):
           ch.strip() for ch in chr_vis.split(",")]
 
     markers = params["markers_sgl"]
-    models  = params["models"]
+    model   = params["model_sgl"]
     traits  = params["traits"][:]
 
-    for trait_group in params["trait_groups"]:
-        for trait in trait_group.split(","):
-            if trait not in params["traits"]:
-                traits.append(trait)
-
-    if not markers or not models or not traits:
+    if not markers or not model or not traits:
         return
 
     gapit_path = os.path.join(
@@ -810,24 +904,38 @@ def run_assoc(genome, params):
       "-k", f"{kq_root}.rel",
       "--k_tsv",
       "-o", out_dir,
-      "-l", ",".join(models),
-      "-t", ",".join(traits)]
+      "-l", model,
+      "-t", ", ".join(traits)]
     if params["chrom"]:
         command += ["-c", params["chrom"]]
     if params["start"]:
         command += ["-s", params["start"]]
     if params["end"]:
         command += ["-e", params["end"]]
-               
-    subprocess.run(command, check=True)
+
+    pr = subprocess.Popen(
+      command,
+      stdout=subprocess.PIPE,
+      stderr=subprocess.PIPE)
+    out, err = pr.communicate()
 
     raw_dir = os.path.join(out_dir, "raw")
-
-    models = models if isinstance(models, list) else [models]
     traits = traits if isinstance(traits, list) else [traits]
-
-    for model, trait in product(models, traits):
+    for trait in traits:
         out_root = f"{model}.{trait}"
+
+        in_fn = os.path.join(
+          raw_dir,
+          f"GAPIT.Association.GWAS_Results.{model}.{trait}.csv")
+        in_se = os.path.join(
+          raw_dir,
+          f"GAPIT.Association.GWAS_StdErr.{model}.{trait}.csv")
+        if not (os.path.exists(in_fn) and os.path.exists(in_se)):
+            os.remove(
+              os.path.join(
+                out_dir,
+                f"{model}.{trait}.feather"))
+            continue
 
         mplot_fn = os.path.join(
           out_dir,
@@ -836,20 +944,6 @@ def run_assoc(genome, params):
           out_dir,
           f"{model}.{trait}.qqplot.png")
 
-        if all([
-          os.path.exists(
-            os.path.join(
-              out_dir,
-              f"{out_root}.{ext}"))
-          for ext in (
-            "feather",
-            "tsv.gz",
-            "tsv.gz.tbi")]):
-            continue
-
-        in_fn = os.path.join(
-          raw_dir,
-          f"GAPIT.Association.GWAS_Results.{model}.{trait}.csv")
         out_feather = os.path.join(
           out_dir,
           f"{out_root}.feather")
@@ -868,9 +962,6 @@ def run_assoc(genome, params):
            "Effect"]]
 
         # Get std error if available
-        in_se = os.path.join(
-          raw_dir,
-          f"GAPIT.Association.GWAS_StdErr.{model}.{trait}.csv")
         se = pd.read_csv(in_se)["std Error"]
         if not se.isna().all():
             res["std Error"] = se
@@ -917,5 +1008,31 @@ def run_assoc(genome, params):
           qqplot_fn,
           dpi    = 300,
           format = "png")            
-
+        # Clean up
         os.remove(out_tsv)
+        for fn in (
+          "GAPIT.Association.PVE",
+          "GAPIT.Association.GWAS_StdErr",
+          "GAPIT.Association.GWAS_Results",
+          "GAPIT.Association.Vairance_markers",
+          "GAPIT.Association.Prediction_results"):
+            fn_path = os.path.join(
+              raw_dir,
+              f"{fn}.{model}.{trait}.csv")
+            if os.path.exists(fn_path):
+                os.remove(fn_path)
+        for fn in (
+          "GAPIT.Association.Optimum",
+          "GAPIT.Association.Manhattan_Chro",
+          "GAPIT.Association.Manhattan_Geno",
+          "GAPIT.Association.Significant_SNPs",
+          "GAPIT.Phenotype.Distribution_Significantmarkers"):
+            fn_path = os.path.join(
+              raw_dir,
+              f"{fn}.{model}.{trait}.pdf")
+            if os.path.exists(fn_path):
+                os.remove(fn_path)
+
+    if pr.returncode != 0:
+        raise OSError(err.decode())
+    return "Done."

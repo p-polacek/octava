@@ -6,33 +6,33 @@ library(optparse)
 library(susieR)
 library(glue)
 
-setwd("/mnt/c/Users/polac001/OneDrive - Wageningen University & Research/PhD/HS/TBD_pipeline/modules/R")
-#setwd("C:/Users/polac001/OneDrive - Wageningen University & Research/PhD/HS/TBD_pipeline/modules/R")
+#setwd("/mnt/c/Users/polac001/OneDrive - Wageningen University & Research/PhD/HS/TBD_pipeline/modules/R")
+#setwd("C://Users/polac001/OneDrive - Wageningen University & Research/PhD/HS/TBD_pipeline/modules/R")
 
-setwd("/mnt/c/Users/polac001/OneDrive - Wageningen University & Research/PhD/HS/TBD_pipeline/")
-#setwd("C:/Users/polac001/OneDrive - Wageningen University & Research/PhD/HS/TBD_pipeline/")
+#setwd("/mnt/c/Users/polac001/OneDrive - Wageningen University & Research/PhD/HS/TBD_pipeline/")
+#setwd("C://Users/polac001/OneDrive - Wageningen University & Research/PhD/HS/TBD_pipeline/")
 
 option_list <- list(
-  make_option(c("-g", "--gwas"),
+  make_option(c("-a", "--assoc"),
               type="character",
               default=NULL,
               metavar="path_to_file",
-              help=".tsv.gz file containing gwas output data from GAPIT"),
+              help=".tsv.gz file containing association analysis output data from GAPIT"),
   make_option(c("-r", "--r2"),
               type="character",
               default=NULL,
               metavar="path_to_file",
               help="tab-separated square matrix containng r2 for all markers in region."),
-  make_option(c("-p", "--phenotype"),
+  make_option(c("-v", "--var"),
               type="character",
               default=NULL,
-              metavar="path_to_file",
-              help=".csv file containing phenotype data, one accession per row and one trait per column, must have row and column names"),
-  make_option(c("-t", "--trait"),
+              metavar="variance",
+              help="Variance of target phenotype values"),
+  make_option(c("-n", "--num_phe"),
               type="character",
               default=NULL,
-              metavar="trait",
-              help="Trait to run analysis for"),
+              metavar="num_phe",
+              help="Number of phenotyped samples"),
   make_option(c("-c", "--chrom"),
               type="character",
               default=NULL,
@@ -58,37 +58,33 @@ option_list <- list(
 opt_parser = OptionParser(option_list=option_list,
                           epilogue="");
 opts <- parse_args(opt_parser)
+q()
 
 if (0) {
-  opts$gwas  <- "data/Tomato/GWAS/All SNPs/assoc/MLM.Blossom_end_scar.tsv.gz"
-  opts$chrom <- "SL4.0ch02"
-  opts$start <- 41139896
-  opts$end   <- 49323936
-  opts$phenotype <- "data/Tomato/Agronomic.phe"
-  opts$trait <- "Blossom_end_scar"
-  opts$r2    <- "data/Tomato/GWAS/All SNPs/imp_filt/snp.ld.phased.vcor2"
+  opts$assoc  <- "data/Demo/assoc/D/res/MLM.Plant_growth_habit.tsv.gz"
+  opts$chrom <- "SL4.0ch06"
+  opts$start <- 36133298
+  opts$end   <- 47258699
+  opts$var <- 4.349
+  opts$num_phe <- 253
+  opts$r2    <- "tmp/70aecc764e908d442f08e8202f3282ef1f5c81fe447f380c26d2996424c4c02e.phased.vcor2"
 }
 
-gwas <- fread(opts$gwas, sep="\t")
-gwas <- gwas[gwas$Chr == opts$chrom, ]
-gwas <- gwas[gwas$Pos >= opts$start, ]
-gwas <- gwas[gwas$Pos <= opts$end, ]
+assoc <- fread(opts$assoc, sep="\t", check.names=F)
+assoc <- assoc[assoc$Chr == opts$chrom, ]
+assoc <- assoc[assoc$Pos >= opts$start, ]
+assoc <- assoc[assoc$Pos <= opts$end, ]
 
-#gwas <- gwas[gwas$Pos != 44770232]
-#gwas <- gwas[gwas$Pos != 45571700]
-#gwas <- gwas[gwas$Pos != 45562846]
+#assoc <- assoc[assoc$Pos != 44770232]
+#assoc <- assoc[assoc$Pos != 45571700]
+#assoc <- assoc[assoc$Pos != 45562846]
 
-phe <- fread(opts$phenotype, sep="\t")[[opts$trait]]
-phe <- phe[!is.na(phe)]
-
-r <- as.matrix(fread(opts$r2, sep="\t"))
-N <- length(phe)
-
-fitted_rss1 <- susie_rss(bhat=gwas$Effect,
-                         shat=gwas[["std Error"]],
-                         n=N,
+r <- as.matrix(fread(opts$r2, sep="\t", check.names=F))
+fitted_rss1 <- susie_rss(bhat=assoc$Effect,
+                         shat=assoc[["std Error"]],
+                         n=opts$num_phe,
                          R=r,
-                         var_y=var(phe),
+                         var_y=as.numeric(opts$var),
                          L=10,
                          estimate_residual_variance=FALSE,
                          max_iter=100)
@@ -96,10 +92,10 @@ fitted_rss1 <- susie_rss(bhat=gwas$Effect,
 #summary(fitted_rss1)$cs
 #susie_plot(fitted_rss1, y="PIP", b=b)
 
-gwas$PIP <- fitted_rss1$pip
+assoc$PIP <- fitted_rss1$pip
 
 setwd(opts$outdir)
-write.table(subset(gwas, select=c("Chr", "Pos", "PIP")), file="pip.txt", sep="\t", row.names=F, quote=F)
+write.table(subset(assoc, select=c("Chr", "Pos", "PIP")), file="pip.txt", sep="\t", row.names=F, quote=F)
 
 ### Example
 q()

@@ -1,24 +1,7 @@
 {% extends "header.html" %}
 {% block title %} Allele viewer {% endblock %}
-{% block style %}{% endblock %}
+{% block style %}{% endblock %}{% block errors %}  {% if errors %}    <div class="padded-left padded-bottom">      <h2 class="padded-left red-text">        Warnings:      </h2>      <h3 class="padded-left taller-line bold">        {% for error in errors %}          {{ error }}        <br>        {% endfor %}      </h3>    </div>  {% endif %}{% endblock %}
 {% block content %}
-  <div
-   id="help-popup"
-   class="help-popup collapsed"></div>
-{# ================================================================= Errors #}
-  {% if errors %}
-    <div class="padded-left padded-bottom">
-      <h2 class="padded-left red-text">
-        Warnings:
-      </h2>
-      {% for error in errors %}
-        <h3 class="padded-left taller-line bold">
-          {{ error }}
-        <br>
-        </h3>
-      {% endfor %}
-    </div>
-  {% endif %}
   <div class="row-div padded-left">
     <h3 class="padded-left bold taller-line">
       Click section header to show/hide
@@ -46,14 +29,7 @@
              onclick="toggleSection(this, 'vars-div'); showToggleVars();">
               Variants:
             </h1>
-            <button
-             type="button"
-             class="aux-button button-help"
-             title="Help"
-             onclick="showHelp(event, 'vars-table');">
-              &#63;
-            </button>
-          </div>
+            <button             type="button"             class="aux-button button-help"             title="Help"             onclick="showHelp(event, 'vars-table');">              &#63;            </button>            <button             type="button"             class="aux-button button-update"             title="Copy selection from Genes table"             onclick="genesToVars();">              &#8617;            </button>          </div>
           <div class="relative">
             <button
              type="button"
@@ -89,7 +65,7 @@
                   <input
                    type="checkbox"
                    id="{{ 'var' + loop.index0|string }}"
-                   pos="{{ ann[0] + ':' + '{:,}'.format(ann[1]) }}"
+                   pos="{{ ann[0] + ':' + '{:,}'.format(ann[1]) }}"                   gene="{{ ann[2]|join(' ') }}"                   len="{{ ann[3]|length }}"
                    class="var-checkbox"
                    onclick="event.stopPropagation();">
                 </td>
@@ -330,7 +306,7 @@
          onclick="showHelp(event, 'genes-table');">
           &#63;
         </button>
-      </div>
+        <button         type="button"         class="aux-button button-update"         title="Copy selection from Genes table"         onclick="varsToGenes();">          &#8617;        </button>      </div>
       <div
        id="genes-div"
        class="results-container collapsed margin-top">
@@ -492,7 +468,7 @@
         XLSX.writeFile(wb, "variant_data.xlsx");
       }
     }
-{# ====================================================== Toggle containers #}
+{# ====================================================== Get visible genes #}    function visGenes() {      var genesTable = document.getElementById("genes-table");      var geneRows = [...genesTable.querySelectorAll("tr")].slice(1);      var selectedGenes = geneRows.filter(r => {        return !r.classList.contains("collapsed");      }).map(r => {        return r.querySelector("td").textContent.trim();      });      return selectedGenes;    }{# ====================================================== Toggle containers #}
     function toggleSection(clickedElem, section) {
       var sectionDiv = document.getElementById(section);
       if (sectionDiv.classList.contains("collapsed")) {
@@ -731,11 +707,10 @@
       var table = document.getElementById("vars-table");
       var pheJitter = document.getElementById("phe-jitter").checked;
       var field = document.querySelector('input[name="phe-choice"]:checked');
-      var pheIdx = field.value;
-      if (pheIdx == null) {
+      if (field == null) {
         showHelp(event, "select-phe");
         return;
-      }
+      }      var pheIdx = field.value;
       var varCheckboxes = [...document.querySelectorAll(".var-checkbox")];
       var selectedVars = varCheckboxes.filter( c => {
         return c.checked;
@@ -856,18 +831,7 @@
       }
       var colToPlot = field.value.split(/[_]+/).pop();
       var colLabel = field.labels[0].textContent;
-      var expJitter = document.getElementById("exp-jitter").checked;
-      var genesTable = document.getElementById("genes-table");
-      var geneRows = [...genesTable.querySelectorAll("tr")].slice(1);
-      var selectedGenes = geneRows.filter(r => {
-        return !r.classList.contains("collapsed");
-      }).map(r => {
-        return r.querySelector("td").textContent.trim();
-      });
-      if (selectedGenes.length === 0) {
-        showHelp(event, "select-gene");
-        return;
-      }
+      var expJitter = document.getElementById("exp-jitter").checked;      var genesTable = document.getElementById("genes-table");      var selectedGenes = visGenes();
       var table = document.getElementById("runs-table");
       var uniqueValues  = getUniqueValues(table, colToPlot);
       var traces = [];
@@ -955,15 +919,6 @@
       document.getElementById("projects-table").classList.add("collapsed");
       document.getElementById("genexp-plot").classList.remove("collapsed");
       Plotly.newPlot("genexp-plot", traces, layout);
-      // Trigger Gene_ID dropdown to use for filtering gene expression plot
-      var geneHeader = genesTable.querySelector("th");
-      var clickableHeader = geneHeader.firstChild.firstChild;
-      if (
-       dropdowns["genes-table"] == null ||
-       dropdowns["genes-table"][0] == null) {
-        dropDown(event, clickableHeader);
-        processHideDropdown();
-      }
       var plotDiv = document.getElementById("genexp-plot");
       plotDiv.on("plotly_click", function(data){
         var selectedGene = data.points[0].x;
@@ -981,24 +936,10 @@
         }
       });
     };
-{# =================================================== Gene enrichment plot #}    function showEnr() {      var field = document.querySelector('input[name="enr_col"]:checked');      if (field == null) {        showHelp(event, "select-column");        return;      }      var colToPlot = field.value;      var genesTable = document.getElementById("genes-table");      var colIdx = [...genesTable.querySelectorAll("th")].filter( c => {        return c.textContent.slice(0, -2) === colToPlot;      }).map(c => {        return c.children[0].children[0].id.split("_").pop();      });      var geneRows = [...genesTable.querySelectorAll("tr")].slice(1);      var attrs = geneRows.filter(r => {        return !r.classList.contains("collapsed");      }).map(r => {        return r.querySelectorAll("td")[colIdx].textContent.trim();      });      $.ajax({        url: "/enr",        method: "POST",        data: {         genome: genome,         col: colToPlot,         attrs: JSON.stringify(attrs),        },        success: function (results) {          var plotData = results["data"];          var numTests = results["num_tests"];          var xVals = plotData.map(x => x[0]);          var yVals = plotData.map(x => x[1]);          var pVals = plotData.map(x => x[2]);          // Calculate colorbar ticks          var logpMin = Math.floor(Math.min(0, ...pVals));          var logpMax = Math.ceil(Math.max(2, ...pVals));          var tickValues = [];          var tickLabels = [];          for (var i = logpMin; i <= logpMax; i++) {            tickValues.push(i);            tickLabels.push(10**(-i));          }          var trace = {            x: xVals,            y: yVals,              type: "bar",            marker: {              color: pVals,              colorscale: [               [0, "rgb(0,0,255)"],               [0.5, "rgb(128,0,128)"],               [1, "rgb(255,0,0)"]],              cmin: Math.min(0, ...pVals),              cmax: Math.max(2, ...pVals),              colorbar: {                title: "P-value",                thickness: 20,                ticks: "outside",                tickvals: tickValues,                ticktext: tickLabels,              }            },            //hoverinfo: "x+text",            //hovertext: hoverValues,          };          var layout = {            hoverdistance: 5,            font: {              size: 12,           },            yaxis: {              title: "log(2)-fold enrichment",              tickformat: ".2f",            },            xaxis: {              tickangle: 20,              automargin: true,              showgrid: true,            },        //        automargin: true,            margin: {              l: 100,              r: 20,              b: 20,              t: 20,              pad: 4,            },          };          Plotly.newPlot("genenr-plot", [trace], layout);        }      });    }{# ======================================================= Update functions #}    function genesToExp() {
-      var genesTable = document.getElementById("genes-table");
-      var rows = genesTable.querySelector("tbody").querySelectorAll("tr");
-      rows.forEach( function(row) {
-        geneName = row.querySelector("td").innerText;
-        if (!row.classList.contains("collapsed")) {
-          document.getElementById("genexp_" + geneName).checked = true;
-        } else {
-          document.getElementById("genexp_" + geneName).checked = false;
-        }
-      });
-      var counter = document.getElementById("genexp_" + geneName);
-      updateCount(counter.parentElement.parentElement);
-    }
-    function genesToIGV(toAll) {
+{# =================================================== Gene enrichment plot #}    function showEnr() {      var field = document.querySelector('input[name="enr_col"]:checked');      if (field == null) {        showHelp(event, "select-column");        return;      }      var colToPlot = field.value;      var genesTable = document.getElementById("genes-table");      var colIdx = [...genesTable.querySelectorAll("th")].filter( c => {        return c.textContent.slice(0, -2) === colToPlot;      }).map(c => {        return c.children[0].children[0].id.split("_").pop();      });      var geneRows = [...genesTable.querySelectorAll("tr")].slice(1);      var attrs = geneRows.filter(r => {        return !r.classList.contains("collapsed");      }).map(r => {        return r.querySelectorAll("td")[colIdx].textContent.trim();      });      $.ajax({        url: "/enr",        method: "POST",        data: {         genome: genome,         col: colToPlot,         attrs: JSON.stringify(attrs),        },        success: function (results) {          var plotData = results["data"];          var numSubset = results["num_subset"];          var numGenes = results["num_genes"];          var numTests = plotData.length;          var xVals = plotData.map(x => x[0]);          var yVals = plotData.map(x => x[1]);          var pVals = plotData.map(x => x[2]);          var hoverValues = [];          for (attrData of plotData) {            hoverValues.push(              ("Frequency in genome: " +              attrData[3].toString() + "/" + numGenes + "<br>" +              "Frequency in gene set: " +              attrData[4].toString() + "/" + numSubset + "<br>" +              "P-value: " + (10**(-attrData[2])).toExponential(3).toString()));          }          // Calculate colorbar ticks          var logpMin = Math.floor(Math.min(0, ...pVals));          var logpMax = Math.ceil(Math.max(2, ...pVals));          var tickValues = [];          var tickLabels = [];          for (var i = logpMin; i <= logpMax; i++) {            tickValues.push(i);            tickLabels.push(10**(-i));          }          var trace = {            x: xVals,            y: yVals,              type: "bar",            marker: {              color: pVals,              colorscale: [               [0, "rgb(0,0,255)"],               [0.5, "rgb(128,0,128)"],               [1, "rgb(255,0,0)"]],              cmin: Math.min(0, ...pVals),              cmax: Math.max(2, ...pVals),              colorbar: {                title: "P-value",                thickness: 20,                ticks: "outside",                tickvals: tickValues,                ticktext: tickLabels,              }            },            hoverinfo: "x+text",            hovertext: hoverValues,          };          var layout = {            hoverdistance: 5,            font: {              size: 12,           },            yaxis: {              title: "log(2)-fold enrichment",              tickformat: ".2f",            },            xaxis: {              tickangle: 20,              automargin: true,              showgrid: true,            },        //        automargin: true,            margin: {              l: 100,              r: 20,              b: 20,              t: 20,              pad: 4,            },            annotations: [              {                x: 1,                y: 1,                xref: "paper",                yref: "paper",                text: (                  "Number of genes: " + numGenes.toString() + "<br>" +                  "Number of tests: " + numTests.toString() + "<br>" +                  "Adj. p-value threshold: " +                   (0.05 / numTests).toExponential(2).toString()),                showarrow: false,                font: {                  size: 12,                  color: "#fff",                },                bgcolor: "#000",                borderpad: 4,                align: "right",              }            ],          };          Plotly.newPlot("genenr-plot", [trace], layout);        }      });    }{# ======================================================= Update functions #}    function genesToVars() {      var varBoxes = document.querySelectorAll(".var-checkbox");      var visibleGenes = visGenes();      for (let i = 0; i< varBoxes.length; i++) {        var checkbox = varBoxes[i];        if (!visibleGenes.includes(checkbox.getAttribute("gene"))) {          checkbox.checked = false;        }      }    }    function varsToGenes() {      var varBoxes = document.querySelectorAll(".var-checkbox:checked");      var varGenes = [];      for (let i = 0; i< varBoxes.length; i++) {        var affectedGenes = varBoxes[i].getAttribute("gene").split(" ");        for (gene of affectedGenes) {          varGenes.push(gene);        }      }      var visibleGenes = visGenes();      for (gene of visibleGenes) {        if (!varGenes.includes(gene)) {          var checkbox = document.getElementById("genes-table0" + gene);          checkbox.checked = false;        }      }      applyFilters([dropdowns["genes-table"][0], "genes-table"], [], false);    }    function genesToIGV(toAll) {
       var genesLoc = "";
-      var roiConfig =  [ { color: "rgba(217,144,88,0.1)", features: [] } ];
-      if (toAll == null) {
+      var roiConfig =  [];
+      if (!toAll) {        var geneROIs = { color: "rgba(217,144,88,0.1)", features: [] };
         var genesTable = document.getElementById("genes-table");
         var rows = genesTable.querySelector("tbody").querySelectorAll("tr");
         for (let i = 0; i < rows.length; i++) {
@@ -1007,27 +948,24 @@
             var cellData = Array.from(cells).slice(0, 4);
             var [id, chrom, start, end] = cellData.map(cell => {
               return cell.innerText;
-            });
+            });            start = parseInt(start);            end = parseInt(end);            var offset = Math.floor((end - start) / 10);
             genesLoc += chrom + ":"
-            genesLoc += (parseInt(start) - 200) + "-";
-            genesLoc += (parseInt(end) + 200) + " ";
+            genesLoc += (start - offset) + "-";
+            genesLoc += (end + offset) + " ";
             const roi = {
               chr: chrom,
               start: start,
               end: end,
               name: id,
             };
-            roiConfig[0]["features"].push(roi);
-          }
-        }
-        browserPromise.then(browser => {
+            geneROIs["features"].push(roi);          }
+        }        roiConfig.push(geneROIs);        var varROIs = { color: "rgba(20,50,217,0.1)", features: [] }        var vars = document.querySelectorAll(".var-checkbox");        for (let i = 0; i < vars.length; i++) {          if (vars[i].checked) {            var [chrom, pos] = vars[i].getAttribute("pos").split(":");            pos = parseInt(pos.replaceAll(",", ""));            var len = parseInt(vars[i].getAttribute("len"));            const roi = {              chr: chrom,              start: pos,              end: pos + len,              name: vars[i].id,            }            varROIs["features"].push(roi);          }
+        }        roiConfig.push(varROIs);        browserPromise.then(browser => {
           browser.clearROIs();
           browser.loadROI(roiConfig);
         });
-      } else {
-        genesLoc = "all";
-      }
-      browserPromise.then(browser => {
+      } else {        var fmt = document.getElementById("fmt-field").value;        if (fmt === "region") {          var chrom = document.getElementById("chrom-field").value;          var start = document.getElementById("start-field").value;          var end   = document.getElementById("end-field").value;          genesLoc = chrom + ":" + start.toString() + "-" + end.toString();        } else if (fmt === "coord") {          genesLoc = document.getElementById("coord-field").value;        } else {          genesLoc = "all";        }
+      }      browserPromise.then(browser => {
         browser.goto(genesLoc);
       });
     }
@@ -1069,7 +1007,7 @@
       var table = document.getElementById(tableId);
       if (table != null) {
         var genes = JSON.parse('{{ genes|tojson|safe }}');        createTable(genes, table);
-      }
+      }      // Trigger Gene_ID dropdown to use for filtering      var geneHeader = table.querySelector("th");      var clickableHeader = geneHeader.firstChild.firstChild;      dropDown(event, clickableHeader);      processHideDropdown();
       // Create RNA-seq projects table
       var tableId = "projects-table";
       var table = document.getElementById(tableId);
@@ -1085,8 +1023,8 @@
         createTable(runData, table);
         table.classList.add("collapsed");
         updateTableCount(tableId);      }
-      // Set trackers      for (dropdownType of ["phe-choice", "exp_col", "enr_col"]) {
-        var radioBtn = document.getElementsByName(dropdownType)[0];        updateTracker(radioBtn.parentElement.parentElement);      }      // Uncheck all groups selected
+      // Set trackers      for (dropdownType of ["phe-choice", "exp_col", "enr_col"]) {        var radioBtns = document.getElementsByName(dropdownType);
+        if (radioBtns.length > 0) {          var dropdown = radioBtns[0].parentElement.parentElement;          updateTracker(dropdown);        }      }      // Uncheck all groups selected
       var checkboxes = document.querySelectorAll(".expruns_group-checkbox");
       for (let i = 0; i < checkboxes.length; i++) {
         checkboxes[i].checked = false;
@@ -1094,8 +1032,8 @@
       if (checkboxes.length > 0) {
         updateCount(checkboxes[0].parentElement.parentElement);
         filterRunsTable();
-      }
-      // Prevent hiding help popup when clicked within
+      }
+      // Prevent hiding help popup when clicked within
       const helpPopup = document.getElementById("help-popup");
       popupClickedRetain(helpPopup);
     });

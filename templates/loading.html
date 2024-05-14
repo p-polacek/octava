@@ -1,0 +1,56 @@
+{% extends "header.html" %}
+
+{% block title %} Task progress {% endblock %}
+
+{% block errors %}
+  {% if errors %}
+    <div class="padded-left padded-bottom">
+      <h2 class="padded-left red-text">
+        Warnings:
+      </h2>
+      <h3 class="padded-left taller-line bold">
+        {% for error in errors %}
+          {{ error }}
+        <br>
+        {% endfor %}
+      </h3>
+    </div>
+  {% endif %}
+{% endblock%}
+
+{% block content %}
+  <div class="padded-left">
+    <div class="padded-top padded-left padded-right">
+       <h2>
+         Task submitted, you will be redirected after completion.
+       </h2>
+       <h3 id="error" class="red-text taller-line bold">
+       </h3>
+    </div>
+  </div>
+{% endblock %}
+
+{% block script %}
+  <script>
+    var genome  = '{{ genome }}';
+    var taskId  = '{{ task_id }}';
+    var task    = '{{ task }}';
+
+    var error = document.getElementById("error");
+    const eventSource = new EventSource("/stream/" + taskId);
+    eventSource.onmessage = function(event) {
+      var message = event.data.trim();
+      if (event.data === "Done.") {
+        eventSource.close();
+        if (task === "filt") {
+          window.location.href = "/" + genome + "/Association_analysis/Options";
+        } else if (task == "assoc") {
+          window.location.href = "/" + genome + "/Association_analysis/Results";
+        }
+      } else {
+        error.innerHTML += "Error:<br>" + message;
+        eventSource.close();
+      }
+    };
+  </script>
+{% endblock %}

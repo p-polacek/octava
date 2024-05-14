@@ -18,3 +18,5 @@ xlsxwriter==3.2.0
 pyarrow
 
 R.utils
+
+jsonlite

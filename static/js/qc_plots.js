@@ -36,6 +36,39 @@ function getMaxRows(plotChoice) {
   }
 };
 
+function fetchChrLd() {
+var plotChoice = document.getElementById("choice-field")
+  var ldChrDiv = document.getElementById("ld-chr-div");
+  if (plotChoice.value === "ld") {
+    ldChrDiv.classList.remove("collapsed");
+    var ldChr = document.getElementById("ld-chr-field").value;
+    if (markers == null) {
+      markers = "";
+    }
+    var requests = [];
+    var request = $.ajax({
+      url: "/chr_ld",
+      method: "POST",
+      data: {
+        genome: genome,
+        markers: markers,
+        chrom: ldChr,
+      },
+      success: function (data) {
+        chrLdData = data;
+      }
+    });
+    requests.push(request);
+
+    $.when.apply($, requests).done(function() {
+      showPlot();
+    })
+  } else {
+    ldChrDiv.classList.add("collapsed");
+    showPlot();
+  }
+}
+
 // In/decrement table
 function increment() {
   var plotChoice = document.getElementById("choice-field").value;
@@ -285,7 +318,6 @@ function showPlot() {
       },
     };
     var layout = {
-      title: "Kinship matrix",
       xaxis: {
         tickangle: -45,
       },
@@ -293,9 +325,37 @@ function showPlot() {
         tickangle: -45,
       },
       margin: {
-        t: 70,
+        t: 10,
         pad: 4
       },
+    }
+  } else if (plotChoice === "ld") {
+    var ldChr = document.getElementById("ld-chr-field").value;
+    var trace = {
+      type: "heatmap",
+      z: chrLdData[0],
+      x: chrLdData[1],
+      y: chrLdData[1],
+      colorscale: [
+       [0, "rgb(255,255,255)"],
+       [1, "rgb(255,0,0)"]],
+      colorbar: {
+        title: "LD",
+      },
+    };
+    var layout = {
+      xaxis: {
+        tickangle: -45,
+      },
+      yaxis: {
+        tickangle: -45,
+      },
+      margin: {
+        t: 10,
+        pad: 0
+      },
+      plot_bgcolor: "rgb(150,150,150)",
+      //plot_bgcolor: "rgb(0,0,0)",
     }
   } else {
     var trace = {
@@ -352,12 +412,13 @@ function showPlot() {
   document.getElementById("table-to").innerHTML = 10;
 
   var tableDiv = document.getElementById("table-div");
-  if (["dens", "pca", "kin"].includes(plotChoice)) {
+  if (["dens", "pca", "kin", "ld"].includes(plotChoice)) {
     tableDiv.classList.add("collapsed");
   } else {
     tableDiv.classList.remove("collapsed");
     fillTable(plotChoice);
   }
+
   document.getElementById("plot-div").innerHTML = "";
   //Plotly.purge("plot-div");
   Plotly.newPlot("plot-div", [trace], layout);

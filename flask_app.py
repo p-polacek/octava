@@ -2,6 +2,7 @@
 
 from flask import Flask
 from flask_compress import Compress
+from flask_executor import Executor
 
 from app.dirs import (
   root_dir,
@@ -13,6 +14,7 @@ app.secret_key = "275b250b2816223102a047d297676ce0"
 app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024
 
 Compress(app)
+executor = Executor(app)
 
 from app.routes import (
   assoc,
@@ -26,6 +28,7 @@ from app.routes import (
   assoc_opts,
   assoc_locus)
 
-#app.run(
-#  debug=True,
-#  port=8888)
+if __name__ == "__main__":
+    app.run(
+      debug=True,
+      port=8888)
