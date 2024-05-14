@@ -9,7 +9,7 @@ import gffutils
 import pandas as pd
 from collections import Counter
 
-from flask_app import data_dir
+from app.dirs import data_dir
 
 from modules.assoc import run_qc
 from modules.vcf_reader import VcfReader
@@ -61,8 +61,7 @@ def configure(genome):
       genome,
       gconfig["vcf"])
 
-    # Create a genom
-    e data file if none exists
+    # Create a genome data file if none exists
     gdata_path = os.path.join(
       data_dir,
       genome,
@@ -162,9 +161,9 @@ def configure(genome):
         gt_rm = subprocess.Popen(
           ["bcftools", "view",
            "-G",
-           "-Oz", "-o"
+           "-Oz", "-o",
            var_only],
-          stdin=info_rm.stdout
+          stdin=info_rm.stdout,
           stdout=subprocess.PIPE,
           stderr=subprocess.PIPE)
         out, err = gt_rm.communicate()
