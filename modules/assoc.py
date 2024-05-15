@@ -104,6 +104,7 @@ def run_qc(genome, markers=None):
            "--make-bed",
            "--set-all-var-ids", "@:#",
            "--allow-extra-chr",
+           "--max-alleles", "2",
            "--out", plink_out],
           stdout=subprocess.PIPE,
           stderr=subprocess.PIPE)
