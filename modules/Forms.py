@@ -102,8 +102,9 @@ class AlleleMinerForm(RegionForm):
          "Modifier"),
         ("geneonly",
          "Don't show variants"),
-        ("SEV",
-         "Only deleterious variants")])
+#        ("SEV",
+#         "Only deleterious variants")
+       ])
 
     samples = MultiCheckboxField(
       "Sample:",
@@ -154,6 +155,8 @@ class PlotForm(FlaskForm):
       choices = [
         ("dens",
          "Marker density"),
+        ("ld",
+        "Linkage disequilibrium"),
         ("smiss",
          "Sample missingness"),
         ("vmiss",
@@ -166,6 +169,9 @@ class PlotForm(FlaskForm):
          "Minor allele frequency"),
         ("hwe",
          "-log10(P) HW equilibrium")])
+    ld_chr = SelectField(
+      "Chrom:",
+      choices=[])
 
 class AssocQCform(PlotForm):
     smiss = DecimalField(
@@ -213,6 +219,9 @@ class AssocResForm(RegionForm, PlotForm):
     markers = MultiCheckboxField(
       "Marker set:",
       choices = [])
+    model_sgl = RadioField(
+      "Model:",
+      choices = models)
     models = MultiCheckboxField(
       "Model:",
       choices = models)
@@ -224,9 +233,11 @@ class AssocResForm(RegionForm, PlotForm):
       choices = [])
     new_phe = MultipleFileField()
     k = BooleanField(
-      "Kinship (K) correction")
+      "Kinship (K) correction",
+      default = True)
     q = BooleanField(
-      "PCA (Q) correction")
+      "PCA (Q) correction",
+      default = True)
     q_num = IntegerField(
       "Number of PCs:",
       default = 3)

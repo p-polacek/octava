@@ -618,16 +618,14 @@ def am_pipeline(genome, form):
 ###############################################################################
 
                 quals = list()
-                if "GL" in data.keys():
-                    # Genotype likelihoods converted to Phred-scale
-                    for q in data["GL"].split(","):
-                        try:
-                            quals.append(int(q))
-                        except ValueError:
-                            pass
-                    qual = sorted(quals)[1] * -10 if quals else ""
+                qual = ""
+                if "GQ" in data.keys():
+                    try:
+                        qual = int(data["GL"])
+                    except ValueError:
+                        pass
 
-                elif "PL" in data.keys():
+                if qual == "" and "PL" in data.keys():
                     for q in data["PL"].split(","):
                         try:
                             quals.append(int(q))
@@ -635,8 +633,14 @@ def am_pipeline(genome, form):
                             pass
                     qual = sorted(quals)[1] if quals else ""
 
-                else:
-                    qual = ""
+                if qual == "" and "GL" in data.keys():
+                    # Genotype likelihoods converted to Phred-scale
+                    for q in data["GL"].split(","):
+                        try:
+                            quals.append(int(q))
+                        except ValueError:
+                            pass
+                    qual = sorted(quals)[1] * -10 if quals else ""
 
                 gts[samp_idx].append([genotype, qual])
 
