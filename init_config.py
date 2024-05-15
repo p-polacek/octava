@@ -214,6 +214,9 @@ def annotate_db(genome, gconfig):
             for col in cols:
                 val = data[col]
                 gene.attributes[col] = val if not pd.isna(val) else ""
+        else:
+            for col in cols:
+                gene.attributes[col] = ""
         new_entries.append(gene)
     db = db.update(
       new_entries,
