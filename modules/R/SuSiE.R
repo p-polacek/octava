@@ -58,7 +58,6 @@ option_list <- list(
 opt_parser = OptionParser(option_list=option_list,
                           epilogue="");
 opts <- parse_args(opt_parser)
-q()
 
 if (0) {
   opts$assoc  <- "data/Demo/assoc/D/res/MLM.Plant_growth_habit.tsv.gz"
@@ -82,7 +81,7 @@ assoc <- assoc[assoc$Pos <= opts$end, ]
 r <- as.matrix(fread(opts$r2, sep="\t", check.names=F))
 fitted_rss1 <- susie_rss(bhat=assoc$Effect,
                          shat=assoc[["std Error"]],
-                         n=opts$num_phe,
+                         n=as.numeric(opts$num_phe),
                          R=r,
                          var_y=as.numeric(opts$var),
                          L=10,

@@ -6,6 +6,7 @@ import sys
 import json
 import pysam
 import gffutils
+import subprocess
 import pandas as pd
 from collections import Counter
 
@@ -77,7 +78,7 @@ def configure(genome):
           idx_path,
           sep="\t",
           header=None)
-        chroms = idx_df.iloc[:, 0].tolist()
+        chroms = idx_df.iloc[:, 0].astype(str).tolist()
         sizes = idx_df.iloc[:, 1].tolist()
 
         offset = 0
@@ -92,7 +93,7 @@ def configure(genome):
 
         # Get first gene ID in the file
         for rec in db.region(
-          region=chroms[0],
+          region=str(chroms[0]),
           featuretype="gene"):
             gdata["id_fmt"] = rec.id
             break
@@ -253,8 +254,8 @@ if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Requires a single argument: name of folder in data/ folder.") 
     else:
-        try:
-            configure(sys.argv[1])
-            print("Finished initialising genome.")
-        except:
-            print("Problem initialising genome, check config.ini.")
+#        try:
+        configure(sys.argv[1])
+ #           print("Finished initialising genome.")
+  #      except:
+   #         print("Problem initialising genome, check config.ini.")

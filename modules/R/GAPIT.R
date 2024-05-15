@@ -59,7 +59,7 @@ for (model in models) {
       sum(!is.na(input$phe[[col]])),
       dim(input$Q)[2] - 1,
       "Yes", #is.null(input$K),
-      var(!is.na(input$phe[[col]]))
+      var(input$phe[!is.na(input$phe[[col]]), col])
     )
     labels <- c(
       "Number of markers",
@@ -73,7 +73,6 @@ for (model in models) {
       glue("{model}.{col}.params"))
   }
 }
-
 ################################################################################
 #### Run GWAS
 ################################################################################

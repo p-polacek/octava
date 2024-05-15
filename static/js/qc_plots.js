@@ -189,37 +189,38 @@ function showPlot() {
       }).map( n => {
         return chrNames.indexOf(n);
       });
-      var visSizes = visIdxs.map( i => {
+      var plotSizes = visIdxs.map( i => {
         return Math.floor(chrSizes[i] / 1000000) * 1000000 + 1000000;
       });
-      var visOffsets = visIdxs.map( i => {
+      var plotOffsets = visIdxs.map( i => {
         return Math.floor(chrOffsets[i] / 1000000) * 1000000 + 1000000;
       });
-      var visTicks = visOffsets.map( (o, i) => {
-        return visOffsets[i] + Math.floor(visSizes[i] / 2);
+      var plotTicks = plotOffsets.map( (o, i) => {
+        return plotOffsets[i] + Math.floor(plotSizes[i] / 2);
       });
-      visNames.push("Other");
-      visOffsets.push(
-       (visOffsets[
-        visOffsets.length - 1]
-        + visSizes[
-         visSizes.length - 1]));
-      visSizes.push(
+      var plotNames = visNames.slice();
+      plotNames.push("Other");
+      plotOffsets.push(
+       (plotOffsets[
+        plotOffsets.length - 1]
+        + plotSizes[
+         plotSizes.length - 1]));
+      plotSizes.push(
        Math.max(
        Math.floor(
         chrSizes[chrSizes.length - 1] / 1000000)
         * 1000000
         + 1000000,
-       visOffsets[visOffsets.length - 1] + 1000000));
+       plotOffsets[plotOffsets.length - 1] + 1000000));
 
-      visTicks.push(
-       visOffsets[visOffsets.length - 1]
-       + Math.floor(visSizes[visSizes.length - 1] / 2));
+      plotTicks.push(
+       plotOffsets[plotOffsets.length - 1]
+       + Math.floor(plotSizes[plotSizes.length - 1] / 2));
     } else {
-      visNames       = chrNames;
-      var visTicks   = chrTicks;
-      var visOffsets = chrOffsets;
-      var visSizes   = chrSizes;
+      var plotNames   = chrNames;
+      var plotTicks   = chrTicks;
+      var plotOffsets = chrOffsets;
+      var plotSizes   = chrSizes;
     }
 
     var trace = {
@@ -240,8 +241,8 @@ function showPlot() {
       plot_bgcolor: "rgba(0, 0, 0, 0)",
       paper_bgcolor: "rgba(0, 0, 0, 0)",
       xaxis: {
-        tickvals: visTicks,
-        ticktext: visNames,
+        tickvals: plotTicks,
+        ticktext: plotNames,
         gridcolor: "rgba(0,0,0,0.1)",
       },
       yaxis: {
@@ -258,14 +259,14 @@ function showPlot() {
       bargap: 0,
     };       
     var spanShapes = [];
-    for (i = 0; i < visNames.length; i+= 2) {
+    for (i = 0; i < plotNames.length; i+= 2) {
       var shape = {
         type: "rect",
         xref: "x",
         yref: "paper",
-        x0: visOffsets[i],
+        x0: plotOffsets[i],
         y0: 0,
-        x1: visOffsets[i] + visSizes[i],
+        x1: plotOffsets[i] + plotSizes[i],
         y1: 1,
         fillcolor: "#000",
         opacity: 0.05,
