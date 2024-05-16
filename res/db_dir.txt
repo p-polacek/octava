@@ -1,2 +1,0 @@
-# Path to put SQLite3 databases in, without trailing '/'
-res/gffutils_db
