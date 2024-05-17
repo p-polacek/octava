@@ -1,0 +1,16 @@
+bio
+biopython
+flask
+flask-compress
+flask-executor
+flask-wtf
+gffutils
+matplotlib
+pandas
+pyarrow
+pyfaidx
+pysam
+pytabix
+scipy
+sortedcontainers
+wtforms
