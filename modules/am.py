@@ -498,6 +498,8 @@ def am_pipeline(genome, form):
 
                     # Sort based on the order in var.INFO field
                     ann_list.sort(key=var.CSQ.index)
+                else:
+                    continue
 
 ###############################################################################
 ### Shorten long sequences in annotations (for html visualisation)
@@ -537,7 +539,7 @@ def am_pipeline(genome, form):
                                 if len(x.group()) > 12
                                 else x.group()),
                               aa)
-                        aa = re.sub("^p\.", "", aa)
+                        aa = re.sub(r"^p\.", "", aa)
                         print_ann.append(aa)
 
                     # Format warnings
@@ -637,7 +639,7 @@ def am_pipeline(genome, form):
                     # Genotype likelihoods converted to Phred-scale
                     for q in data["GL"].split(","):
                         try:
-                            quals.append(int(q))
+                            quals.append(float(q))
                         except ValueError:
                             pass
                     qual = sorted(quals)[1] * -10 if quals else ""

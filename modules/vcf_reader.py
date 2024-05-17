@@ -860,9 +860,10 @@ class VcfRecord(object):
                 else:
                     pv = conv(value)
             except (ValueError, TypeError, AttributeError):
-                raise ParseError("Unexpected value type in value '{}' for {} "
-                                 .format(field, value) + "INFO field at " +
-                                 " {}:{}" .format(self.CHROM, self.POS))
+                pv = ""
+                #raise ParseError("Unexpected value type in value '{}' for {} "
+                #                 .format(field, value) + "INFO field at " +
+                #                 " {}:{}" .format(self.CHROM, self.POS))
         self._parsed_info[field] = pv
         return pv
 
