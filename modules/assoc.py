@@ -106,12 +106,15 @@ def run_qc(genome, markers=None):
            "--allow-extra-chr",
            "--max-alleles", "2",
            "--polyploid-mode", "missing",
+           "--vcf-half-call", "missing",           
            "--out", plink_out],
           stdout=subprocess.PIPE,
-          stderr=subprocess.PIPE)
+          stderr=subprocess.PIPE,
+          text=True)
         out, err = pr.communicate()
         if pr.returncode != 0:
-            raise OSError(err.decode())
+            raise OSError(err)
+        print(out)
 
     if any((not os.path.exists(
       f"{plink_out}.{ext}")
@@ -134,10 +137,12 @@ def run_qc(genome, markers=None):
            "--allow-extra-chr",
            "--out", plink_out],
           stdout=subprocess.PIPE,
-          stderr=subprocess.PIPE)
+          stderr=subprocess.PIPE,
+          text=True)
         out, err = pr.communicate()
         if pr.returncode != 0:
-            raise OSError(err.decode())
+            raise OSError(err)
+        print(out)
 
     metrics = (
       "smiss",
@@ -207,9 +212,15 @@ def run_qc(genome, markers=None):
           header = False,
           compression="gzip")
 
-        hgts, bins = np.histogram(data.iloc[:, 1])
+        na_cnt = data.shape[0] - data.dropna().shape[0]
+        hgts, bins = np.histogram(data.dropna().iloc[:, 1])
+        hgts = hgts.tolist()
+        bins = bins.tolist()
+        if na_cnt:
+            hgts.insert(0, na_cnt)
+            bins.insert(0, -1)
         with open(os.path.join(stats_dir, metric), "w") as hist_out:
-            json.dump([hgts.tolist(), bins.tolist()], hist_out)
+            json.dump([hgts, bins], hist_out)
 
         if metric == "smiss":
             samp_num = data.shape[0]
@@ -287,10 +298,12 @@ def run_qc(genome, markers=None):
            "--r2-unphased", "square0",
            "--out", plink_out],
           stdout=subprocess.PIPE,
-          stderr=subprocess.PIPE)
+          stderr=subprocess.PIPE,
+          text=True)
         out, err = pr.communicate()
         if pr.returncode != 0:
-            raise OSError(err.decode())
+            raise OSError(err)
+        print(out)
 
         r2_vals = pd.read_csv(
           f"{plink_out}.unphased.vcor2",
@@ -394,16 +407,20 @@ def filt_qc(
           if str(data["window"]) else "200kb")
 
         pr = subprocess.Popen(
+        #subprocess.run(
           [plink_path,
           "--bfile", plink_in,
           "--indep-pairwise", data["window"], str(data["prune"]),
           "--allow-extra-chr",
           "--out", plink_out],
-         stdout=subprocess.PIPE,
-         stderr=subprocess.PIPE)
+         #check=True)
+          stdout=subprocess.PIPE,
+          stderr=subprocess.PIPE,
+          text=True)
         out, err = pr.communicate()
         if pr.returncode != 0:
-            raise OSError(err.decode())
+            raise OSError(err)
+        print(out)
 
         prune_out_fn = plink_out + ".prune.out"
         with open(prune_out_fn, "r") as prune_out_in:
@@ -440,12 +457,16 @@ def filt_qc(
 
     #yield "Applying filters"
     pr = subprocess.Popen(
+    #subprocess.run(
       cmd,
-      stdout=subprocess.PIPE,
-      stderr=subprocess.PIPE)
+      #check=True)
+          stdout=subprocess.PIPE,
+          stderr=subprocess.PIPE,
+          text=True)
     out, err = pr.communicate()
     if pr.returncode != 0:
-        raise OSError(err.decode())
+        raise OSError(err)
+    print(out)
 
     # Impute missing genotypes
     beagle_path = os.path.join(
@@ -461,16 +482,20 @@ def filt_qc(
     if data["imp"]:
         #yield "Imputing missing genotypes"
         pr = subprocess.Popen(
+        #subprocess.run(
           ["java",
            "-jar",
            beagle_path,
            f"gt={vcf_in}",
            f"out={vcf_root}"],
+          #check=True)
           stdout=subprocess.PIPE,
-          stderr=subprocess.PIPE)
+          stderr=subprocess.PIPE,
+          text=True)
         out, err = pr.communicate()
         if pr.returncode != 0:
-            raise OSError(err.decode())
+            raise OSError(err)
+        print(out)
 
         os.remove(vcf_in)
         os.rename(vcf_out, vcf_in)
@@ -485,17 +510,21 @@ def filt_qc(
           "blocktool.py")
         # Make necessary genotype format files
         pr = subprocess.Popen(
+        #subprocess.run(
           [plink_path,
            "--vcf", vcf_out,
            "--allow-extra-chr",
            "--make-bed",
            "--export", "tped",
            "--out", final_root],
+          #check=True)
           stdout=subprocess.PIPE,
-          stderr=subprocess.PIPE)
+          stderr=subprocess.PIPE,
+          text=True)
         out, err = pr.communicate()
         if pr.returncode != 0:
-            raise OSError(err.decode())
+            raise OSError(err)
+        print(out)
 
         # Make haplotype blocks
         pr = subprocess.Popen(
@@ -505,10 +534,12 @@ def filt_qc(
            "--gab-max-kb", "1000",
            "--gt-dir", filt_dir],
           stdout=subprocess.PIPE,
-          stderr=subprocess.PIPE)
+          stderr=subprocess.PIPE,
+          text=True)
         out, err = pr.communicate()
         if pr.returncode != 0:
-            raise OSError(err.decode())
+            raise OSError(err)
+        print(out)
 
         # Genotype gased on blocks
         pr = subprocess.Popen(
@@ -522,29 +553,35 @@ def filt_qc(
            "--min-hap", "1",
            "--tab"],
           stdout=subprocess.PIPE,
-          stderr=subprocess.PIPE)
+          stderr=subprocess.PIPE,
+          text=True)
         out, err = pr.communicate()
         if pr.returncode != 0:
-            raise OSError(err.decode())
+            raise OSError(err)
+        print(out)
 
         os.remove(f"{final_root}.tped")
         os.remove(f"{final_root}.tfam")
-    
+
     else:
         #yield "Processing filtered data"
         # Make necessary genotype format files
         pr = subprocess.Popen(
+        #subprocess.run(
           [plink_path,
            "--vcf", vcf_out,
            "--make-bed",
            "--allow-extra-chr",
            "--export", "A", "ped",
            "--out", final_root],
+          #check=True)
           stdout=subprocess.PIPE,
-          stderr=subprocess.PIPE)
+          stderr=subprocess.PIPE,
+          text=True)
         out, err = pr.communicate()
         if pr.returncode != 0:
-            raise OSError(err.decode())
+            raise OSError(err)
+        print(out)
 
         os.rename(
           f"{final_root}.raw",
@@ -573,17 +610,21 @@ def filt_qc(
     #yield "Calculating kinship and population structure"
     # Calculate K and Q
     pr = subprocess.Popen(
+    #subprocess.run(
       [plink_path,
        "--bfile", final_root,
        "--make-rel", "square",
        "--pca", "15",
        "--allow-extra-chr",
        "--out", final_root],
+      #check=True)
       stdout=subprocess.PIPE,
-      stderr=subprocess.PIPE)
+      stderr=subprocess.PIPE,
+      text=True)
     out, err = pr.communicate()
     if pr.returncode != 0:
-        raise OSError(err.decode())
+        raise OSError(err)
+    print(out)
 
     k_matr = pd.read_csv(
       f"{final_root}.rel",
@@ -632,16 +673,20 @@ def filt_qc(
       "kin")
 
     pr = subprocess.Popen(
+    #subprocess.run(
       [plink1_path,
        "--bfile", final_root,
        "--distance", "square",
        "--allow-extra-chr",
        "--out", hamm_out],
+      #check=True)
       stdout=subprocess.PIPE,
-      stderr=subprocess.PIPE)
+      stderr=subprocess.PIPE,
+      text=True)
     out, err = pr.communicate()
     if pr.returncode != 0:
-        raise OSError(err.decode())
+        raise OSError(err)
+    print(out)
 
     hamm_matrix = np.loadtxt(
       f"{hamm_out}.dist",
@@ -719,7 +764,7 @@ def filt_qc(
                   if "--mind" in line]
                 smiss_rem = (
                   samp_rem
-                  - int(re.search("\d+", smiss_line[0])[0])
+                  - int(re.search(r"\d+", smiss_line[0])[0])
                   if len(smiss_line) == 1 else "")
                 samp_rem = smiss_rem or samp_rem
 
@@ -728,7 +773,7 @@ def filt_qc(
                   if "--geno" in line]
                 vmiss_rem = (
                   vars_rem
-                  - int(re.search("\d+", vmiss_line[0])[0])
+                  - int(re.search(r"\d+", vmiss_line[0])[0])
                   if len(vmiss_line) == 1 else "")
                 vars_rem = vmiss_rem or vars_rem
 
@@ -737,7 +782,7 @@ def filt_qc(
                   if "--hwe" in line]
                 hwe_rem = (
                   vars_rem
-                  - int(re.search("\d+", hwe_line[0])[0])
+                  - int(re.search(r"\d+", hwe_line[0])[0])
                   if len(hwe_line) == 1 else "")
                 vars_rem = hwe_rem or vars_rem
 
@@ -746,7 +791,7 @@ def filt_qc(
                   if "--maf" in line]
                 maf_rem = (
                   vars_rem
-                  - int(re.search("\d+", maf_line[0])[0])
+                  - int(re.search(r"\d+", maf_line[0])[0])
                   if len(maf_line) == 1 else "")
                 vars_rem = maf_rem or vars_rem
 
@@ -918,7 +963,8 @@ def run_assoc(genome, params):
     pr = subprocess.Popen(
       command,
       stdout=subprocess.PIPE,
-      stderr=subprocess.PIPE)
+      stderr=subprocess.PIPE,
+      text=True)
     out, err = pr.communicate()
 
     raw_dir = os.path.join(out_dir, "raw")
@@ -1036,5 +1082,6 @@ def run_assoc(genome, params):
                 os.remove(fn_path)
 
     if pr.returncode != 0:
-        raise OSError(err.decode())
+        raise OSError(err)
+    print(out)
     return "Done."

@@ -122,6 +122,7 @@ function fillTable(plotChoice) {
     method: "POST",
     data: {
      genome: genome,
+     markers: markers,
      metric: plotChoice,
      start_row: fromVal,
      end_row: toVal },

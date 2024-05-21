@@ -154,12 +154,21 @@ def fetch_filt():
     metric    = form["metric"]
     start_row = int(form["start_row"])
     end_row   = int(form["end_row"])
-
-    stats_root = os.path.join(
-      data_dir,
-      genome,
-      "stats",
-      "gt")
+    if "markers" in form.keys():
+        markers = form["markers"]
+        stats_root = os.path.join(
+          data_dir,
+          genome,
+          "assoc",
+          markers,
+          "gt",
+          "gt")
+    else:
+        stats_root = os.path.join(
+          data_dir,
+          genome,
+          "stats",
+          "gt")
 
     fn = f"{stats_root}.{metric}.csv.gz"
     with gzip.open(fn, "rt") as metr_in:

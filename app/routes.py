@@ -76,12 +76,13 @@ def task_stream(future):
         if future.result() == "Done.":
             return "data: Done.\n\n"
     except Exception as e:
-        e_args = e.args[0].strip().split("\n")
+        print(e)
+        e_args = "\n".join([str(arg) for arg in e.args]).strip().split("\n")
         return f"data: {', '.join(e_args)}\n\n"
 
 @app.route("/stream/<task_id>")
 def stream(task_id):
-    future = executor.futures._futures[task_id]
+    #future = executor.futures._futures[task_id]
     return Response(
       task_stream(future),
       content_type="text/event-stream")

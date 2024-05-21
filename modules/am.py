@@ -623,7 +623,7 @@ def am_pipeline(genome, form):
                 qual = ""
                 if "GQ" in data.keys():
                     try:
-                        qual = int(data["GL"])
+                        qual = int(data["GQ"])
                     except ValueError:
                         pass
 
