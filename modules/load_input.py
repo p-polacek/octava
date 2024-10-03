@@ -22,4 +22,4 @@ def load_config(genome):
       genome,
       "config.ini")
     _ = config.read(conf_path)
-    return config["Configuration"]
+    return config["setup"]

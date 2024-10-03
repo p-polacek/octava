@@ -10,6 +10,7 @@ from .vcf_reader import VcfReader
 from .load_input import load_config
 
 from app.dirs import data_dir
+from app.gffutils_db import gffutils_db_path
 
 """
 Allele mining pipeline
@@ -95,9 +96,8 @@ def am_pipeline(genome, form):
         errors.append("Problem loading VCF file.")
         
     try:
-        db_dir  = gconfig["gff_db"]
         db_path = os.path.join(
-          db_dir,
+          gffutils_db_path,
           f"{genome}.db")
         db = gffutils.FeatureDB(db_path)
     except:
@@ -132,12 +132,12 @@ def am_pipeline(genome, form):
     else:
         samp_dict = None
 
-    # Get attribute names of additional information  for genes
-    if gconfig["gene_info"]:
+    # Get attribute names of additional information for genes
+    if gconfig["info"]:
         info_path = os.path.join(
           data_dir,
           genome,
-          gconfig["gene_info"])
+          gconfig["info"])
         with open(info_path, "r") as info_in:
             gene_attrs = next(info_in).strip().split("\t")[1:]
     else:
@@ -266,7 +266,7 @@ def am_pipeline(genome, form):
               abs(rec.start - rec.end) + 1,
               rec.strand,
               #proms,
-              0,
+              0 if query["impact"] != ["geneonly"] else "",
               None]
             genes[rec.id] += [
               rec.attributes.get(attr, [])[0]
@@ -310,7 +310,7 @@ def am_pipeline(genome, form):
                   abs(rec.start - rec.end) + 1,
                   rec.strand,
                   #proms,
-                  0,
+                  0 if query["impact"] != ["geneonly"] else "",
                   i]
                 genes[rec.id] += [
                   rec.attributes.get(attr, [""])[0]
@@ -520,6 +520,10 @@ def am_pipeline(genome, form):
                     if len(alt) > 5:
                         alt = compress_sv(alt)
                     print_ann.append(alt)
+                    print_ann.append(ann["Annotation_Impact"])
+
+                    print_anns.append(" | ".join(print_ann))
+                    print_ann = []
 
                     # Split consequence names
                     print_csq = [
@@ -569,8 +573,9 @@ def am_pipeline(genome, form):
                   " | ".join(
                     (str_var,
                      data[0],
-                     score,
-                     data[11])))
+                     score)))
+                sevs.append(
+                     data[11])
 
 ###############################################################################
 ### Save variant entry

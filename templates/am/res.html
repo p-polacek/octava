@@ -41,7 +41,7 @@
             No variants found for query.
           </h3>
       </div>
-  {% else %}
+        {% else %}
           <div class="row-div">
             <h1
              class="clickable"
@@ -470,7 +470,9 @@
                     </button>
                   </div>
                   {% for choice in form.exprun_groups %}
-                    <div class="checkbox-row">
+                    <div
+                     class="checkbox-row"
+                     oncontextmenu="showGroupContents(this);">
                       {{ choice(
                        class="expruns_group-checkbox",
                        onchange="

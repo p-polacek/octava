@@ -4,14 +4,25 @@ import os
 import re
 import gzip
 import json
+import pysam
 import subprocess
 import numpy as np
+import configparser
 import pandas as pd
+import pandas_plink
 from collections import Counter
 
 from flask import (
   url_for,
   redirect)
+
+from __main__ import (
+  lock,
+  task_status)
+
+from app.dirs import (
+  root_dir,
+  data_dir)
 
 from modules.wpgma import wpgma
 
@@ -23,26 +34,41 @@ from modules.assoc_plot import (
   mplot,
   qqplot)
 
-from app.dirs import (
-  root_dir,
-  data_dir)
+from app.task_worker import progress
 
 tool_dir = os.path.join(
   root_dir,
   "modules",
   "tools")
-R_dir = os.path.join(
-  root_dir,
-  "modules",
-  "R")
+
+# Bin size for making marker density histograms
+mdbin = 1000000
+
+###############################################################################
+### Open a command-line process
+###############################################################################
+
+def popen(task_id, cmd):
+    pr = subprocess.Popen(
+      cmd,
+      stdout=subprocess.PIPE,
+      stderr=subprocess.STDOUT,
+      text=True)
+    for line in pr.stdout:
+        with lock:
+            task_status[task_id]["progress"] += line
+    pr.wait()
+    with lock:
+        task_status[task_id]["progress"] += "\n"
+    if pr.returncode != 0:
+        raise subprocess.CalledProcessError(1, "")
 
 ###############################################################################
 ### Calculate marker set summary statistics
 ###############################################################################
 
-def run_qc(genome, markers=None):
-    #yield "Summarizing genotype data"
-    gconfig = load_config(genome)
+def run_qc(genome, task_id, markers=None):
+    config = load_config(genome)
     gdata = load_gdata(genome)
 
     plink_path = os.path.join(
@@ -53,7 +79,7 @@ def run_qc(genome, markers=None):
         vcf_path = os.path.join(
           data_dir,
           genome,
-          gconfig["vcf"])
+          config["vcf"])
 
         stats_dir = os.path.join(
           data_dir,
@@ -96,9 +122,10 @@ def run_qc(genome, markers=None):
         "bed",
         "bim",
         "fam"))):
-        #yield "Processing input genotypes"
         # Create binary PLINK files
-        pr = subprocess.Popen(
+        progress(task_id, "Processing input genotype")
+        popen(
+          task_id,
           [plink_path,
            "--vcf", vcf_path,
            "--make-bed",
@@ -107,14 +134,7 @@ def run_qc(genome, markers=None):
            "--max-alleles", "2",
            "--polyploid-mode", "missing",
            "--vcf-half-call", "missing",           
-           "--out", plink_out],
-          stdout=subprocess.PIPE,
-          stderr=subprocess.PIPE,
-          text=True)
-        out, err = pr.communicate()
-        if pr.returncode != 0:
-            raise OSError(err)
-        print(out)
+           "--out", plink_out])
 
     if any((not os.path.exists(
       f"{plink_out}.{ext}")
@@ -125,8 +145,9 @@ def run_qc(genome, markers=None):
         "gcount",
         "afreq",
         "hardy"))):
-        #yield "Calculating genotype statistics"
-        pr = subprocess.Popen(
+        progress(task_id, "Calculating genotype statistics")
+        popen(
+          task_id,
           [plink_path,
            "--bfile", plink_out,
            "--missing",
@@ -135,14 +156,7 @@ def run_qc(genome, markers=None):
            "--freq",
            "--hardy",
            "--allow-extra-chr",
-           "--out", plink_out],
-          stdout=subprocess.PIPE,
-          stderr=subprocess.PIPE,
-          text=True)
-        out, err = pr.communicate()
-        if pr.returncode != 0:
-            raise OSError(err)
-        print(out)
+           "--out", plink_out])
 
     metrics = (
       "smiss",
@@ -165,121 +179,163 @@ def run_qc(genome, markers=None):
       "ID",
       "ID",
       "ID")
+    usecols = {
+      "smiss": ["MISSING_CT", "OBS_CT"],
+      "vmiss": ["MISSING_CT", "OBS_CT"],
+      "shet": ["IID", "OBS_CT", "O(HOM)"],
+      "vhet": ["ID", "HET_REF_ALT_CTS", "HOM_REF_CT", "TWO_ALT_GENO_CTS"],
+      "maf": ["ALT_FREQS"],
+      "hwe": ["P"]}
 
-    #yield "Processing genotype statistics"
+    progress(task_id, "Processing genotype statistics")
     for metric, ext, id_col in zip(metrics, exts, id_cols):
         qc_in = f"{plink_out}.{ext}"
-        qc_df = pd.read_csv(
+        cnt = Counter()
+        df = pd.read_csv(
           qc_in,
-          sep="\t")
+          sep="\t",
+          chunksize=100000,
+          usecols=usecols[metric])
+        h5_out = os.path.join(
+          stats_dir,
+          f"{metric}.h5")
 
-        if metric in ("smiss", "vmiss"):
-            qc_df["MIS_F"] = (qc_df["MISSING_CT"]
-                              / qc_df["OBS_CT"])
-            data = qc_df[[id_col, "MIS_F"]].sort_values(
-              by="MIS_F",
-              ascending=False)
-        elif metric == "shet":
-            qc_df["HET_F"] = ((qc_df["OBS_CT"]
-                               - qc_df["O(HOM)"])
-                              / qc_df["OBS_CT"])
-            data = qc_df[[id_col, "HET_F"]].sort_values(
-              by="HET_F",
-              ascending=False)
-        elif metric == "vhet":
-            qc_df["HET_F"] = (qc_df["HET_REF_ALT_CTS"]
-                              / (qc_df["HOM_REF_CT"]
-                                 + qc_df["HET_REF_ALT_CTS"]
-                                 + qc_df["TWO_ALT_GENO_CTS"]))
-            data = qc_df[[id_col, "HET_F"]].sort_values(
-            by="HET_F",
-            ascending=False)
-        elif metric == "maf":
-            qc_df["REF_FREQS"] = 1 - qc_df["ALT_FREQS"]
-            qc_df["MAF"] = qc_df[["REF_FREQS", "ALT_FREQS"]].min(axis=1)
-            data = qc_df[[id_col, "MAF"]].sort_values(
-              by="MAF")
-        elif metric == "hwe":
-            qc_df["log10P"] = -np.log10(qc_df["P"])
-            data = qc_df[[id_col, "log10P"]].sort_values(
-              by="log10P",
-              ascending=False)
+        for chk in df:
+            if metric in ("smiss", "vmiss"):
+                cnt.update(chk["MISSING_CT"] / chk["OBS_CT"])
+            elif metric == "shet":
+                chk["HET"] = (chk["OBS_CT"] - chk["O(HOM)"]) / chk["OBS_CT"]
+                chk = chk.loc[:, ["IID", "HET"]]
+                cnt.update(chk["HET"])
+            elif metric == "vhet":
+                chk["HET"] = (
+                  chk["HET_REF_ALT_CTS"]
+                  / (chk["HOM_REF_CT"]
+                  + chk["HET_REF_ALT_CTS"]
+                  + chk["TWO_ALT_GENO_CTS"]))
+                chk = chk.loc[:, ["ID", "HET"]]
+                cnt.update(chk["HET"])
+            elif metric == "maf":
+                chk["REF_FREQS"] = 1 - chk["ALT_FREQS"]
+                cnt.update(chk.min(axis=1))
+            elif metric == "hwe":
+                cnt.update(-np.log10(chk["P"]))
+            if metric in ("shet", "vhet"):
+                chk.to_hdf(
+                  h5_out,
+                  key="het",
+                  mode="a",
+                  format="table",
+                  append=True)
 
-        data.iloc[:, 1] = data.iloc[:, 1].round(5)
-        data.to_csv(
-          f"{plink_out}.{metric}.csv.gz",
-          index  = False,
-          header = False,
-          compression="gzip")
-
-        na_cnt = data.shape[0] - data.dropna().shape[0]
-        hgts, bins = np.histogram(data.dropna().iloc[:, 1])
+        cnt_vals = list(cnt.keys())
+        weights = [cnt[v] for v in cnt_vals]
+        hgts, bins = np.histogram(
+          cnt_vals,
+          weights=weights)
+        # Get a larger number of bins
+        cnt = {(-1 if np.isnan(v) else v): cnt[v] for v in cnt.keys()}
+        cnt_vals = list(cnt.keys())
+        weights = [cnt[v] for v in cnt_vals]
+        hgts, bins = np.histogram(
+          cnt_vals,
+          bins=len(bins)*5,
+          weights=weights)
         hgts = hgts.tolist()
         bins = bins.tolist()
-        if na_cnt:
-            hgts.insert(0, na_cnt)
-            bins.insert(0, -1)
         with open(os.path.join(stats_dir, metric), "w") as hist_out:
             json.dump([hgts, bins], hist_out)
 
         if metric == "smiss":
-            samp_num = data.shape[0]
+            samp_num = sum(weights)
         elif metric == "vmiss":
-            var_num = data.shape[0]
+            var_num = sum(weights)
 
-    #yield "Calculating marker density"
+    # Keep full data for sample missingness and heterozygosity
+    for metric, ext in (("smiss", "smiss"), ("shet", "het")):
+        qc_in = f"{plink_out}.{ext}"
+        df = pd.read_csv(
+          qc_in,
+          sep="\t",
+          index_col=[0],
+          usecols=["IID"] + usecols[metric])
+        out_path = os.path.join(
+          stats_dir,
+          f"stats.{metric}")
+        if metric == "smiss":
+            ((df["MISSING_CT"] / df["OBS_CT"])
+              .rename("SMISS")
+              .to_csv(
+                out_path,
+                sep="\t",
+                compression="gzip"))
+        elif metric == "shet":
+            (((df["OBS_CT"] - df["O(HOM)"]) / df["OBS_CT"])
+              .rename("SHET")
+              .to_csv(
+                out_path,
+                sep="\t",
+                compression="gzip"))
+
     # Histogram of marker density
-    chr_vis = gconfig["chr_vis"]
-    if chr_vis:
-        chr_vis = [
-          ch.strip()
-          for ch in chr_vis.split(",")]
+    progress(task_id, "Calculating marker density")
+    concat = json.loads(config["concat"])
+    ch_names = gdata["chr_names"]
+    ch_sizes = dict(zip(ch_names, gdata["chr_sizes"]))
+    ch_offsets = dict(zip(ch_names, gdata["chr_offsets"]))
+    bin_offsets = dict()
+    ch_names = [ch for ch in ch_names if ch not in concat]
+    other_size = sum([ch_sizes.pop(ch) for ch in concat])
+    for idx, ch in enumerate(ch_names):
+        bin_offsets[ch] = sum([
+          (ch_sizes[c] // mdbin * mdbin + mdbin)
+          for c in ch_names[:idx]])
+    if concat:
+        bin_offsets["Other"] = sum([
+          (ch_sizes[c] // mdbin * mdbin + mdbin)
+          for c in ch_names])
+        ch_sizes["Other"] = other_size
+        ch_names.append("Other")
 
     hgts, bins, coords = list(), list(), list()
     bins.append(0)
-    ids = data["ID"].str.split(":", expand=True)
-    for ch, pos in ids.groupby(0):
-        if chr_vis and ch not in chr_vis:
-            continue
-        ch_idx = gdata["chr_names"].index(ch)
-        ch_size = gdata["chr_sizes"][ch_idx]
-        ch_offset = gdata["chr_offsets"][ch_idx]
-        if ch_offset != 0:
-            ch_offset = (
-              ch_offset
-              // 1000000
-              * 1000000
-              + 1000000)
-        pos = (
-          pos[1].astype(int)
-          // 1000000
-          * 1000000
-          + 1000000)
-        cnts = Counter(pos)
-        max_block = (
-          ch_size
-          // 1000000
-          * 1000000
-          + 2000000)
+    cnts = Counter()
+
+    df = pd.read_csv(
+      f"{plink_out}.bim",
+      sep="\t",
+      chunksize=100000,
+      header=None,
+      index_col=None,
+      usecols=[0, 3])
+    for chk in df:
+        for ch, pos in chk.groupby(0):
+            ch = str(ch)
+            if ch in concat:
+                offset = (
+                  bin_offsets["Other"] +
+                  sum(
+                  [gdata["chr_sizes"][gdata["chr_names"].index(ch)]
+                   for ch in concat[:concat.index(ch)]]))
+                ch = "Other"
+            else:
+                offset = bin_offsets[ch]
+            cnts.update(
+              (pos[3] + offset)
+              // mdbin
+              * mdbin
+              + mdbin)
+
+    for ch in ch_names:
+        size = ch_sizes[ch]
         for block in range(
-          1000000,
-          max_block,
-          1000000):
+          mdbin + bin_offsets[ch],
+          size + bin_offsets[ch] + mdbin,
+          mdbin):
             hgts.append(cnts.get(block, 0))
-            bins.append(block + ch_offset)
-            coords.append(f"{ch}:{block - 1000000}-{block - 1}")
-    if chr_vis:
-        pos = ids[~ids[0].isin(chr_vis)]
-        hgts.append(pos.shape[0])
-        bins.append(
-          max(
-            ((gdata["chr_sizes"][-1]
-              + gdata["chr_offsets"][-1])
-             // 1000000
-             * 1000000
-             + 1000000),
-            bins[-1] + 1000000))
-        coords.append("Other")
+            bins.append(block)
+            ch_block = block - bin_offsets[ch]
+            coords.append(f"{ch}:{ch_block:,}-{ch_block + mdbin - 1:,}")
 
     with open(os.path.join(stats_dir, "dens"), "w") as dens_out:
         json.dump([hgts, bins, coords], dens_out)
@@ -287,23 +343,20 @@ def run_qc(genome, markers=None):
     with open(os.path.join(stats_dir, "cnts"), "w") as cnts_out:
         json.dump([samp_num, var_num], cnts_out)
 
-    #yield "Calculating linkage disequilibrium"
     # LD matrices per chromosome
-    for ch in gconfig["chr_vis"] or gdata["chr_names"]:
-        pr = subprocess.Popen(
+    progress(task_id, "Calculating linkage disequilibrium")
+    concat = json.loads(config["concat"])
+    for ch in gdata["chr_names"]:
+        if ch in concat:
+            continue
+        popen(
+          task_id,
           [plink_path,
            "--bfile", plink_out,
            "--chr", str(ch),
            "--thin-count", "1000",
            "--r2-unphased", "square0",
-           "--out", plink_out],
-          stdout=subprocess.PIPE,
-          stderr=subprocess.PIPE,
-          text=True)
-        out, err = pr.communicate()
-        if pr.returncode != 0:
-            raise OSError(err)
-        print(out)
+           "--out", plink_out])
 
         r2_vals = pd.read_csv(
           f"{plink_out}.unphased.vcor2",
@@ -334,7 +387,10 @@ def run_qc(genome, markers=None):
              ".bed",
              ".bim",
              ".fam"))):
-            os.remove(os.path.join(stats_dir, fn))
+            os.remove(
+              os.path.join(
+                stats_dir,
+                fn))
 
 ###############################################################################
 ### Apply filters to marker set
@@ -343,12 +399,11 @@ def run_qc(genome, markers=None):
 def filt_qc(
   genome,
   data,
-  shet_exc,
-  vhet_exc):
+  task_id):
     gdata = load_gdata(genome)
-    gconfig = load_config(genome)
-    vcf_file = gconfig["vcf"]
-    markers  = data["name"]
+    config = load_config(genome)
+    vcf_file = config["vcf"]
+    markers = data["name"]
 
     plink_path = os.path.join(
       tool_dir,
@@ -382,45 +437,41 @@ def filt_qc(
     if not os.path.exists(stats_dir):
         os.makedirs(stats_dir)
 
-    # Get samples and variants to filter out by heterozygosity
-    if shet_exc:
-        shet_out_fn = os.path.join(
+    # Prepare heterozygosity filters
+    if data["shet"]:
+        shet_exc = os.path.join(
           filt_dir,
           "shet_exclude.txt")
-        with open(shet_out_fn, "w") as shet_out:
-            for s in shet_exc:
-                _ = shet_out.write(s + "\n")
-
-    if vhet_exc:
-        vhet_out_fn = os.path.join(
+        df = pd.read_hdf(
+          os.path.join(stats_dir, "shet.h5"))
+        df[df["HET"] > float(data["shet"])]["IID"].to_csv(
+          shet_exc,
+          index=False,
+          header=False)
+    if data["vhet"]:
+        vhet_exc = os.path.join(
           filt_dir,
           "vhet_exclude.txt")
-        with open(vhet_out_fn, "w") as vhet_out:
-            for v in vhet_exc:
-                _ = vhet_out.write(v + "\n")
+        df = pd.read_hdf(
+          os.path.join(stats_dir, "vhet.h5"))
+        df[df["HET"] > float(data["vhet"])]["ID"].to_csv(
+          vhet_exc,
+          index=False,
+          header=False)
 
     # Prune by LD
     if data["prune"]:
-        #yield "Pruning input markers"
+        progress(task_id, "Pruning markers by LD")
         data["window"] = (
           str(data["window"]) + "kb"
           if str(data["window"]) else "200kb")
 
-        pr = subprocess.Popen(
-        #subprocess.run(
+        popen(task_id,
           [plink_path,
           "--bfile", plink_in,
           "--indep-pairwise", data["window"], str(data["prune"]),
           "--allow-extra-chr",
-          "--out", plink_out],
-         #check=True)
-          stdout=subprocess.PIPE,
-          stderr=subprocess.PIPE,
-          text=True)
-        out, err = pr.communicate()
-        if pr.returncode != 0:
-            raise OSError(err)
-        print(out)
+          "--out", plink_out])
 
         prune_out_fn = plink_out + ".prune.out"
         with open(prune_out_fn, "r") as prune_out_in:
@@ -441,11 +492,11 @@ def filt_qc(
     cmd = cmd + ["--mind", str(data["smiss"])] if data["smiss"] else cmd
     cmd = cmd + ["--geno", str(data["vmiss"])] if data["vmiss"] else cmd
 
-    cmd = cmd + ["--remove", shet_out_fn] if shet_exc else cmd
+    cmd = cmd + ["--remove", shet_exc] if data["shet"] else cmd
 
     if vhet_exc or data["prune"]:
         cmd += ["--exclude"]
-        cmd = cmd + [vhet_out_fn] if vhet_exc else cmd
+        cmd = cmd + [vhet_exc] if data["vhet"] else cmd
         cmd = cmd + [prune_out_fn] if data["prune"] else cmd
 
     cmd = cmd + ["--maf", str(data["maf"])] if data["maf"] else cmd
@@ -455,18 +506,8 @@ def filt_qc(
                  "--export", "vcf", "bgz", "id-paste=iid",
                  "--out", plink_out]
 
-    #yield "Applying filters"
-    pr = subprocess.Popen(
-    #subprocess.run(
-      cmd,
-      #check=True)
-          stdout=subprocess.PIPE,
-          stderr=subprocess.PIPE,
-          text=True)
-    out, err = pr.communicate()
-    if pr.returncode != 0:
-        raise OSError(err)
-    print(out)
+    progress(task_id, "Applying filters")
+    popen(task_id, cmd)
 
     # Impute missing genotypes
     beagle_path = os.path.join(
@@ -479,23 +520,15 @@ def filt_qc(
       "imp.gt")
     vcf_out = f"{vcf_root}.vcf.gz"
 
-    if data["imp"]:
-        #yield "Imputing missing genotypes"
-        pr = subprocess.Popen(
-        #subprocess.run(
+    if data["imp"] or 1:
+        progress(task_id, "Imputing missing genotypes")
+        popen(
+          task_id,
           ["java",
            "-jar",
            beagle_path,
            f"gt={vcf_in}",
-           f"out={vcf_root}"],
-          #check=True)
-          stdout=subprocess.PIPE,
-          stderr=subprocess.PIPE,
-          text=True)
-        out, err = pr.communicate()
-        if pr.returncode != 0:
-            raise OSError(err)
-        print(out)
+           f"out={vcf_root}"])
 
         os.remove(vcf_in)
         os.rename(vcf_out, vcf_in)
@@ -504,45 +537,32 @@ def filt_qc(
     final_root = plink_out
 
     if data["hap"]:
-        #yield "Constructing haplotype blocks"
+        progress(task_id, "Constructing haplotype blocks")
         blocktool_path = os.path.join(
           tool_dir,
           "blocktool.py")
         # Make necessary genotype format files
-        pr = subprocess.Popen(
-        #subprocess.run(
+        popen(
+          task_id,
           [plink_path,
            "--vcf", vcf_out,
            "--allow-extra-chr",
            "--make-bed",
            "--export", "tped",
-           "--out", final_root],
-          #check=True)
-          stdout=subprocess.PIPE,
-          stderr=subprocess.PIPE,
-          text=True)
-        out, err = pr.communicate()
-        if pr.returncode != 0:
-            raise OSError(err)
-        print(out)
+           "--out", final_root])
 
         # Make haplotype blocks
-        pr = subprocess.Popen(
+        popen(
+          task_id,
           [blocktool_path,
            "block",
            "--type", "gab",
            "--gab-max-kb", "1000",
-           "--gt-dir", filt_dir],
-          stdout=subprocess.PIPE,
-          stderr=subprocess.PIPE,
-          text=True)
-        out, err = pr.communicate()
-        if pr.returncode != 0:
-            raise OSError(err)
-        print(out)
+           "--gt-dir", filt_dir])
 
         # Genotype gased on blocks
-        pr = subprocess.Popen(
+        popen(
+          task_id,
           [blocktool_path,
            "call",
            "--format", "per-hap",
@@ -551,95 +571,47 @@ def filt_qc(
            "--transpose", "per-hap",
            "--maf", "0.05",
            "--min-hap", "1",
-           "--tab"],
-          stdout=subprocess.PIPE,
-          stderr=subprocess.PIPE,
-          text=True)
-        out, err = pr.communicate()
-        if pr.returncode != 0:
-            raise OSError(err)
-        print(out)
+           "--tab"])
 
         os.remove(f"{final_root}.tped")
         os.remove(f"{final_root}.tfam")
 
     else:
-        #yield "Processing filtered data"
+        progress(task_id, "Processing filtered data")
         # Make necessary genotype format files
-        pr = subprocess.Popen(
-        #subprocess.run(
+        popen(
+          task_id,
           [plink_path,
            "--vcf", vcf_out,
            "--make-bed",
            "--allow-extra-chr",
-           "--export", "A", "ped",
-           "--out", final_root],
-          #check=True)
-          stdout=subprocess.PIPE,
-          stderr=subprocess.PIPE,
-          text=True)
-        out, err = pr.communicate()
-        if pr.returncode != 0:
-            raise OSError(err)
-        print(out)
+           "--out", final_root])
 
-        os.rename(
-          f"{final_root}.raw",
-          f"{final_root}.varA.raw")
-        # Zip genotype files
-        with open(f"{final_root}.varA.raw", "r") as raw_in:
-            with gzip.open(f"{final_root}.raw.gz", "wt") as raw_out:
-                header = next(raw_in)
-                header = [
-                  var.rsplit("_", 1)[0]
-                  for var in header.split("\t")]
-                _ = raw_out.write("\t".join(header) + "\n")
-                for line in raw_in:
-                    _ = raw_out.write(line)
-
-        with open(f"{final_root}.map", "r") as map_in:
-            with gzip.open(f"{final_root}.map.gz", "wt") as map_out:
-                _ = map_out.writelines(map_in)
-
-        # Clean up
-        os.remove(f"{final_root}.map")
-        os.remove(f"{final_root}.ped")
-        os.remove(f"{final_root}.varA.raw")
-        os.remove(vcf_out)
-
-    #yield "Calculating kinship and population structure"
     # Calculate K and Q
-    pr = subprocess.Popen(
-    #subprocess.run(
+    progress(task_id, "Determining kinship and population structure")
+    popen(
+      task_id,
       [plink_path,
        "--bfile", final_root,
        "--make-rel", "square",
        "--pca", "15",
        "--allow-extra-chr",
-       "--out", final_root],
-      #check=True)
-      stdout=subprocess.PIPE,
-      stderr=subprocess.PIPE,
-      text=True)
-    out, err = pr.communicate()
-    if pr.returncode != 0:
-        raise OSError(err)
-    print(out)
+       "--out", final_root])
 
     k_matr = pd.read_csv(
       f"{final_root}.rel",
       sep="\t",
       header=None,
       index_col=None)
-    k_idx = pd.read_csv(
-      f"{final_root}.rel.id",
-      sep="\t",
-      header=[0],
-      index_col=None)
-    k_matr.set_index(k_idx["IID"]).to_csv(
-      f"{final_root}.rel",
-      sep="\t",
-      header=False)
+#    k_idx = pd.read_csv(
+#      f"{final_root}.rel.id",
+#      sep="\t",
+#      header=[0],
+#      index_col=None)
+#    k_matr.set_index(k_idx["IID"]).to_csv(
+#      f"{final_root}.rel",
+#      sep="\t",
+#      header=False)
 
     gt_stats_dir = os.path.join(
       data_dir,
@@ -672,21 +644,13 @@ def filt_qc(
       gt_stats_dir,
       "kin")
 
-    pr = subprocess.Popen(
-    #subprocess.run(
+    popen(
+      task_id,
       [plink1_path,
        "--bfile", final_root,
        "--distance", "square",
        "--allow-extra-chr",
-       "--out", hamm_out],
-      #check=True)
-      stdout=subprocess.PIPE,
-      stderr=subprocess.PIPE,
-      text=True)
-    out, err = pr.communicate()
-    if pr.returncode != 0:
-        raise OSError(err)
-    print(out)
+       "--out", hamm_out])
 
     hamm_matrix = np.loadtxt(
       f"{hamm_out}.dist",
@@ -721,155 +685,46 @@ def filt_qc(
             gt_stats_dir,
             fn))
 
-    #yield "Saving filtering summary"
+    progress(task_id, "Saving summary")
     # Create file describing the filtering parameters
     params_fn = os.path.join(
       gt_stats_dir,
       "params")
+
+    # Get original number of markers and samples
+    (bim, fam, bed) = pandas_plink.read_plink(plink_in)
+    var_all, samp_all = bed.shape
+    (bim, fam, bed) = pandas_plink.read_plink(final_root)
+    var_filt, samp_filt = bed.shape
+    # Save parameters and counts in a file
     with open(params_fn, "w") as params_out:
-        with open(f"{plink_out}.log", "r") as log_in:
-            log_lines = log_in.read().split(".\n")
-
-            # Exclude header lines, keep only lines describing filters
-            _ = log_lines.pop(0)
-
-            samp_ln = [
-              line for line in log_lines 
-              if "samples" in line and "loaded" in line]
-            samp_all = (int(
-                          samp_ln[0].split(" ", 1)[0])
-                          if len(samp_ln) == 1
-                          else "")
-
-            vars_ln = [
-              line for line in log_lines 
-              if "variants" in line and "loaded" in line]
-            vars_all = (int(
-                          vars_ln[0].split(" ", 1)[0])
-                          if len(vars_ln) == 1
-                          else "")
-
-            samp_rem = samp_all
-            vars_rem = vars_all
-            if samp_all and vars_all:
-                shet_rem = samp_rem - len(shet_exc) if shet_exc else samp_rem
-                vhet_rem = vars_rem - len(vhet_exc) if vhet_exc else vars_rem
-                samp_rem, vars_rem  = shet_rem, vhet_rem
-
-                prune_rem = vars_rem - prune_rmv if prune_rmv else vars_rem
-                vars_rem  = prune_rem
-
-                smiss_line = [
-                  line for line in log_lines 
-                  if "--mind" in line]
-                smiss_rem = (
-                  samp_rem
-                  - int(re.search(r"\d+", smiss_line[0])[0])
-                  if len(smiss_line) == 1 else "")
-                samp_rem = smiss_rem or samp_rem
-
-                vmiss_line = [
-                  line for line in log_lines 
-                  if "--geno" in line]
-                vmiss_rem = (
-                  vars_rem
-                  - int(re.search(r"\d+", vmiss_line[0])[0])
-                  if len(vmiss_line) == 1 else "")
-                vars_rem = vmiss_rem or vars_rem
-
-                hwe_line = [
-                  line for line in log_lines 
-                  if "--hwe" in line]
-                hwe_rem = (
-                  vars_rem
-                  - int(re.search(r"\d+", hwe_line[0])[0])
-                  if len(hwe_line) == 1 else "")
-                vars_rem = hwe_rem or vars_rem
-
-                maf_line = [
-                  line for line in log_lines 
-                  if "--maf" in line]
-                maf_rem = (
-                  vars_rem
-                  - int(re.search(r"\d+", maf_line[0])[0])
-                  if len(maf_line) == 1 else "")
-                vars_rem = maf_rem or vars_rem
-
-                samp_ln = [
-                  line for line in log_lines 
-                  if "samples" in line
-                  and "remaining" in line
-                  and "filters" in line]
-                samp_rem = (int(
-                              samp_ln[0].split(" ", 1)[0])
-                              if len(samp_ln) == 1 else "")
-
-                vars_ln = [
-                  line for line in log_lines 
-                  if "variants" in line
-                  and "remaining" in line
-                  and "filters" in line]
-                vars_rem = (int(
-                              vars_ln[0].split(" ", 1)[0])
-                              if len(vars_ln) == 1 else "")
-
-                params = list()
-                params.append(
-                  ["",
-                   "Initial sample count",
-                   "Sample heterozygosity",
-                   "Sample missingness",
-                   "Initial marker count",
-                   "Variant heterozygosity",
-                   "LD window",
-                   "Variant LD",
-                   "Variant missingness",
-                   "Variant -log10(HWE)",
-                   "Variant MAF",
-                   "Final sample count",
-                   "Final marker count"])
-
-                params.append(
-                  ["Threshold",
-                   "-",
-                   float(data["shet"]) if data["shet"] else "-",
-                   float(data["smiss"]) if data["smiss"] else "-",
-                   "-",
-                   float(data["vhet"]) if data["vhet"] else "-",
-                   data["window"] if data["window"] else "-",
-                   float(data["prune"]) if data["prune"] else "-",
-                   float(data["vmiss"]) if data["vmiss"] else "-",
-                   float(data["hwe"]) if data["hwe"] else "-",
-                   float(data["maf"]) if data["maf"] else "-",
-                   "-",
-                   "-"])
-
-                params.append(
-                  ["Remaining",
-                   samp_all,
-                   shet_rem,
-                   smiss_rem,
-                   vars_all,
-                   vhet_rem,
-                   "-",
-                   prune_rem,
-                   vmiss_rem, 
-                   hwe_rem,
-                   maf_rem,
-                   samp_rem,
-                   vars_rem])
-
-                if data["hap"]:
-                    params[0].append("Haplotype count")
-                    params[1].append("-")
-                    with open(f"{final_root}.blockinfo", "r") as blocks_in:
-                        block_cnt = sum([1 for l in blocks_in]) - 1
-                    params[2].append(block_cnt)
-
-                json.dump(params, params_out)
-
-            else:
-                json.dump([], params_out)
+        params = [
+          ["",
+           "Sample heterozygosity",
+           "Sample missingness",
+           "Variant heterozygosity",
+           "LD window",
+           "Variant LD",
+           "Variant missingness",
+           "Variant -log10(HWE)",
+           "Variant MAF",
+           "Markers retained/original",
+           "Samples retained/original"],
+          ["Threshold",
+           float(data["shet"]) if data["shet"] else "-",
+           float(data["smiss"]) if data["smiss"] else "-",
+           float(data["vhet"]) if data["vhet"] else "-",
+           data["window"] if data["window"] else "-",
+           float(data["prune"]) if data["prune"] else "-",
+           float(data["vmiss"]) if data["vmiss"] else "-",
+           float(data["hwe"]) if data["hwe"] else "-",
+           float(data["maf"]) if data["maf"] else "-",
+           f"{var_filt}/{var_all}",
+           f"{samp_filt}/{samp_all}"]]
+        if data["hap"]:
+            params[0].append("Haplotype count")
+            params[1].append("-")
+        json.dump(params, params_out)
 
     # Clean up
     for fn in os.listdir(filt_dir):
@@ -879,38 +734,52 @@ def filt_qc(
              ".bed",
              ".bim",
              ".fam",
+             ".txt",
              ".eigenvec",
              ".rel"))):
             os.remove(os.path.join(filt_dir, fn))
 
-    #yield "Finished applying filters"
     run_qc(
       genome,
+      task_id,
       markers = data["name"])
-    return "Done."
+
+    # Change chromosomes to numeric (required by BLINK)
+    chr_rename = {
+      ch: idx for idx, ch in enumerate(gdata["chr_names"], start=1)}
+    (pd
+      .read_csv(
+        f"{final_root}.bim",
+        sep="\t",
+        index_col=None,
+        header=None)
+      .set_axis(
+        ["CHR", "ID", "FAM",
+         "POS", "REF", "ALT"],
+        axis=1)
+      .assign(CHR=lambda x: x["CHR"].astype(str).map(chr_rename))
+      .to_csv(
+        f"{final_root}.bim",
+        sep="\t",
+        header=False,
+        index=False))
+
+    init_path = os.path.join(
+      assoc_dir,
+      "init")
+    open(init_path, "w").close()
+
 
 ###############################################################################
 ### Run association analysis and process output
 ###############################################################################
 
-def run_assoc(genome, params):
-    gconfig = load_config(genome)
-    chr_vis = gconfig["chr_vis"]
-    if chr_vis:
-        chr_vis = [
-          ch.strip() for ch in chr_vis.split(",")]
-
+def run_assoc(genome, params, task_id):
+    config  = load_config(genome)
     markers = params["markers_sgl"]
     model   = params["model_sgl"]
-    traits  = params["traits"][:]
 
-    if not markers or not model or not traits:
-        return
-
-    gapit_path = os.path.join(
-      R_dir,
-      "GAPIT.R")
-
+    progress(task_id, "Preparing input files")
     assoc_dir = os.path.join(
       data_dir,
       genome,
@@ -929,7 +798,7 @@ def run_assoc(genome, params):
     phe_path = os.path.join(
       data_dir,
       genome,
-      gconfig["phe"])
+      config["phe"])
 
     kq_root = os.path.join(
       data_dir,
@@ -939,149 +808,277 @@ def run_assoc(genome, params):
       "gt",
       "gt")
 
-    command = [
-      "Rscript", gapit_path,
-      "-g", f"{in_root}.raw.gz",
-      "-m", f"{in_root}.map.gz",
-      "-p", phe_path,
-      "--phenotype_tsv",
-      "-q", f"{kq_root}.eigenvec",
-      "--q_tsv",
-      "--top_q", str(params["q_num"]),
-      "-k", f"{kq_root}.rel",
-      "--k_tsv",
-      "-o", out_dir,
-      "-l", model,
-      "-t", ", ".join(traits)]
-    if params["chrom"]:
-        command += ["-c", params["chrom"]]
-    if params["start"]:
-        command += ["-s", params["start"]]
-    if params["end"]:
-        command += ["-e", params["end"]]
+    if model == "blink":
+        # BLINK analyses either one or all traits
+        # phenotype file rewritten each time to keep only selected traits
+        out_fam = f"{in_root}.fam"
+        fam_df = (pd
+          .read_csv(
+            out_fam,
+            sep="\t",
+            header=None,
+            index_col=None)
+          .set_axis(
+            ["FID", "IID", "M", "P", "S", "PHE"],
+            axis=1))
+        phe_path = os.path.join(
+          data_dir,
+          genome,
+          config["phe"])
+        phe_df = pd.read_csv(
+          phe_path,
+          sep="\t",
+          header=[0],
+          index_col=[0])
+        (phe_df
+          .fillna("NaN")
+          .loc[
+            fam_df["IID"],
+            params["traits"]]
+          .to_csv(
+            f"{in_root}.txt",
+            sep="\t"))
 
-    pr = subprocess.Popen(
-      command,
-      stdout=subprocess.PIPE,
-      stderr=subprocess.PIPE,
-      text=True)
-    out, err = pr.communicate()
+        # Covariates file created to only keep top n selected ones
+        q_matr = pd.read_csv(
+            f"{kq_root}.eigenvec",
+            sep="\t",
+            header=[0],
+            index_col=[0,1])
+        (q_matr
+#          .assign(I=1)
+          .loc[:, q_matr.columns[:int(params["q_num"])]]
+          .droplevel(0)
+          .to_csv(
+            f"{in_root}.cov",
+            sep="\t"))
 
-    raw_dir = os.path.join(out_dir, "raw")
-    traits = traits if isinstance(traits, list) else [traits]
-    for trait in traits:
-        out_root = f"{model}.{trait}"
+        blink_path = os.path.join(
+          tool_dir,
+          "BLINK",
+          "blink")
 
-        in_fn = os.path.join(
-          raw_dir,
-          f"GAPIT.Association.GWAS_Results.{model}.{trait}.csv")
-        in_se = os.path.join(
-          raw_dir,
-          f"GAPIT.Association.GWAS_StdErr.{model}.{trait}.csv")
-        if not (os.path.exists(in_fn) and os.path.exists(in_se)):
-            os.remove(
+        progress(task_id, "Running analysis")
+        command = [
+          blink_path,
+          "--gwas",
+          "--file", in_root,
+          "--plink",
+          "--out", os.path.join(out_dir, "BLINK"),
+          "--trait", "0"]
+        popen(
+          task_id,
+          command)
+
+        for trait in params["traits"]:
+            assoc_process(
+              genome,
+              f"BLINK_{trait}_GWAS_result.txt",
+              f"{model}.{trait}",
+              out_dir,
+              ch_col="chr",
+              pos_col="pos",
+              pval_col="p_value",
+              eff_col=None)
+
+            # Save parameters
+            run_params = [
+              ["Markers", "Samples", "PCs", "Kinship", "K/Q source"],
+              [sum(1 for l in open(f"{in_root}.bim")),
+               phe_df.loc[fam_df["IID"]][trait].dropna().shape[0],
+               params["q_num"],
+               "No",
+               params["kq_from"] or markers]]
+            with open(
               os.path.join(
                 out_dir,
-                f"{model}.{trait}.feather"))
-            continue
+                f"{model}.{trait}.params"),
+              "w") as params_out:
+                json.dump(run_params, params_out)
 
-        mplot_fn = os.path.join(
-          out_dir,
-          f"{model}.{trait}.mplot.png")
-        qqplot_fn = os.path.join(
-          out_dir,
-          f"{model}.{trait}.qqplot.png")
+        os.remove(os.path.join(out_dir, "BLINK.log"))
 
-        out_feather = os.path.join(
-          out_dir,
-          f"{out_root}.feather")
-        out_tsv = os.path.join(
-          out_dir,
-          f"{out_root}.tsv")
-        out_gz = os.path.join(
-          out_dir,
-          f"{out_root}.tsv.gz")
+    elif model == "rf":
+        pass
 
-        res = pd.read_csv(in_fn)
-        res = res[
-          ["Chr",
-           "Pos",
-           "P.value",
-           "Effect"]]
-
-        # Get std error if available
-        se = pd.read_csv(in_se)["std Error"]
-        if not se.isna().all():
-            res["std Error"] = se
-
-        res.to_csv(
-          out_tsv,
-          sep   = "\t",
-          index = False)
-
-        subprocess.run(
-          ["bgzip",
-           "-f",
-           "-c",
-           out_tsv],
-          stdout = open(out_gz, "w"),
-          check  = True)
-
-        subprocess.run(
-          ["tabix",
-           "-s", "1",
-           "-b", "2",
-           "-e", "2",
-           "--skip-lines", "1",
-           "-f",
-           out_gz],
-          check=True)
-
-        res["P.value"] = -np.log10(res["P.value"])
-        res.sort_values(
-          by="P.value",
-          ascending=False).head(5000).to_feather(out_feather)
-
-        mplot_fig = mplot(
+    else:
+        # GEMMA cannot accept row or column names in phenotype file
+        # phenotype file rewritten each time to keep only selected traits
+        out_fam = f"{in_root}.fam"
+        fam_df = (pd
+          .read_csv(
+            out_fam,
+            sep="\t",
+            header=None,
+            index_col=None)
+          .set_axis(
+            ["FID", "IID", "M", "P", "S", "PHE"],
+            axis=1))
+        phe_path = os.path.join(
+          data_dir,
           genome,
-          res,
-          chr_vis)
-        mplot_fig.savefig(
-          mplot_fn,
-          dpi    = 300,
-          format = "png")
+          config["phe"])
+        phe_df = pd.read_csv(
+          phe_path,
+          sep="\t",
+          header=[0],
+          index_col=[0])
+        (phe_df
+          .fillna("NA")
+          # GEMMA treats -9 as a missing value                                    #################################
+          .replace(-9, -9.000000000001)
+          .replace("-9", "-9.000000000001")
+          .loc[fam_df["IID"], ]
+          .to_csv(
+            f"{in_root}.txt",
+            sep="\t",
+            header=False,
+            index=False))
 
-        qqplot_fig = qqplot(res)
-        qqplot_fig.savefig(
-          qqplot_fn,
-          dpi    = 300,
-          format = "png")            
-        # Clean up
-        os.remove(out_tsv)
-        for fn in (
-          "GAPIT.Association.PVE",
-          "GAPIT.Association.GWAS_StdErr",
-          "GAPIT.Association.GWAS_Results",
-          "GAPIT.Association.Vairance_markers",
-          "GAPIT.Association.Prediction_results"):
-            fn_path = os.path.join(
-              raw_dir,
-              f"{fn}.{model}.{trait}.csv")
-            if os.path.exists(fn_path):
-                os.remove(fn_path)
-        for fn in (
-          "GAPIT.Association.Optimum",
-          "GAPIT.Association.Manhattan_Chro",
-          "GAPIT.Association.Manhattan_Geno",
-          "GAPIT.Association.Significant_SNPs",
-          "GAPIT.Phenotype.Distribution_Significantmarkers"):
-            fn_path = os.path.join(
-              raw_dir,
-              f"{fn}.{model}.{trait}.pdf")
-            if os.path.exists(fn_path):
-                os.remove(fn_path)
+        # Covariates file created to only keep top n selected ones
+        q_matr = pd.read_csv(
+            f"{kq_root}.eigenvec",
+            sep="\t",
+            header=[0],
+            index_col=[0,1])
+        (q_matr
+          .assign(I=1)
+          .loc[:, ["I"] + q_matr.columns.tolist()[:int(params["q_num"])]]
+          .to_csv(
+            f"{in_root}.cov",
+            sep="\t",
+            header=False,
+            index=False))
 
-    if pr.returncode != 0:
-        raise OSError(err)
-    print(out)
-    return "Done."
+        progress(task_id, "Running analysis")
+        if model == "mtmlm":
+            traits = params["trait_groups"]
+        else:
+            traits = zip([params["traits"]], params["traits"])
+        for trait, trait_name in traits:
+            n = [str(phe_df.columns.get_loc(t) + 1) for t in trait]
+            command = [
+              "gemma",
+              "-bfile", in_root,
+              "-p", f"{in_root}.txt",
+              "-k", f"{kq_root}.rel",
+              "-c", f"{in_root}.cov",
+              "-n", *n,
+              "-o", f"{model}.{trait_name}",
+              "-outdir", out_dir]
+            if model == "glm":
+                command += ["-lm", "1"]
+            else:
+                command += ["-lmm", "1"]
+            popen(
+              task_id,
+              command)
+
+            assoc_process(
+              genome,
+              f"{model}.{trait_name}.assoc.txt",
+              f"{model}.{trait_name}",
+              out_dir,
+              ch_col="chr",
+              pos_col="ps",
+              pval_col="p_wald",
+              eff_col=None)
+
+            # Save parameters
+            run_params = [
+              ["Markers", "Samples", "PCs", "Kinship", "K/Q source"],
+              [sum(1 for l in open(f"{in_root}.bim")),
+               phe_df.loc[fam_df["IID"]][trait].dropna().shape[0],
+               params["q_num"],
+               "No" if model == "glm" else "Yes",
+               params["kq_from"] or markers]]
+            if model == "mtmlm":
+                run_params[0].append("Traits")
+                run_params[1].append("<br>".join(trait))
+            with open(
+              os.path.join(
+                out_dir,
+                f"{model}.{trait_name}.params"),
+              "w") as params_out:
+                json.dump(run_params, params_out)
+
+            os.remove(os.path.join(out_dir, f"{model}.{trait_name}.log.txt"))
+
+def assoc_process(
+  genome,
+  assoc_fn,
+  out_root,
+  out_dir,
+  ch_col,
+  pos_col,
+  pval_col,
+  eff_col):
+    gdata = load_gdata(genome)
+    config = load_config(genome)
+    assoc_out = os.path.join(
+      out_dir,
+      assoc_fn)
+    processed_out = os.path.join(out_dir, out_root)
+    columns = [c for c in (ch_col, pos_col, pval_col, eff_col) if c]
+
+    # Output files
+    mplot_fn    = f"{processed_out}.mplot.png"
+    qqplot_fn   = f"{processed_out}.qqplot.png"
+    out_feather = f"{processed_out}.feather"
+    out_tsv     = f"{processed_out}.tsv"
+    out_gz      = f"{processed_out}.tsv.gz"
+
+    # Save raw results, rename numeric chromosomes back to original
+    chr_rename = dict(enumerate(gdata["chr_names"], start=1))
+    res = (
+      pd
+        .read_csv(
+          assoc_out,
+          sep="\t",
+          header=[0],
+          index_col=None)
+        .loc[:, columns]
+        .assign(**{ch_col: lambda x: x[ch_col].map(chr_rename)}))
+    res.to_csv(
+      out_tsv,
+      sep="\t",
+      index=False)
+    pysam.tabix_compress(out_tsv, out_gz, force=True)
+    pysam.tabix_index(
+      out_gz,
+      seq_col=0,
+      start_col=1,
+      end_col=1,
+      line_skip=1, force=True)
+
+    # Save results for MP visualisation
+    res[pval_col] = -np.log10(res[pval_col])
+    (res
+      .sort_values(
+        by=pval_col,
+        ascending=False)
+      .head(5000)
+      .to_feather(out_feather))
+
+    mplot_fig = mplot(
+      genome,
+      res,
+      json.loads(config["concat"]),
+      ch_col=ch_col,
+      pos_col=pos_col,
+      pval_col=pval_col)
+    mplot_fig.savefig(
+      mplot_fn,
+      dpi=300,
+      format="png")
+
+    qqplot_fig = qqplot(
+      res,
+      pval_col=pval_col)
+    qqplot_fig.savefig(
+      qqplot_fn,
+      dpi=300,
+      format="png")
+
+    os.remove(out_tsv)
+    os.remove(assoc_out)

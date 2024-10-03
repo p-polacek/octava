@@ -3,6 +3,7 @@
 from flask_wtf import FlaskForm
 
 from wtforms import (widgets,
+                     FileField,
                      RadioField,
                      HiddenField,
                      SelectField,
@@ -10,21 +11,16 @@ from wtforms import (widgets,
                      BooleanField,
                      DecimalField,
                      IntegerField,
-                     MultipleFileField,
-                     SelectMultipleField,
-                    )
+                     SelectMultipleField)
 
 from modules.csq import var_csq
 
-
 models = [
-  "BLINK",
-  "CMLM",
-  "FarmCPU",
-  "GLM",
-  "MMLM",
-  "MLM",
-  "SUPER"]
+  ("glm", "GLM"),
+  ("mlm", "MLM"),
+  ("mtmlm", "Multi-trait MLM"),
+  ("blink", "BLINK"),
+  ("rf", "Random forest")]
 
 types = [
   ("snp",
@@ -46,10 +42,76 @@ types = [
 
 csqs = var_csq()
 
-
 class MultiCheckboxField(SelectMultipleField):
     widget = widgets.ListWidget(prefix_label=False)
     option_widget = widgets.CheckboxInput()
+
+class AddForm(FlaskForm):
+    name = SelectField(
+      "Name:",
+      choices=[])
+    icon = FileField(
+      "Icon:")
+    vcf = SelectField(
+      "Variants:",
+      choices=[])
+    ann = SelectField(
+      "Annotation:",
+      choices=[])
+    seq = SelectField(
+      "Sequence:",
+      choices=[])
+    phe = SelectField(
+      "Phenotype:",
+      choices=[])
+    exp = SelectField(
+      "Gene expression:",
+      choices=[])
+    run = SelectField(
+      "Run info:",
+      choices=[])
+    proj = SelectField(
+      "Project info:",
+      choices=[])
+    samp = SelectField(
+      "Sample names:",
+      choices=[])
+    info = SelectField(
+      "Gene information:",
+      choices=[])
+    enr = MultiCheckboxField(
+      "Enrichment for:",
+      choices=[])
+    bam = MultiCheckboxField(
+      "BAM file(s):",
+      choices=[])
+    snpeff = BooleanField(
+      "Variant effect:")
+    sev = BooleanField(
+      "Variant severity:")
+    concat = MultiCheckboxField(
+      "Concatenate contigs:",
+      choices=[])
+    edit = BooleanField(
+      "Enable editing dataset later:")
+    igv_vis = IntegerField(
+      "Visibility window:",
+      default=1000000)
+    igv_h = IntegerField(
+      "Track height:",
+      default=150)
+
+class EditForm(FlaskForm):
+    icon = FileField(
+      "Icon:")
+    phe = FileField(
+      "Phenotype:")
+    run = FileField(
+      "Run info:")
+    proj = FileField(
+      "Project info:")
+    samp = FileField(
+      "Sample names:")
 
 class RegionForm(FlaskForm):
     fmt = SelectField(
@@ -149,6 +211,23 @@ class AlleleMinerForm(RegionForm):
       "Attribute:",
       choices=[])
 
+class TraitViewForm(FlaskForm):
+    trait_sgl = SelectField(
+      "Trait:",
+      choices=[])
+    traits = MultiCheckboxField(
+      "Trait:",
+      choices=[])
+    trait_groups = MultiCheckboxField(
+      "Trait group:",
+      choices = [])
+    samples = MultiCheckboxField(
+      "Sample:",
+      choices = [])
+    sample_groups = MultiCheckboxField(
+      "Sample group:",
+      choices = [])
+
 class PlotForm(FlaskForm):
     plot = SelectField(
       "Plot:",
@@ -231,7 +310,7 @@ class AssocResForm(RegionForm, PlotForm):
     trait_groups = MultiCheckboxField(
       "Trait group:",
       choices = [])
-    new_phe = MultipleFileField()
+    new_phe = FileField()
     k = BooleanField(
       "Kinship (K) correction",
       default = True)

@@ -4,6 +4,7 @@ import os
 import gzip
 import json
 import math
+import pysam
 import shutil
 import hashlib
 import numpy as np
@@ -34,6 +35,33 @@ from app.dirs import (
   tmp_dir,
   data_dir)
 
+
+# Fetch columns for possible enrichment and chromosomes to show/hide
+# for selected VCF/INFO files in new dataset setup
+@app.route("/enr_cols/<genome>", methods=["POST"])
+def enr_cols(genome):
+    info = request.form.get("info")
+    cols = pd.read_csv(
+        os.path.join(
+            data_dir,
+            genome,
+            info),
+        sep="\t",
+        compression="infer",
+        header=[0],
+        index_col=[0],
+        nrows=0)
+    return jsonify(cols.columns.tolist())
+
+@app.route("/concat/<genome>", methods=["POST"])
+def concat(genome):
+    vcf = request.form.get("vcf")
+    vcf = pysam.VariantFile(
+      os.path.join(
+        data_dir,
+        genome,
+        vcf))
+    return jsonify(list(vcf.header.contigs))
 
 # Gene enrichment data
 @app.route("/enr", methods=["POST"])
@@ -154,7 +182,7 @@ def fetch_filt():
     metric    = form["metric"]
     start_row = int(form["start_row"])
     end_row   = int(form["end_row"])
-    if "markers" in form.keys():
+    if "markers" in form.keys() and form["markers"]:
         markers = form["markers"]
         stats_root = os.path.join(
           data_dir,
@@ -233,8 +261,11 @@ def fetch_mplot():
       "res",
       assoc_fn)
     if os.path.exists(assoc_path):
-        df = pd.read_feather(assoc_path)
-        df = df.drop(["Effect"], axis=1).to_json(orient="values")
+        df = (
+          pd
+            .read_feather(assoc_path)
+#            .drop(["Effect"], axis=1)
+            .to_json(orient="values"))
         return jsonify(df)
     return jsonify(success=True)
 
@@ -277,7 +308,7 @@ def fetch_bblplot():
                 continue
 
             df = pd.read_feather(assoc_path)
-            df = df.drop(["Effect"], axis=1)
+            df = df.drop(["Effect", "std Error"], axis=1)
             df = df.set_axis(["Chr", "Pos", string_key], axis=1)
             df = df[df[string_key] >= thresh]
             df = df.set_index(["Chr", "Pos"])
@@ -361,9 +392,10 @@ def contextmenu():
                 data += [ann.split("|") for ann in csq]
             else:
                 gdata = load_gdata(genome)
-                field = [
-                  s_id for (s_id, s_name) in gdata["samples"]
-                  if s_name == field][0]
+                if isinstance(gdata["samples"][0], tuple):
+                    field = [
+                      s_id for (s_id, s_name) in gdata["samples"]
+                      if s_name == field][0]
                 qual  = record.get_sample_call(field)
                 keys  = list(qual.keys())
                 data += [[qual[key] for key in keys]]
@@ -397,85 +429,21 @@ def contextmenu():
                 params = json.load(params_in)
             # Last element is phenotype variance kept for finemapping
             # Skipped here
-            return jsonify(
-            [[col[:-1] for col in params[1:]],
-             params[0][:-1]])
+#            return jsonify(
+#            [[col[:-1] for col in params[1:]],
+#             params[0][:-1]])
+            return jsonify([params[1:], params[0]])
 
         except:
             return jsonify(
             [[["Error fetching parameters."]],
              []])
 
-# Append phenotype data to phenotype file
-@app.route("/phe/<genome>", methods=["POST"])
-def add_phe(genome):
-    gconfig = load_config(genome)
-    phe_path = os.path.join(
-      data_dir,
-      genome,
-      gconfig["phe"])
-    try:
-        phe = pd.read_csv(
-          phe_path,
-          header    = [0],
-          index_col = [0],
-          sep       = "\t")
-    except pd.errors.EmptyDataError:
-        phe = pd.DataFrame()
-
-    gdata = load_gdata(genome)
-    errors = list()
-    for file in request.files.getlist("new_phe"):
-        fn = file.filename
-        new_phe = pd.read_csv(
-          file,
-          header    = [0],
-          index_col = [0],
-          sep       = "," if fn.endswith(".csv") else "\t")
-
-        col_dup = new_phe.columns.intersection(phe.columns)
-        if not col_dup.empty:
-            col_dup = ", ".join(col_dup.tolist())
-            errors.append(f"<b>Duplicate traits in {fn}:</b><br>{col_dup}")
-        else:
-            phe = pd.concat([phe, new_phe], axis=1)
-
-    if not errors:
-        phe.to_csv(
-          phe_path,
-          sep="\t")
-        errors = 0
-
-    # Return back to GWAS options page
-    form = AssocResForm(request.form)
-    markers_root = os.path.join(
-      data_dir,
-      genome,
-      "assoc")
-
-    form.markers.choices = [
-      d for d in os.listdir(markers_root)
-      if os.path.isdir(os.path.join(markers_root, d))]
-
-    form.traits.choices = phe.columns.tolist()
-    form.chrom.choices = [""] + gdata["chr_names"]
-
-    form.trait_groups.choices = [
-      [json.dumps(group[0]), group[1]]
-      for group in gdata["groups"].get("traits", [])]
-
-    return render_template(
-      "assoc/opts.html",
-      genome  = genome,
-      form    = form,
-      phe     = phe,
-      phe_upl = gconfig["phe_upload"],
-      errors  = errors)
-
 @app.route("/group", methods=["POST"])
 def group():
     data = json.loads(request.get_data())
     genome = data["genome"]
+    print(data["items"])
 
     gdata_path = os.path.join(
       data_dir,

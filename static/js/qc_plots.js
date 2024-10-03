@@ -184,44 +184,39 @@ function showPlot() {
   var data = histData[plotChoice];
 
   if (plotChoice === "dens") {
-    if (visNames.length > 0) {
-      var visIdxs = chrNames.filter( n => {
-        return visNames.includes(n);
-      }).map( n => {
-        return chrNames.indexOf(n);
-      });
-      var plotSizes = visIdxs.map( i => {
-        return Math.floor(chrSizes[i] / 1000000) * 1000000 + 1000000;
-      });
-      var plotOffsets = visIdxs.map( i => {
-        return Math.floor(chrOffsets[i] / 1000000) * 1000000 + 1000000;
-      });
-      var plotTicks = plotOffsets.map( (o, i) => {
-        return plotOffsets[i] + Math.floor(plotSizes[i] / 2);
-      });
-      var plotNames = visNames.slice();
-      plotNames.push("Other");
-      plotOffsets.push(
-       (plotOffsets[
-        plotOffsets.length - 1]
-        + plotSizes[
-         plotSizes.length - 1]));
-      plotSizes.push(
-       Math.max(
-       Math.floor(
-        chrSizes[chrSizes.length - 1] / 1000000)
-        * 1000000
-        + 1000000,
-       plotOffsets[plotOffsets.length - 1] + 1000000));
+    var origSizes = Object.fromEntries(names.map((ch, i) => [ch, sizes[i]]));
+    var chrSizes = Object.fromEntries(names.map((ch, i) => [ch, Math.floor(sizes[i] / mdbin) * mdbin + mdbin]));
+    var binOffsets = {};
+    chrNames = names.filter(ch => !concatNames.includes(ch));
 
-      plotTicks.push(
-       plotOffsets[plotOffsets.length - 1]
-       + Math.floor(plotSizes[plotSizes.length - 1] / 2));
-    } else {
-      var plotNames   = chrNames;
-      var plotTicks   = chrTicks;
-      var plotOffsets = chrOffsets;
-      var plotSizes   = chrSizes;
+    var otherSize = concatNames.reduce((s, ch) => {
+      s += origSizes[ch];
+      delete chrSizes[ch];
+      return s;
+    }, 0);
+
+    chrNames.forEach((ch, idx) => {
+      binOffsets[ch] = chrNames.slice(0, idx).reduce((s, c) => {
+        s += chrSizes[c];
+        return s;
+      }, 0);
+    });
+
+    if (concatNames.length > 0) {
+      binOffsets["Other"] = chrNames.reduce((s, c) => {
+        s += chrSizes[c];
+        return s;
+      }, 0);
+      chrSizes["Other"] = otherSize;
+      chrNames.push("Other");
+    }
+
+    chrSizes = chrNames.map( c => chrSizes[c]);
+    binOffsets = chrNames.map( c => binOffsets[c]);
+
+    var chrTicks = [];
+    for (let i = 0; i < chrNames.length; i++) {
+      chrTicks.push(binOffsets[i] + Math.floor(chrSizes[i] / 2));
     }
 
     var trace = {
@@ -242,8 +237,8 @@ function showPlot() {
       plot_bgcolor: "rgba(0, 0, 0, 0)",
       paper_bgcolor: "rgba(0, 0, 0, 0)",
       xaxis: {
-        tickvals: plotTicks,
-        ticktext: plotNames,
+        tickvals: chrTicks,
+        ticktext: chrNames,
         gridcolor: "rgba(0,0,0,0.1)",
       },
       yaxis: {
@@ -260,14 +255,14 @@ function showPlot() {
       bargap: 0,
     };       
     var spanShapes = [];
-    for (i = 0; i < plotNames.length; i+= 2) {
+    for (i = 0; i < chrNames.length; i+= 2) {
       var shape = {
         type: "rect",
         xref: "x",
         yref: "paper",
-        x0: plotOffsets[i],
+        x0: binOffsets[i],
         y0: 0,
-        x1: plotOffsets[i] + plotSizes[i],
+        x1: binOffsets[i] + chrSizes[i],
         y1: 1,
         fillcolor: "#000",
         opacity: 0.05,
@@ -410,16 +405,16 @@ function showPlot() {
     }
   }
 
-  document.getElementById("table-from").innerHTML = 1;
-  document.getElementById("table-to").innerHTML = 10;
+  //document.getElementById("table-from").innerHTML = 1;
+  //document.getElementById("table-to").innerHTML = 10;
 
-  var tableDiv = document.getElementById("table-div");
-  if (["dens", "pca", "kin", "ld"].includes(plotChoice)) {
-    tableDiv.classList.add("collapsed");
-  } else {
-    tableDiv.classList.remove("collapsed");
-    fillTable(plotChoice);
-  }
+//  var tableDiv = document.getElementById("table-div");
+//  if (["dens", "pca", "kin", "ld"].includes(plotChoice)) {
+//    tableDiv.classList.add("collapsed");
+//  } else {
+//    tableDiv.classList.remove("collapsed");
+//    fillTable(plotChoice);
+//  }
 
   document.getElementById("plot-div").innerHTML = "";
   //Plotly.purge("plot-div");

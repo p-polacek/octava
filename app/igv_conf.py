@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import json
 import configparser
 
 from flask import url_for
@@ -15,6 +16,7 @@ def igv_am(genome):
 
     seq_fn  = gconfig["seq"]
     seq_idx = seq_fn + ".fai"
+    seq_gzi = seq_fn + ".gzi"
     gff_fn  = gconfig["ann"]
     gff_idx = gff_fn + ".tbi"
 
@@ -40,6 +42,10 @@ def igv_am(genome):
           "serve_file",
           genome = genome,
           fn     = seq_idx),
+        "compressedIndexURL": url_for(
+          "serve_file",
+          genome = genome,
+          fn     = seq_gzi),
         "tracks": [
           {
             "name": "Genes",
@@ -53,7 +59,7 @@ def igv_am(genome):
               "serve_file",
               genome = genome,
               fn     = gff_idx),
-              "visibilityWindow": gconfig["vis_win"],
+              "visibilityWindow": gconfig["igv_vis"],
           },
           {
             "name": "Variants",
@@ -67,15 +73,16 @@ def igv_am(genome):
                 "serve_file",
                 genome = genome,
                 fn     = vcf_idx),
-              "visibilityWindow": gconfig["vis_win"],
-              "height": gconfig["height"],
+              "visibilityWindow": gconfig["igv_vis"],
+              "height": gconfig["igv_h"],
           },
         ],
       },
     }
 
-    if gconfig["bam"]:
-        for bam_fn in gconfig["bam"].split(", "):
+    bam_fns = json.loads(gconfig["bam"])
+    if bam_fns:
+        for bam_fn in bam_fns:
             bam_idx = f"{bam_fn}.bai"
             bam_track = {
             "name": bam_fn,
@@ -89,8 +96,8 @@ def igv_am(genome):
                 "serve_file",
                 genome = genome,
                 fn     = bam_idx),
-              #"visibilityWindow": gconfig["vis_win"],
-              "height": gconfig["height"],
+              #"visibilityWindow": gconfig["igv_vis"],
+              "height": gconfig["igv_h"],
             }
             igv_config["reference"]["tracks"].append(bam_track)
 
@@ -108,6 +115,7 @@ def igv_fm(
 
     seq_fn  = gconfig["seq"]
     seq_idx = seq_fn + ".fai"
+    seq_gzi = seq_fn + ".gzi"
     gff_fn  = gconfig["ann"]
     gff_idx = gff_fn + ".tbi"
     vcf_fn  = gconfig["vcf"]
@@ -127,6 +135,10 @@ def igv_fm(
           "serve_file",
           genome = genome,
           fn     = seq_idx),
+        "compressedIndexURL": url_for(
+          "serve_file",
+          genome = genome,
+          fn     = seq_gzi),
         "tracks": [
           {
             "name": "Genes",
@@ -140,7 +152,7 @@ def igv_fm(
               "serve_file",
               genome = genome,
               fn     = gff_idx),
-            "visibilityWindow": gconfig["vis_win"],
+            "visibilityWindow": gconfig["igv_vis"],
             "order": 0,
           },
           {
@@ -157,8 +169,8 @@ def igv_fm(
               genome  = genome,
               markers = markers,
               fn      = gwas_idx),
-            "visibilityWindow": gconfig["vis_win"],
-            "height": gconfig["height"],
+            "visibilityWindow": gconfig["igv_vis"],
+            "height": gconfig["igv_h"],
             "columns": {
               "chromosome": 1,
               "position": 2,
@@ -178,8 +190,8 @@ def igv_fm(
             "url": url_for(
               "serve_pip",
               opt_hash = opt_hash),
-            "visibilityWindow": gconfig["vis_win"],
-            "height": gconfig["height"],
+            "visibilityWindow": gconfig["igv_vis"],
+            "height": gconfig["igv_h"],
             "columns": {
               "chromosome": 1,
               "position": 2,

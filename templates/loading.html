@@ -21,11 +21,24 @@
 {% block content %}
   <div class="padded-left">
     <div class="padded-top padded-left padded-right">
-       <h2>
-         Task submitted, you will be redirected after completion.
-       </h2>
-       <h3 id="error" class="red-text taller-line bold">
-       </h3>
+       <h2 id="status" class="padded-bottom"></h2>
+       <h3 id="redirect" class="collapsed bold"><a id="redirectLink" href="">Click here</a> to see results.</h3>
+    </div>
+  </div>
+  <div class="results-wrapper">
+    <div class="justified disp-flex">
+      <div
+       id="progress-container"
+       class="results-container"
+       style="width: 100%">
+        <h3 id="progress" class="monospace"></h3>
+        <h3 id="error" class="red-text taller-line bold monospace"></h3>
+      </div>
+    </div>
+  </div>
+  <div class="padded-left">
+    <div class="padded-left padded-right">
+       <h3 id="keep_open" class="bold">Keep this window open to see progress.</h3>
     </div>
   </div>
 {% endblock %}
@@ -35,22 +48,78 @@
     var genome  = '{{ genome }}';
     var taskId  = '{{ task_id }}';
     var task    = '{{ task }}';
+    if (task === "setup") {
+      var redirectHref = "{{ url_for('assoc_qc', genome=genome) }}";
+    } else if (task === "filt") {
+      var redirectHref = "{{ url_for('assoc_opts', genome=genome) }}";
+    } else if (task === "assoc") {
+      var redirectHref = "{{ url_for('assoc_res', genome=genome) }}";
+    }
 
     var error = document.getElementById("error");
-    const eventSource = new EventSource("/stream/" + taskId);
-    eventSource.onmessage = function(event) {
-      var message = event.data.trim();
-      if (event.data === "Done.") {
-        eventSource.close();
-        if (task === "filt") {
-          window.location.href = "/" + genome + "/Association_analysis/Options";
-        } else if (task == "assoc") {
-          window.location.href = "/" + genome + "/Association_analysis/Results";
+
+    function processStream(stream) {
+      var result = [];
+      for (let char of stream) {
+        if (char === "\x08") {
+          if (result.length > 0) {
+            result.pop();
+          }
+        } else if (char === "\n") {
+          result.push("<br>");
+        } else {
+          result.push(char);
         }
-      } else {
-        error.innerHTML += "Error:<br>" + message;
-        eventSource.close();
       }
-    };
+      return result.join("");
+    }
+
+    function checkStatus(taskId) {
+      fetch(`/status/${taskId}`)
+        .then(response => {
+          return response.json().then(data => {
+            return [response.status, data];
+          });
+        })
+        .then(([statusCode, data]) => {
+          var statusText = document.getElementById("status");
+          if (statusCode === 404) {
+            statusText.innerText = "Task not found, maybe it finished a while ago.";
+          } else if (statusCode === 201) {
+            statusText.innerText = "Task is queued.";
+            setTimeout(() => checkStatus(taskId), 10000);
+          } else {
+            var progressDiv = document.getElementById("progress-container");
+            document.getElementById("progress").innerHTML += `${processStream(data)}`;
+            progressDiv.scrollTop = progressDiv.scrollHeight;
+//            if (processStream(data) !== "") {
+//              document.getElementById("progress").innerHTML += new Date().toLocaleTimeString() + "\n";
+//            }
+            if (statusCode === 202) {
+              statusText.innerText = "Task is running...";
+              setTimeout(() => checkStatus(taskId), 1000);
+            } else if (statusCode === 200) {
+              statusText.innerText = "Task is finished!";
+              document.getElementById("redirect").classList.remove("collapsed");
+              document.getElementById("keep_open").classList.add("collapsed");
+            } else if (statusCode === 500) {
+              statusText.innerText = "Task Failed. Check log for more information.";
+              statusText.classList.add("red-text");
+              document.getElementById("keep_open").classList.add("collapsed");
+            }
+          }
+        })
+        .catch(error => {
+          var statusText = document.getElementById("status");
+          statusText.innerText = "Connection with server lost.";
+          statusText.classList.add("red-text");
+          document.getElementById("keep_open").classList.add("collapsed");
+        });
+    }
+        
+    document.addEventListener("DOMContentLoaded", function() {
+      document.getElementById("redirectLink").href = redirectHref;
+      checkStatus(taskId);
+    });
   </script>
 {% endblock %}

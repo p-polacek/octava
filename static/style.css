@@ -36,6 +36,10 @@ h3 {
 	margin: 0px 0px 2px 0px;
 }
 
+.monospace {
+    font-family: monospace, monospace;
+    font-size: 0.8em;
+}
 /*
 ####################               Hyperlinks              ####################
 */
@@ -101,7 +105,7 @@ a:active {
 
 .genome-icon-div {
 	min-height: 200px;
-	width: 130px;
+	width: 128px;
 	padding: 10px;
 	flex-wrap: wrap;
 }
@@ -115,6 +119,12 @@ a:active {
 	display: flex;
 	align-items: center;
 	width: 200px;
+}
+
+.wide-input-div {
+	display: flex;
+	align-items: center;
+	width: 260px;
 }
 
 .param-div-default {
@@ -313,8 +323,8 @@ a:active {
 }
 
 .genome-icon {
-	width: 130px;
-	height: 130px;
+	width: 128px;
+	height: 128px;
 }
 
 .tool-icon {
@@ -328,11 +338,32 @@ a:active {
 }
 
 /*
+####################            Add new dataset            ####################
+*/
+
+#add-new-label {
+     visibility: hidden;
+    text-align: center;
+}
+
+#add-new-div:hover .genome-icon-div #add-new-label {
+    visibility: visible;
+}
+
+/*
 ####################                 Input                 ####################
 */
 
 button {
 	padding: 4px;
+}
+
+.back-button {
+    padding: 5px;
+}
+
+.icon-width {
+    width: 128px;
 }
 
 .input-sized-button {
@@ -375,6 +406,17 @@ button {
 
 .dropdown-button {
 	width: 200px;
+	font-size: 0.9em;
+	border: 1px solid #999;
+	border-radius: 4px;
+	display: flex;
+	align-items: center;
+    justify-content: space-between;
+	height: 25px;
+}
+
+.wide-dropdown-button {
+	width: 260px;
 	font-size: 0.9em;
 	border: 1px solid #999;
 	border-radius: 4px;

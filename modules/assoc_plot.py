@@ -14,27 +14,21 @@ from modules.load_input import load_gdata
 def mplot(
   genome,
   in_df,
-  chr_vis,
+  concat,
   ch_col="Chr",
   pos_col="Pos",
   pval_col="P.value"):
-    gdata  = load_gdata(genome)
-    chroms = gdata["chr_names"]
-    sizes  = gdata["chr_sizes"]
-    sizes  = {
-      ch: siz 
-      for ch, siz in zip(chroms, sizes)}
-    offsets = gdata["chr_offsets"]
-    offsets = {
-      ch: off 
-      for ch, off in zip(chroms, offsets)}
+    gdata   = load_gdata(genome)
+    chroms  = gdata["chr_names"]
+    sizes   = {ch: size for ch, size in zip(chroms, gdata["chr_sizes"])}
+    offsets = {ch: off for ch, off in zip(chroms, gdata["chr_offsets"])}
 
     in_df[ch_col] = in_df[ch_col].astype(str)
     in_df[pos_col] = in_df[pos_col] + in_df[ch_col].map(offsets)
-    if chr_vis:
+    if concat:
         in_df[ch_col] = in_df[ch_col].apply(
           lambda ch: (
-            ch if ch in chr_vis else "Other"))
+            ch if ch not in concat else "Other"))
 
     fig = plt.figure(figsize=(6, 4))
     colors = cycle(["#014e60", "#47b023"])
@@ -62,16 +56,19 @@ def mplot(
       lw     = 1,
       zorder = 0)
 
-    if chr_vis:
-        plt.xticks(
-          ticks = list(range(len(chr_vis) + 1)),
-          labels = chr_vis + ["Other"])        
-    else:
-        plt.xticks(
-          ticks = list(range(len(chroms))),
-          labels = chroms)
-        #(sizes[ch] + offsets[ch]) - sizes[ch]//2
-        #for ch in chroms])
+    ticks  = [
+      sizes[ch]//2 + offsets[ch]
+      for ch in chroms if ch not in concat]
+    labels = [ch for ch in chroms if ch not in concat]
+
+    if concat:
+        ticks.append((
+          sum([sizes[ch] for ch in chroms if ch in concat]) // 2 +
+          sum([sizes[ch] for ch in chroms if ch not in concat])
+          ))
+        labels.append("Other")
+
+    plt.xticks(ticks=ticks, labels=labels)
     plt.xlabel("Chromosomes")
     plt.ylabel("$-log_{10}$(p) values")
 

@@ -20,10 +20,10 @@
     {% endfor %}
 
     {% for tool in (
-	 "Allele_miner",
-	 "Genome_browser",
-	 "Association_analysis",
-	 "Phylogeny_analysis") %}
+     "Allele_miner",
+     "Trait_view",
+     "Association_analysis",
+     "Edit_dataset") %}
 
       {% set tool_label = tool + "-label" %}
       {% set tool_div = tool + "-div" %}
@@ -42,55 +42,78 @@
 {% endblock %}
 
 {% block content %}
+  <div class="back-button collapsed" id="back-button">
+  <button onclick="back();">
+    Back to genome selection
+  </button>
+  </div>
   <div class="page">
     <div
-	 class="centered-div clickable"
+     class="centered-div clickable"
      id="genome-sel-div">
       {% for genome in genomes %}
         {% set genome_idx = genome[0]|string %}
         {% set genome_name = genome[1] %}
         <div
-		 class="object-div"
-		 id="{{ 'div' + genome_idx }}"
-		 onclick="showTools('{{ genome_name }}');">
+         class="object-div"
+         id="{{ 'div' + genome_idx }}"
+         onclick="showTools('{{ genome_name }}');">
           <div class="genome-icon-div">
             <img
-			 class="genome-icon"
-			 src="{{ url_for(
-			  'serve_icon',
-			  fn=genome_name) }}"
-		     alt="{{ genome_name }}">
+             class="genome-icon"
+             src="{{ url_for(
+              'serve_icon',
+              fn=genome_name) }}"
+             alt="{{ genome_name }}">
             <h2
-			 class="text-wrap padded-top"
-			 id="{{ 'label' + genome_idx }}">
-			  {{ genome_name }}
-			</h2>
+             class="text-wrap padded-top"
+             id="{{ 'label' + genome_idx }}">
+              {{ genome_name }}
+            </h2>
           </div>
         </div>
       {% endfor %}
+      <div
+       class="object-div"
+       id="add-new-div"
+       onclick="addNew();">
+        <div class="genome-icon-div">
+          <img
+           class="genome-icon"
+           src="{{ url_for(
+            'serve_icon',
+            fn='add_new') }}"
+           alt="Add new dataset">
+          <h2
+           class="text-wrap padded-top"
+           id="add-new-label">
+            Add new dataset
+          </h2>
+        </div>
+      </div>
     </div>
     <div
-	 class="tool-selection-div clickable collapsed"
-	 id="tool-sel-div">
+     class="tool-selection-div clickable collapsed"
+     id="tool-sel-div">
       {% for tool in (
-	   "Allele_miner",
-	   "Genome_browser",
-	   "Association_analysis",
-	   "Phylogeny_analysis") %}
+       "Allele_miner",
+       "Trait_view",
+       "Association_analysis",
+       "Edit_dataset") %}
         {% set tool_name = tool.replace("_", " ") %}
         <div
-		 class="object-div"
-	     id="{{ tool + '-div' }}"
+         class="object-div"
+         id="{{ tool + '-div' }}"
          onclick="loadAnalysis('{{ tool }}')">
           <img
             class="tool-icon"
             src="{{ url_for('static', filename='tools/' + tool + '.png') }}"
             alt="{{ tool_name }}">
           <h2
-		   class="text-wrap"
-		   id="{{ tool + '-label' }}">
-		    {{ tool_name }}
-	      </h2>
+           class="text-wrap"
+           id="{{ tool + '-label' }}">
+            {{ tool_name }}
+          </h2>
         </div>
       {% endfor %}
     </div>
@@ -100,14 +123,29 @@
 
 {% block script %}
   <script>
+    var links = JSON.parse({{ links|tojson|safe }});
+    function addNew() {
+      window.location.href = "{{ url_for('new') }}";
+    }
+
     function showTools(name) {
-      document.getElementById("genome-sel-div").style.display = "none";
-      document.getElementById("tool-sel-div").style.display = "block";
+      document.getElementById("genome-sel-div").classList.add("collapsed");
+      document.getElementById("tool-sel-div").classList.remove("collapsed");
+      //document.getElementById("back-button").classList.remove("collapsed");
       window.genome = name;
       document.getElementById("genome-title").innerHTML = name;
     }
+
+    function back() {
+      document.getElementById("tool-sel-div").classList.add("collapsed");
+      document.getElementById("genome-sel-div").classList.remove("collapsed");
+      //document.getElementById("back-button").classList.add("collapsed");
+      window.genome = "";
+      document.getElementById("genome-title").innerHTML = "";
+    }
+
     function loadAnalysis(tool) {
-      window.location.href = "/" + genome + "/" + tool;
+      window.location.href = links[genome][tool];
     }
 
     // Remove bottom spacer that is only used for other pages

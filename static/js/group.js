@@ -48,7 +48,7 @@ function makeGroup(event, setToGroup) {
             checkbox.type = "checkbox";
             checkbox.classList.add(setToGroup + "_group-checkbox");
             checkbox.id = setToGroup + "_group-dropdown" + groupName;
-            checkbox.value = selectedItems.join(",");
+            checkbox.value = JSON.stringify(selectedItems);
             checkbox.addEventListener("change", function(event) {
               updateCount(this.parentElement.parentElement);
               if (setToGroup === "expruns") {

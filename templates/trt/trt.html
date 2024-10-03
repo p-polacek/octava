@@ -1,0 +1,1111 @@
+{% extends "header.html" %}
+
+{% block title %} Trait view {% endblock %}
+
+{% block style %}{% endblock %}
+
+{% block errors %}{% endblock %}
+
+{% block content %}
+{# ================================================================ Options #}
+  <div class="results-wrapper">
+    <div class="row-div">
+      <h2 class="padded-left">
+        View:
+      </h2>
+      <button
+       type="button"
+       class="aux-button bold button-help"
+       title="Help"
+       onclick="showHelp(event, 'gwas_filt')">
+        &#63;
+      </button>
+    </div>
+    <div class="results-container">
+      <div class="disp-flex">
+        <div class="object-div param-div-flexheight">
+          <form
+           method="POST"
+           action="{{ url_for('assoc_filt', genome=genome) }}"
+           onkeydown="if(event.keyCode === 13) { event.target.blur(); }"
+           onsubmit="checkName(event);">
+            {{ form.hidden_tag() }}
+{# ================================================================= Single #}
+      <div class="row-input-div justified mini-padded-top padded-bottom">
+          {{ form.trait_sgl.label(class="default-label bold") }}
+          {{ form.trait_sgl(
+           class="default-input",
+           id="trait-sgl-field",
+           onchange="sglPlot();") }}       
+      </div>
+{# ============================================================== Transform #}
+              <div class="row-div mini-padded-top">
+                <h2>
+                  Transform:
+                </h2>
+                <button
+                 type="button"
+                 class="aux-button button-help"
+                 title="Help"
+                 onclick="showHelp(event, 'phe-transform');">
+                  &#63;
+                </button>
+              </div>
+
+              <div class="row-input-div padded-top justified">
+                <label
+                 for="log"
+                 class="default-label bold" >
+                  Log(e) transform
+                </label>
+                <input
+                 type="radio"
+                 value="log"
+                 id="log"
+                 name="transform"
+{#                 onclick="
+                  document.getElementById('logbase-div')
+                  .classList.toggle('collapsed', !this.checked)" #}
+                > 
+              </div>
+{#              <div
+               class="row-input-div justified small-padded-top small-padded-bottom collapsed"
+               id="logbase-div">
+                <label
+                 for="logbase"
+                 class="default-label bold">
+                  Base (number or <i>e</i>):
+                </label>
+                <div class="row-div">
+                  <div class="row-div promsize-div">
+                    <input
+                     type="text"
+                     id="logbase"
+                     size="4"
+                     value=2>
+                  </div>
+                </div>
+              </div>
+        
+              <div class="row-input-div small-padded-top small-padded-bottom justified">
+                <label
+                 for="boxcox"
+                 class="default-label bold">
+                  Box-Cox transform
+                </label>
+                <input
+                 type="radio"
+                 value="boxcox"
+                 id="boxcox"
+                 name="transform">
+              </div>
+#}
+              <div class="row-input-div justified padded-top padded-bottom">
+                <button
+                 type="button"
+                 onclick="showTransform();">
+                  <label class="default-label bold">
+                    Transform
+                  </label>
+                </button>
+                &nbsp;&nbsp;
+                <button
+                 type="button"
+                 onclick="saveTransform();">
+                  <label class="default-label bold">
+                    Save trait
+                  </label>
+                </button>
+              </div>
+{# ============================================================ Correlation #}
+              <div class="row-div mini-padded-top padded-bottom">
+                <h2>
+                  Compare:
+                </h2>
+                <button
+                 type="button"
+                 class="aux-button button-help"
+                 title="Help"
+                 onclick="showHelp(event, 'phe-compare');">
+                  &#63;
+                </button>
+              </div>
+              {% for field in [
+               "traits",
+               "trait_groups"] %}
+                {% set field_count = field + "_count" %}
+                {% set option_class = field + "-option" %}
+                <div class="row-div small-padded-bottom">
+                  <button
+                   type="button"
+                   class="dropdown-button"
+                   onclick="showDropdown(event, this);">
+                    {{ form[field].label(class="default-label bold") }}
+                    <span
+                     id="{{ field_count }}"
+                     class="default-label counter">
+                      0 selected
+                    </span>
+                  </button>
+                  {% if field == "traits" %}
+                    <button
+                     type="button"
+                     class="aux-button button-save"
+                     title="Save selection as group"
+                     onclick="makeGroup(event, 'traits');">
+                      &#43;
+                    </button>
+                  {% elif field == "trait_groups" %}
+                    <button
+                     type="button"
+                     class="aux-button button-delete"
+                     title="Delete selected groups"
+                     onclick="deleteGroup(event, 'traits');">
+                      &times;
+                    </button>
+                  {% endif %}
+                  <div class="dropdown-menu collapsed">
+                    <div class="sticky non-transparent small-padding">
+                      <input
+                       type="text"
+                       class="search-bar"
+                       placeholder="Search..."
+                       onkeyup="filterDropdown(visibleDropdown);">
+                      <button
+                       type="button"
+                       onclick="toggleAll(visibleDropdown);">
+                        Select all
+                      </button>
+                    </div>
+                    {% for choice in form[field] %}
+                      <div class="checkbox-row {{ option_class }}"
+                       {% if field == "trait_groups" %}
+                         oncontextmenu="showGroupContents(this);"
+                       {% endif %}
+                      >
+                        {{ choice(
+                         class=field + "-checkbox",
+                         onchange="updateCount(this.parentElement.parentElement);")}}
+                        {{ choice.label }}
+                      </div>
+                    {% endfor %}
+                  </div>
+                </div>
+              {% endfor %}
+{# ================================================================ Samples #}
+              <div class="row-div small-padded-top">
+                <button
+                 type="button"
+                 class="dropdown-button"
+                 onclick="showDropdown(event, this);">
+                  {{ form.samples.label(class="default-label bold") }}
+                  <span
+                   class="default-label counter"
+                   id="samples-count">
+                    0 selected
+                  </span>
+                </button>
+                <button
+                 type="button"
+                 id="make-group"
+                 class="aux-button button-save"
+                 title="Save selection as group"
+                 onclick="makeGroup(event, 'samples');">
+                  &#43;
+                </button>
+                <div class="dropdown-menu collapsed">
+                  <div class="sticky non-transparent small-padding">
+                    <input
+                     type="text"
+                     class="search-bar"
+                     placeholder="Search..."
+                     onkeyup="filterDropdown(visibleDropdown);">
+                    <button
+                     type="button"
+                     onclick="toggleAll(visibleDropdown);">
+                      Select all
+                    </button>
+                  </div>
+                  {% for choice in form.samples %}
+                    <div class="checkbox-row">
+                      {{ choice(
+                       class="samples-checkbox",
+                       onchange="updateCount(
+                        this.parentElement.parentElement);") }}
+                      {{ choice.label(class="checkbox-label") }}
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="row-div small-padded-top">
+                <button
+                 type="button"
+                 class="dropdown-button"
+                 onclick="showDropdown(event, this);">
+                  {{ form.sample_groups.label(class="default-label bold") }}
+                  <span
+                   class="default-label counter"
+                   id="sample_groups-count">
+                    0 selected
+                  </span>
+                </button>
+                <button
+                 type="button"
+                 id="delete-group"
+                 class="aux-button button-delete"
+                 title="Delete selected groups"
+                 onclick="deleteGroup(event, 'samples');">
+                  &times;
+                </button>
+                <div
+                 id="samples_group-dropdown"
+                 class="dropdown-menu collapsed">
+                  <div class="sticky non-transparent small-padding">
+                    <input
+                     type="text"
+                     class="search-bar"
+                     placeholder="Search..."
+                     onkeyup="filterDropdown(visibleDropdown);">
+                    <button
+                     type="button"
+                     onclick="toggleAll(visibleDropdown);">
+                      Select all
+                    </button>
+                  </div>
+                  {% for choice in form.sample_groups %}
+                    <div class="checkbox-row group-option">
+                      {{ choice(
+                       class="samples_group-checkbox",
+                       onchange="updateCount(
+                        this.parentElement.parentElement);") }}
+                      {{ choice.label(class="checkbox-label") }}
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="row-input-div padded-top padded-bottom justified">
+                <label
+                 for="gt"
+                 class="default-label bold" >
+                  Hide ungenotyped samples
+                </label>
+                <input
+                 type="checkbox"
+                 id="gt">
+              </div>
+{# =================================================================== Plot #}
+              <div class="
+               row-input-div
+               justified
+               small-padded-top
+               padded-bottom">
+                <button
+                 type="button"
+                 onclick="correlMatrix();">
+                  <label class="default-label bold">
+                   Update plot
+                  </label>
+                </button>
+              </div>
+{# ==================================================================== PCA #}
+              <div class="row-div mini-padded-top">
+                <h2>
+                  PCA:
+                </h2>
+                <button
+                 type="button"
+                 class="aux-button button-help"
+                 title="Help"
+                 onclick="showHelp(event, 'pca-transform');">
+                  &#63;
+                </button>
+              </div>
+              <div
+               class="row-input-div justified small-padded-top small-padded-bottom">
+                <label
+                 for="num-pc"
+                 class="default-label bold">
+                  Number of PCs:
+                </label>
+                <div class="row-div">
+                  <div class="row-div promsize-div">
+                    <input
+                     type="number"
+                     id="num-pc"
+                     size="4"
+                     value=5>
+                  </div>
+                </div>
+              </div>
+              <div class="row-input-div justified padded-top padded-bottom">
+                <button
+                 type="button"
+                 onclick="showPCA();">
+                  <label class="default-label bold">
+                    Calculate
+                  </label>
+                </button>
+                &nbsp;&nbsp;
+                <button
+                 type="button"
+                 onclick="savePCA();">
+                  <label class="default-label bold">
+                    Save trait
+                  </label>
+                </button>
+              </div>
+{# ========================================================= Plot and table #}
+          </form>
+        </div>
+        <div class="padded-top flex disp-flex results-subcontainer">
+          <div
+            id="plot-div"
+            class="flex no-min-width"></div>
+          <div id="table-div">
+            <div class="row-div justified padded-bottom">
+              <button onclick="decrement()">
+                <b>
+                  <
+                </b>
+              </button>
+              <h3>
+                Rows
+                <span id="table-from">
+                  1
+                </span>
+                  -
+                <span id="table-to">
+                  10
+                </span>
+              </h3>
+              <button onclick="increment()">
+                <b>
+                  >
+                </b>
+              </button>
+            </div>
+            <div class="scrollable padded-right">
+              <table id="plot-table">
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block script %}
+  <script src="{{url_for(
+  'static',
+  filename='js/popups.js')}}"></script>
+  <script src="{{url_for(
+   'static',
+   filename='js/group.js')}}"></script>
+  <script src="{{url_for(
+   'static',
+   filename='js/help_texts.js')}}"></script>
+
+  <script
+   src="https://cdn.plot.ly/plotly-latest.min.js">
+  </script>
+  <script
+   src="https://code.jquery.com/jquery-3.6.4.min.js">
+  </script>
+  <script
+   src="https://cdn.jsdelivr.net/npm/pca-js@1.0.0/pca.min.js">
+  </script>
+
+  <script>
+{# ============================================================ Setup input #}
+    var genome = '{{ genome }}';
+    var visibleDropdown = null;
+    // Colors for plotting separate sample groups, default from plotly.js
+    var plotColors = [
+      //"#1f77b4",  // muted blue
+      "#ff7f0e",  // safety orange
+      //"#2ca02c",  // cooked asparagus green
+      "#d62728",  // brick red
+      "#9467bd",  // muted purple
+      "#8c564b",  // chestnut brown
+      "#e377c2",  // raspberry yogurt pink
+      "#7f7f7f",  // middle gray
+      "#bcbd22",  // curry yellow-green
+      "#17becf"   // blue-teal
+    ];
+    var plotColorAll = "#47b023";
+    var plotColorSelected = "014e60";
+    var plotMargins = {l: 80, r: 40, b: 50, t: 30, pad: 4};
+
+    // Process phenotype data, trait names, sample names
+    var phe = JSON.parse('{{ phe|tojson|safe }}');
+    if (phe.length > 0) {
+      var pheCols = Object.fromEntries(phe[0].slice(1).map( (x, index) => {
+        return [x, index]
+      }));
+      var pheData = Object.fromEntries(phe.slice(1).map( x => {
+        return [x[0], x.slice(1)]
+      }));
+    }
+    var gtSamples = {{ samples|tojson }};
+{# ============================================ Fetch sample and trait data #}
+    // Get list of selected traits from dropdown
+    function getTraitChoice() {
+      var traitChoice = [];
+      document.querySelectorAll(".traits-checkbox").forEach( function(cbox) {
+        if (cbox.checked) {
+          traitChoice.push(cbox.value);
+        }
+      });
+      return traitChoice;
+    }
+
+    function getSampleChoice() {
+      // Get list of all samples
+      var allSamples = Object.keys(pheData);
+      if (document.getElementById("gt").checked) {
+        allSamples = allSamples.filter(s => gtSamples.includes(s));
+      }      
+      // Get list of individual samples
+      var sampleChoice = [];
+      document.querySelectorAll(".samples-checkbox").forEach( function(cbox) {
+        if (cbox.checked) {
+          sampleChoice.push(cbox.value);
+        }
+      });
+      if (document.getElementById("gt").checked) {
+        sampleChoice = sampleChoice.filter(s => gtSamples.includes(s));
+      }
+      // Get list of sample groups
+      var sampleGroupChoice = [];
+      document.querySelectorAll(".samples_group-checkbox").forEach( function(cbox) {
+        if (cbox.checked) {
+          // Keep both group contents and name
+          var samplesList = JSON.parse(cbox.value);
+          if (document.getElementById("gt").checked) {
+            samplesList = samplesList.filter(s => gtSamples.includes(s));
+          }
+          sampleGroupChoice.push(
+            [
+              samplesList,
+              cbox.nextElementSibling.textContent]);
+        }
+      });
+      return [allSamples, sampleChoice, sampleGroupChoice];
+    }
+{# ======================================================== Plot histograms #}
+    function histPlot(trait, allSamples, sampleChoice, sampleGroups, xaxis, yaxis, legend) {
+      var opacity = 1;
+      if (sampleChoice.length > 0 || sampleGroups.length > 0) {
+        opacity = 0.5;
+      }
+      var traces = [];
+      // Histogram of all samples
+      var plotData = [];
+      allSamples.forEach(function(key) {
+        plotData.push(pheData[key][pheCols[trait]]);
+      });
+      var trace = {
+        x: plotData,
+        name: "<i>All samples</i>",
+        Id: trait,
+        type: "histogram",
+        xaxis: xaxis,
+        yaxis: yaxis,
+        legendgroup: "<i>All samples</i>",
+        opacity: opacity,
+        marker: { color: plotColorAll },
+        bingroup: trait,
+        showlegend: legend,
+      };
+      traces.push(trace);
+
+      // Histogram of individually selected samples
+      if (sampleChoice.length > 0) {
+        var plotData = [];
+        sampleChoice.forEach(function(key) {
+          plotData.push(pheData[key][pheCols[trait]]);
+        });
+        var trace = {
+          x: plotData,
+          name: "<i>Selected samples</i>",
+          Id: trait,
+          type: "histogram",
+          xaxis: xaxis,
+          yaxis: yaxis,
+          legendgroup: "<i>Selected samples</i>",
+          opacity: opacity,
+          marker: { color: plotColorSelected },
+          bingroup: trait,
+          showlegend: legend,
+        };
+        traces.push(trace);
+      }
+
+      // Histograms for each sample group
+      for (var [idx, sampleGroup] of sampleGroups.entries()) {
+        var [groupSamples, groupName] = sampleGroup;
+        var plotData = [];
+        groupSamples.forEach(function(key) {
+          if (Object.keys(pheData).includes(key)) {
+            plotData.push(pheData[key][pheCols[trait]]);
+          }
+        });
+
+        var trace = {
+          x: plotData,
+          name: groupName,
+          Id: trait,
+          type: "histogram",
+          xaxis: xaxis,
+          yaxis: yaxis,
+          legendgroup: groupName,
+          opacity: opacity,
+          bingroup: trait,
+          showlegend: legend,
+          marker: {
+            color: plotColors[idx],
+          },
+        };
+        traces.push(trace);        
+      }
+      return traces;
+    }
+
+    // Plot of single-trait histogram
+    function sglPlot(trait) {
+      var [allSamples, sampleChoice, sampleGroupChoice] = getSampleChoice();
+      if (trait == null) {
+        var trait = document.getElementById("trait-sgl-field").value;
+        var unzoom = false;
+      } else {
+        var unzoom = true;
+      }
+
+      var traceToLegend = false;
+      if (sampleChoice.length > 0 || sampleGroupChoice.length > 0) {
+        traceToLegend = true;
+      }
+      var traces = histPlot(
+        trait,
+        allSamples,
+        sampleChoice,
+        sampleGroupChoice,
+        "x",
+        "y",
+        traceToLegend)
+      var layout = {
+        barmode: "overlay",
+        legend: {
+          tracegroupgap: 2,
+        },
+        xaxis: {
+          exponentformat: "e",
+          minexponent: 3,
+        },  
+        yaxis: {
+          exponentformat: "e",
+          minexponent: 3,
+        },
+      };
+      layout["margin"] = plotMargins;
+      Plotly.newPlot("plot-div", traces, layout);
+
+      if (unzoom) {
+        // Allow zoomimg out to the full plot by double-clicking
+        var lastClick = 0;
+        var delay = 400;
+        var plotDiv = document.getElementById("plot-div");
+        plotDiv.on("plotly_click", function(data) {
+          var click = new Date().getTime();
+          if (click - lastClick < delay) {
+            if (data.points && data.points.length > 0) {
+              correlMatrix();
+            }
+          }
+          lastClick = click;
+        });
+
+      }
+    }
+
+    // Plot of transformed data, doesn't show individual groups
+    function transformedPlot(plotData) {
+      var trace = {
+        x: plotData,
+        type: "histogram",
+        marker: { color: plotColorAll },
+      };
+      var layout = {
+        showlegend: false,
+        xaxis: {
+          exponentformat: "e",
+          minexponent: 3,
+        },  
+        yaxis: {
+          exponentformat: "e",
+          minexponent: 3,
+        },
+      };
+      layout["margin"] = plotMargins;
+      Plotly.newPlot("plot-div", [trace], layout);
+    }
+{# ======================================================= Plot correlation #}
+    function scatterPlot(traitA, traitB, allSamples, sampleChoice, sampleGroups, xaxis, yaxis, legend) {
+      var opacity = 1;
+      if (sampleChoice.length > 0 || sampleGroups.length > 0) {
+        opacity = 0.5;
+      }
+      var traces = [];
+      // Scatter plot of all samples
+      var traitAData = [];
+      allSamples.forEach(function(key) {
+        traitAData.push(pheData[key][pheCols[traitA]]);
+      });
+      var traitBData = [];
+      allSamples.forEach(function(key) {
+        traitBData.push(pheData[key][pheCols[traitB]]);
+      });
+      var trace = {
+        x: traitBData,
+        y: traitAData,
+//        name: traitA + " - " + traitB,
+        name: "<i>All samples</i>",
+        Id: [traitB, traitA],
+        type: "scatter",
+        mode: "markers",
+        xaxis: xaxis,
+        yaxis: yaxis,
+        legendgroup: "<i>All samples</i>",
+        opacity: opacity,
+        marker: {
+          color: plotColorAll,
+          line: {
+            color: "transparent",
+          },
+        },
+        showlegend: legend,
+        text: allSamples,
+        hoverinfo: "text+y",
+        hovertemplate: "%{text}<br>%{y}",
+        hoverlabel: {
+          namelength: 0,
+        },
+      };
+      traces.push(trace);
+
+      // Scatter plot of individually selected samples
+      if (sampleChoice.length > 0) {
+        var traitAData = [];
+        sampleChoice.forEach(function(key) {
+          traitAData.push(pheData[key][pheCols[traitA]]);
+        });
+        var traitBData = [];
+        sampleChoice.forEach(function(key) {
+          traitBData.push(pheData[key][pheCols[traitB]]);
+        });
+        var trace = {
+          x: traitBData,
+          y: traitAData,
+//          name: traitA + " - " + traitB,
+          name: "<i>Selected samples</i>",
+          Id: [traitB, traitA],
+          type: "scatter",
+          mode: "markers",
+          xaxis: xaxis,
+          yaxis: yaxis,
+          legendgroup: "<i>Selected samples</i>",
+          opacity: opacity,
+          marker: {
+            color: plotColorSelected,
+            line: {
+              color: "transparent",
+            },
+          },
+          showlegend: legend,
+          text: allSamples,
+          hoverinfo: "text+y",
+          hovertemplate: "%{text}<br>%{y}",
+          hoverlabel: {
+            namelength: 0,
+          },
+        };
+        traces.push(trace);
+      }
+
+      // Scatter plots for each sample group
+      for (var [idx, sampleGroup] of sampleGroups.entries()) {
+        var [groupSamples, groupName] = sampleGroup;
+        var traitAData = [];
+        groupSamples.forEach(function(key) {
+          if (Object.keys(pheData).includes(key)) {
+            traitAData.push(pheData[key][pheCols[traitA]]);
+          }
+        });
+        var traitBData = [];
+        groupSamples.forEach(function(key) {
+          if (Object.keys(pheData).includes(key)) {
+            traitBData.push(pheData[key][pheCols[traitB]]);
+          }
+        });
+        var trace = {
+          x: traitBData,
+          y: traitAData,
+//          name: traitA + " - " + traitB,
+          name: groupName,
+          Id: [traitB, traitA],
+          type: "scatter",
+          mode: "markers",
+          xaxis: xaxis,
+          yaxis: yaxis,
+          legendgroup: groupName,
+          opacity: opacity,
+          marker: {
+            color: plotColors[idx],
+            line: {
+              color: "transparent",
+            },
+          },
+          showlegend: legend,
+          text: allSamples,
+          hoverinfo: "text+y",
+          hovertemplate: "%{text}<br>%{y}",
+          hoverlabel: {
+            namelength: 0,
+          },
+        };
+        traces.push(trace);
+      }
+      return traces;
+    }
+{# ================================================ Plot multi-trait matrix #}
+    function correlMatrix(traitChoice) {
+      if (traitChoice == null) {
+        var traitChoice = getTraitChoice();
+        var unzoom = false;
+      } else {
+        var unzoom = true;
+      }
+      var [allSamples, sampleChoice, sampleGroupChoice] = getSampleChoice();
+      var numTraits = traitChoice.length;
+
+      if (numTraits < 2) {
+        showHelp(event, this, "Select at least two traits.");
+      } else {
+        var traces = [];
+        var plotScheme = [];
+        var rowCnt = numTraits;
+        traitChoice = traitChoice.reverse();
+        var traceToLegend = false;
+        if (sampleChoice.length > 0 || sampleGroupChoice.length > 0) {
+          traceToLegend = true;
+        }
+
+        for (let i = 0; i < numTraits; i++) {
+          var rowScheme = [];
+          // Fill upper triangle with empty plots
+          for (let e = 0; e < i; e++) {
+            traces.unshift({});
+            rowScheme.unshift("");
+          };
+
+          // Plot histogram on the diagonal
+          var xaxis = (numTraits - i) !== 1 ? "x" + (numTraits - i) : "x";
+          var yaxis = rowCnt !== 1 ? "y" + (rowCnt + numTraits) : "y";
+          var histTraces = histPlot(
+            traitChoice[i],
+            allSamples,
+            sampleChoice,
+            sampleGroupChoice,
+            xaxis,
+            yaxis,
+            traceToLegend);
+          traces = histTraces.concat(traces);
+          rowScheme.unshift(xaxis + yaxis);
+          traceToLegend = false;
+
+          // Plot correlation scatter plots on the lower triangle
+          for (let j = i+1; j < traitChoice.length; j++) {
+            var xaxis = (numTraits - j) !== 1 ? "x" + (numTraits - j) : "x";
+            var yaxis = rowCnt !== 1 ? "y" + rowCnt : "y";
+            scatterTraces = scatterPlot(
+              traitChoice[i],
+              traitChoice[j],
+              allSamples,
+              sampleChoice,
+              sampleGroupChoice,
+              xaxis,
+              yaxis,
+              false);
+            traces = scatterTraces.concat(traces);
+            rowScheme.unshift(xaxis + yaxis);
+          };
+          rowCnt--;
+          plotScheme.unshift(rowScheme);
+        };
+        var layout = {
+          grid: {
+            rows: numTraits,
+            columns: numTraits,
+            subplots: plotScheme,
+          },
+          margin: {
+            l: 80,
+            r: 40,
+            b: 50,
+            t: 30,
+            pad: 4
+          },
+          hoverlabel: {
+            namelength: -1,
+          },
+          hoverdistance: 20,
+          hovermode: "closest",
+          barmode: "overlay",
+          showlegend: true,
+          legend: {
+            tracegroupgap: 2,
+          },
+          annotations: [],
+        };
+
+        // Add subplot labels
+        for (let i = 0; i < numTraits; i++) {
+          var textIdx = numTraits - i - 1;
+          var traitTitle = {
+            text: traitChoice[textIdx].replace(/(.{25,}?)[\s\-\_]/g, "$1<br>"),
+            x: (i + 0.5) / numTraits,
+            y: (1 - i / numTraits),
+            xref: "paper",
+            yref: "paper",
+            xanchor: "center",
+            yanchor: "bottom",
+            ax: 0,
+            ay: 0,
+            showarrow: false,
+            //font: {size: 16}
+          };
+          layout["annotations"].push(traitTitle);
+        }
+
+        // Set axis ticks and rotation for each axis
+        for (let i = 0; i < numTraits + 1; i++) {
+          var axis = (i === 0) ? "xaxis" : "xaxis" + i;
+          layout[axis] = {
+            exponentformat: "e",
+            minexponent: 3,
+            tickangle: 45,
+          };
+        }
+        for (let i = 0; i < numTraits*2 + 1; i++) {
+          var axis = (i === 0) ? "yaxis" : "yaxis" + i;
+          layout[axis] = {
+            exponentformat: "e",
+            minexponent: 3,
+            //tickangle: -45,
+          };
+        }
+
+        Plotly.newPlot("plot-div", traces, layout);
+
+        // Allow zoomimg into a part of the subplot by double-clicking
+        var lastClick = 0;
+        var delay = 400;
+        var plotDiv = document.getElementById("plot-div");
+        plotDiv.on("plotly_click", function(data) {
+          if (data.event.button === 0) {
+            var click = new Date().getTime();
+            if (click - lastClick < delay) {
+              if (data.points && data.points.length > 0) {
+                if (unzoom) {
+                  correlMatrix();
+                } else {
+                  var traitChoice = data.points[0].data.Id;
+                  if (typeof traitChoice === "string") {
+                    sglPlot(traitChoice);
+                  } else if (Array.isArray(traitChoice)) {
+                    correlMatrix(traitChoice);
+                  }
+                }
+              }
+            }
+            lastClick = click;
+          } else if (data.event.button === 2) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            // Select/unselect the sample and highlight/unhighlight
+            var point = data.points[0];
+            var idx = point.pointIndex;
+            var numPoints = traces[point.curveNumber].x.length;
+            // Maintain existing point and line color
+            var pointColor = point.data.marker.color;
+            if (typeof lineColor === "string") {
+              pointColor = Array(numPoints).fill(pointColor);
+            }
+            var lineColor = point.data.marker.line.color;
+            if (typeof lineColor === "string") {
+              lineColor = Array(numPoints).fill(lineColor);
+            }
+            lineColor[idx] = lineColor[idx] === "red" ? "transparent": "cyan";
+            console.log(point);
+            var update = {
+              marker: {
+                color: pointColor,
+                line: {
+                  color: lineColor,
+                  width: 2,
+                },
+              },
+            };
+            Plotly.restyle(plotDiv, update, [point.curveNumber]);
+          }
+        });
+      }
+    };
+{# ========================================================= Transform data #}
+    function showTransform() {
+      var t = document.querySelector("input[name='transform']:checked");
+      if (t == null) {
+        showHelp(event, this, "Choose a transform method."); 
+      } else {
+        t = t.value;
+        var plotData = [];
+        var dataTransform = null;
+        var trait = document.getElementById("trait-sgl-field").value;
+        Object.keys(pheData).forEach(function(key) {
+          plotData.push(pheData[key][pheCols[trait]]);
+        });
+        plotData = plotData.map( v => parseFloat(v));
+
+        if (t === "log") {
+          var dataMin = Math.min(...plotData.filter(v => !isNaN(v)));
+          if (dataMin >= 0) {
+            showHelp(event, this, "Trait data cannot contain zeros or negative values.");
+          } else {
+            dataTransform = plotData.map( v => Math.log(v + dataMin) );
+          }
+//          if (dataMin > 0) {
+//            dataMin = 0;
+//          } else if (dataMin === 0) {
+//            dataMin = 1;
+//          } else {
+//            dataMin = Math.abs(dataMin);
+//          }
+
+//          var logbase = document.getElementById("logbase").value;
+//          if (logbase.toLowerCase() === "e") {
+//            dataTransform = plotData.map( v => Math.log(v + dataMin) );
+//          } else if (!isNaN(parseFloat(logbase))) {
+//            dataTransform = plotData.map( function(v) {
+//              return Math.log(v + dataMin) / Math.log(parseFloat(logbase)); 
+//            });
+//          } else {
+//            showHelp(event, this, "Enter a valid log base.");
+//          }
+
+        } else if (t === "boxcox") {
+          
+        } else if (t === "quant") {
+          
+        }
+        if (dataTransform !== null) {
+          transformedPlot(dataTransform);
+        }
+      }
+    }
+{# ========================================================== Calculate PCA #}
+    function showPCA() {
+      var PCAData = [];
+      var traitChoice = getTraitChoice();
+      
+      var [allSamples, sampleChoice, sampleGroupChoice] = getSampleChoice();
+      sampleGroupChoice.forEach(function(group) {
+        group[0].forEach(function(sample) {
+          if (!sampleChoice.includes(sample)) {
+            sampleChoice.push(sample);
+          }
+        });
+      });
+      if (sampleChoice.length === 0) {
+        sampleChoice = allSamples;
+      }
+      var numTraits = traitChoice.length;
+      if (numTraits < 2) {
+        showHelp(event, this, "Select at least two traits.");
+      } else {
+        for (let i = 0; i < numTraits; i++) {
+          var traitData = [];
+          sampleChoice.forEach(function(key) {
+            traitData.push(pheData[key][pheCols[traitChoice[i]]]);
+          });
+          PCAData.push(traitData);
+        }
+        var vectors = PCA.getEigenVectors(PCAData);
+        //console.log(vectors);
+
+        var numPCs = parseInt(document.getElementById("num-pc").value);
+        if (isNaN(numPCs)) {
+          shpwHelp(event, this, "Enter a valid number od PCs.");
+        } else {
+          var pcs = [...Array(numPCs + 1).keys()].slice(1);
+          var trace = {
+            type: "scatter",
+            x: pcs,
+            y: pcs.map( pc => PCA.computePercentageExplained(vectors, vectors[pc - 1]) ),
+            mode: "lines+markers",
+            line: {
+              color: "#47b023",
+            },
+            marker: {
+              color: "#014e60",
+              size: 10
+            },
+          };
+          var layout = {
+            title: "Scree plot",
+            xaxis: {
+              title: "Principal component",
+              tickvals: pcs,
+              ticktext: pcs,
+            },
+            yaxis: { 
+              title: "Proportion of variance explained",
+              //range: [0, 100],
+            },
+            margin: {
+              t: 70,
+              pad: 4
+            },
+          }
+          Plotly.newPlot("plot-div", [trace], layout);
+        }
+      }
+    }
+{# ========================================================= Upon page load #}
+    function resizePlot() {
+      plotDiv = document.getElementById("plot-div");
+      if (plotDiv.innerHTML) {
+        Plotly.Plots.resize("plot-div");
+      }
+    }
+    window.addEventListener("resize", function() { resizePlot() });
+
+    // Hide shown popup on click
+    document.addEventListener("click", function(event) {
+      document.getElementById("help-popup").classList.add("collapsed");
+    });
+
+    document.getElementById("plot-div").addEventListener("contextmenu", function(event) {
+      event.preventDefault();
+    });
+
+    document.addEventListener("DOMContentLoaded", function() {
+      document.querySelectorAll("input[name='transform']").forEach( function(i) {
+        i.checked = "";
+      });
+      document.getElementById("trait-sgl-field").selectedIndex = 0;
+      sglPlot();
+    });
+  </script>
+{% endblock %}

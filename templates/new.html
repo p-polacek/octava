@@ -1,0 +1,493 @@
+{% extends "header.html" %}
+
+{% block title %} {% if edit %}Edit{% else %}New{% endif %} dataset {% endblock %}
+
+{% block style %}{% endblock %}
+
+{% block errors %}
+  {% if errors == 0 %}
+    <div class="padded-left">
+      <h3 class="padded-left bold">
+        Phenotypes saved successfully.
+      </h3>
+    </div>
+  {% elif errors %}
+    <div class="padded-left">
+      <h2 class="padded-left">
+        Warnings:
+      </h2>
+      {% for error in errors %}
+        <h3 class="padded-left mini-padded-top taller-line">
+          {{ error|safe }}
+        <br>
+        </h3>
+      {% endfor %}
+      <h3 class="padded-left mini-padded-top taller-line bold red-text">
+        Phenotype files were not saved, check input files and re-submit.
+      </h3>
+    </div>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+{# ================================================================ Options #}
+  <div class="results-wrapper">
+    <div class="row-div padded-bottom">
+      <h2>
+        {% if edit %}Edit{% else %}Set up a new{% endif %} dataset:
+      </h2>
+      <button
+       type="button"
+       class="aux-button bold button-help"
+       title="Help"
+       onclick="showHelp(event, 'gwas_filt')">
+        &#63;
+      </button>
+    </div>
+    <div class="results-container">
+      <div class="disp-flex">
+        <div class="object-div">
+          <form
+           method="POST"
+           enctype="multipart/form-data"
+           action="{{ action }}"
+           onkeydown="if(event.keyCode === 13) { event.target.blur(); }">
+            {{ form.hidden_tag() }}
+{# =================================================================== Name #}
+            {% if not edit %}
+              <div class="wide-input-div justified mini-padded-top small-padded-bottom">
+                {{ form.name.label(class="default-label bold") }}
+                {{ form.name(
+                 class="default-input",
+                 onchange="window.location.href = this.value;") }}
+              </div>
+            {% endif %}
+{# =================================================================== Icon #}
+            {% if not edit and genome %}
+              <div class="row-div">
+                <div class="wide-input-div justified padded-top padded-bottom">
+                  {{ form.icon.label(class="default-label bold") }}
+                   <div class="input-field-sized">
+                     {{ form.icon(
+                      id="icon",
+                      class="icon-width",
+                      accept=".png,.jpg,.jpeg",
+                      onchange="renderIcon();") }}
+                  </div>
+                </div>
+                <button
+                 type="button"
+                 class="aux-button bold button-delete"
+                 title="Reset icon"
+                 onclick="resetIcon();">
+                  &times;
+                </button>
+              </div>
+              <div class="wide-input-div" style="justify-content: flex-end;">
+                <img
+                 id="icon-preview"
+                 class="genome-icon"
+                 src="{{ url_for('static', filename='icons/Icon_default.png') }}"
+                 alt="Default icon">
+              </div>
+            {% endif %}
+{# ======================================================= Edit input files #}
+            {% if genome and (not edit or(edit and allow)) %}
+              <div class="row-div padded-top small-padded-bottom">
+                <h2>
+                  {% if edit %}Edit{% else %}Input{% endif %} files:
+                </h2>
+              </div>
+              {% if edit %}
+              {% for file in ("phe", ) %} {# "run", "proj", "samp") %} #}
+                <div class="row-div">
+                  <div class="wide-input-div justified padded-top padded-bottom">
+                    {{ form[file].label(class="default-label bold") }}
+                     <div class="input-field-sized">
+                       {{ form[file](
+                        class="icon-width",
+                        id=file+"-field",
+                        accept=".txt,.tsv,.csv") }}
+                    </div>
+                  </div>
+                  <button
+                   type="button"
+                   class="aux-button bold button-delete"
+                   title="Reset file"
+                   onclick="this.value = '';">
+                    &times;
+                  </button>
+                </div>
+              {% endfor %}
+{# ======================================================== New input files #}
+              {% else %}
+                <div class="wide-input-div justified padded-bottom">
+                  {{ form.vcf.label(class="default-label bold") }}
+                  {{ form.vcf(
+                   class="default-input",
+                   id="vcf-field",
+                   onchange="updateChr(this.value);") }}
+                </div>
+                {% for file in ("ann", "seq", "phe", "exp", "run", "proj", "samp") %}
+                  <div class="wide-input-div justified padded-bottom">
+                    {{ form[file].label(class="default-label bold") }}
+                    {{ form[file](
+                     class="default-input",
+                     id=file+"-field") }}
+                  </div>
+                {% endfor %}
+                <div class="wide-input-div justified padded-bottom">
+                  {{ form.info.label(class="default-label bold") }}
+                  {{ form.info(
+                   class="default-input",
+                   id="info-field",
+                   onchange="updateEnr(this.value);") }}
+                </div>
+{# ============================================================== BAM files #}
+                <div class="row-div small-padded-bottom">
+                  <button
+                   type="button"
+                   class="wide-dropdown-button"
+                   onclick="showDropdown(event, this);">
+                    {{ form.bam.label(class="default-label bold") }}
+                    <span
+                     class="default-label counter"
+                     id="bam-count">
+                      0 selected
+                    </span>
+                  </button>
+                  <div class="dropdown-menu collapsed">
+                    <div class="sticky non-transparent small-padding">
+                      <input
+                       type="text"
+                       class="search-bar"
+                       placeholder="Search..."
+                       onkeyup="filterDropdown(visibleDropdown);">
+                      <button
+                       type="button"
+                       onclick="toggleAll(visibleDropdown);">
+                        Select all
+                      </button>
+                    </div>
+                    {% for choice in form.bam %}
+                      <div class="checkbox-row">
+                        {{ choice(
+                         class="bam-checkbox",
+                         onchange="updateCount(
+                          this.parentElement.parentElement);") }}
+                        {{ choice.label(class="checkbox-label") }}
+                      </div>
+                    {% endfor %}
+                  </div>
+                </div>
+{# =============================================================== Annotate #}
+                <div class="row-div padded-top">
+                  <h2>
+                    Annotate variants:
+                  </h2>
+                </div>
+                <div class="row-div padded-top">
+                  <div class="wide-input-div justified">
+                    {{ form.snpeff.label(
+                     class="default-label bold") }}
+                    {{ form.snpeff }}
+                  </div>
+                </div>
+                <div class="row-div padded-top padded-bottom">
+                  <div class="wide-input-div justified">
+                    {{ form.sev.label(
+                     class="default-label bold") }}
+                    {{ form.sev }}
+                  </div>
+                </div>
+{# ============================================================= Enrichment #}
+                <div class="row-div padded-top">
+                  <h2>
+                    Additional options:
+                  </h2>
+                </div>
+                <div class="row-div padded-top">
+                  <button
+                   type="button"
+                   class="wide-dropdown-button"
+                   onclick="showDropdown(event, this);">
+                    {{ form.enr.label(class="default-label bold") }}
+                    <span
+                     class="default-label counter"
+                     id="enr-count">
+                      0 selected
+                    </span>
+                  </button>
+                  <div class="dropdown-menu collapsed" id="enr-dropdown">
+                    <div class="sticky non-transparent small-padding">
+                      <input
+                       type="text"
+                       class="search-bar"
+                       placeholder="Search..."
+                       onkeyup="filterDropdown(visibleDropdown);">
+                      <button
+                       type="button"
+                       onclick="toggleAll(visibleDropdown);">
+                        Select all
+                      </button>
+                    </div>
+                  </div>
+                </div>
+{# ================================================== Chromosome visibility #}
+                <div class="row-div padded-top padded-bottom">
+                  <button
+                   type="button"
+                   class="wide-dropdown-button"
+                   onclick="showDropdown(event, this);">
+                    {{ form.concat.label(class="default-label bold") }}
+                    <span
+                     class="default-label counter"
+                     id="concat-count">
+                      0 selected
+                    </span>
+                  </button>
+                  <div class="dropdown-menu collapsed" id="chr-dropdown">
+                    <div class="sticky non-transparent small-padding">
+                      <input
+                       type="text"
+                       class="search-bar"
+                       placeholder="Search..."
+                       onkeyup="filterDropdown(visibleDropdown);">
+                      <button
+                       type="button"
+                       onclick="toggleAll(visibleDropdown);">
+                        Select all
+                      </button>
+                    </div>
+                  </div>
+                </div>
+{# =========================================================== Edit dataset #}
+                <div class="row-div padded-bottom">
+                  <div class="wide-input-div justified">
+                    {{ form.edit.label(
+                     class="default-label bold") }}
+                    {{ form.edit }}
+                  </div>
+                  <button
+                   type="button"
+                   class="aux-button bold button-help"
+                   title="Help"
+                   onclick="showHelp(event, 'hap')">
+                    &#63;
+                  </button>
+                </div>
+{# =========================================================== IGV settings #}
+                <div class="row-div padded-top">
+                  <h2>
+                    IGV visualisation options:
+                  </h2>
+                </div>
+                <div class="wide-input-div justified padded-top">
+                  {{ form.igv_vis.label(class="default-label bold") }}
+                  <div class="promsize-div">
+                    {{ form.igv_vis(class="default-input promsize-input") }}
+                  </div>
+                </div>
+                <div class="wide-input-div justified padded-top">
+                  {{ form.igv_h.label(class="default-label bold") }}
+                  <div class="promsize-div">
+                    {{ form.igv_h(class="default-input promsize-input") }}
+                  </div>
+                </div>
+              {% endif %}
+            {% endif %}
+            <div class="row-input-div justified padded-top padded-bottom">
+              <button
+               type="button"
+               onclick="validateSubmit();">
+                <label
+                 class="default-label bold">
+                  Submit
+                </label>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block script %}
+  <script src="{{url_for(
+  'static',
+  filename='js/popups.js')}}"></script>
+  <script src="{{url_for(
+   'static',
+   filename='js/help_texts.js')}}"></script>
+
+  <script
+   src="https://code.jquery.com/jquery-3.6.4.min.js">
+  </script>
+
+  <script>
+    var genome = "{{ genome }}";
+    var edit = {{ edit|tojson }};
+    var visibleDropdown = null;
+
+    function resetIcon() {
+      var icon = document.getElementById("icon");
+      if (icon != null) {
+        icon.value = "";
+        var preview = document.getElementById("icon-preview");
+        preview.src = "{{ url_for('static', filename='icons/Icon_default.png') }}";
+      }
+    }
+
+    // Event listener for the file input
+    function renderIcon() {
+      var iconInput = document.getElementById("icon");
+      if (iconInput.files && iconInput.files[0]) {
+        var icon = iconInput.files[0];
+        if (icon.size  > 102400) {
+          iconInput.value = "";
+          alert("File should be 100kb maximum.");
+          return;
+        }
+        const validTypes = ["image/jpg", "image/jpeg", "image/png"];
+        if (!validTypes.includes(icon.type)) {
+          iconInput.value = "";
+          alert("File must be PNG or JPEG.");
+          return;
+        }
+        const reader = new FileReader();
+        var preview = document.getElementById("icon-preview");
+        reader.onload = function (e) {
+          preview.src = e.target.result;
+        };
+        reader.readAsDataURL(icon);
+        preview.onload = function() {
+          if (preview.height !== 128 || preview.width !== 128) {
+            resetIcon();
+            alert("Icon resolution must be 256x256px.");
+          }
+        }
+      }
+    }
+
+    function updateChr(file) {
+      var dropdown = document.getElementById("chr-dropdown");
+      while (dropdown.children.length > 1) {
+        dropdown.removeChild(dropdown.lastChild);
+      }
+      if (file !== "") {
+        $.ajax({
+          url: "{{ url_for('concat', genome=genome) }}",
+          method: "POST",
+          data: {
+            vcf: file,
+          },
+          success: function (results) {
+            for (item of results) {
+              var checkboxRow = document.createElement("div");
+              checkboxRow.classList.add("checkbox-row");
+              var checkbox = document.createElement("input");
+              checkbox.type = "checkbox";
+              checkbox.classList.add("concat-checkbox");
+              checkbox.id = "chr-dropdown" + item;
+              checkbox.name = "concat";
+              checkbox.value = item;
+              checkbox.addEventListener("change", function(event) {
+                updateCount(this.parentElement.parentElement);
+              });              
+
+              var label = document.createElement("label");
+              label.classList.add("checkbox-label")
+              label.htmlFor = checkbox.id;
+              label.appendChild(document.createTextNode(item));
+
+              checkboxRow.appendChild(checkbox);
+              checkboxRow.appendChild(document.createTextNode(" "));
+              checkboxRow.appendChild(label);
+              dropdown.appendChild(checkboxRow);
+            }
+            updateCount(dropdown);
+          }
+        });
+      }
+    }
+
+    function updateEnr(file) {
+      var dropdown = document.getElementById("enr-dropdown");
+      while (dropdown.children.length > 1) {
+        dropdown.removeChild(dropdown.lastChild);
+      }
+      if (file !== "") {
+        $.ajax({
+          url: "{{ url_for('enr_cols', genome=genome) }}",
+          method: "POST",
+          data: {
+            info: file,
+          },
+          success: function (results) {
+            for (item of results) {
+              var checkboxRow = document.createElement("div");
+              checkboxRow.classList.add("checkbox-row");
+              var checkbox = document.createElement("input");
+              checkbox.type = "checkbox";
+              checkbox.classList.add("enr-checkbox");
+              checkbox.id = "chr-dropdown" + item;
+              checkbox.name = "enr";
+              checkbox.value = item;
+              checkbox.addEventListener("change", function(event) {
+                updateCount(this.parentElement.parentElement);
+              });              
+
+              var label = document.createElement("label");
+              label.classList.add("checkbox-label")
+              label.htmlFor = checkbox.id;
+              label.appendChild(document.createTextNode(item));
+
+              checkboxRow.appendChild(checkbox);
+              checkboxRow.appendChild(document.createTextNode(" "));
+              checkboxRow.appendChild(label);
+              dropdown.appendChild(checkboxRow);
+            }
+          }
+        });
+      }
+    }
+
+    function validateSubmit() {
+      if (edit) {
+        document.querySelector("form").submit();
+      } else {
+        var requiredFiles = ["vcf", "ann", "seq"];
+        for (file of requiredFiles) {
+          if (document.getElementById(file + "-field").value === "") {
+            alert("Variant, annotation and sequence files are all required.");
+            return;
+          } else {
+            document.querySelector("form").submit();
+          }
+        }
+      }
+    }
+
+    // Hide shown popup on click
+    document.addEventListener("click", function(event) {
+      if (visibleDropdown != null) {
+        hideDropdown(visibleDropdown);
+      }
+      document.getElementById("help-popup").classList.add("collapsed");
+    });
+    document.addEventListener("DOMContentLoaded", function() {
+      if (genome !== "") {
+        resetIcon();
+      }
+      if (document.getElementById("info-field") != null) {
+        updateEnr(document.getElementById("info-field").value);
+        updateChr(document.getElementById("vcf-field").value);
+      }
+    });
+    window.addEventListener("pageshow", function() {
+      document.querySelector("form").reset();
+    });
+  </script>
+{% endblock %}
+
