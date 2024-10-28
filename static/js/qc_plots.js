@@ -1,4 +1,16 @@
 // Static data
+var plotColors = [
+  //"#1f77b4",  // muted blue
+  "#ff7f0e",  // safety orange
+  //"#2ca02c",  // cooked asparagus green
+  "#d62728",  // brick red
+  "#9467bd",  // muted purple
+  "#8c564b",  // chestnut brown
+  "#e377c2",  // raspberry yogurt pink
+  "#7f7f7f",  // middle gray
+  "#bcbd22",  // curry yellow-green
+  "#17becf"   // blue-teal
+];
 var pTitles = {
  "smiss": "Sample missingness",
  "vmiss": "Marker missingness",
@@ -36,12 +48,18 @@ function getMaxRows(plotChoice) {
   }
 };
 
-function fetchChrLd() {
-var plotChoice = document.getElementById("choice-field")
-  var ldChrDiv = document.getElementById("ld-chr-div");
-  if (plotChoice.value === "ld") {
-    ldChrDiv.classList.remove("collapsed");
-    var ldChr = document.getElementById("ld-chr-field").value;
+function fetchChr() {
+  if (typeof(haps) !== "undefined" && haps[markers]) {
+    var plotChoice = document.getElementById("hap-choice-field").value;
+  } else {
+    var plotChoice = document.getElementById("choice-field").value;
+  }
+  var chrDiv = document.getElementById("chr-div");
+  var pcaSampDiv = document.getElementById("pca-sample-div");
+  if (plotChoice === "ld") {
+    chrDiv.classList.remove("collapsed");
+    pcaSampDiv.classList.add("collapsed");
+    var chr = document.getElementById("chr-field").value;
     if (markers == null) {
       markers = "";
     }
@@ -52,10 +70,32 @@ var plotChoice = document.getElementById("choice-field")
       data: {
         genome: genome,
         markers: markers,
-        chrom: ldChr,
+        chrom: chr,
       },
       success: function (data) {
-        chrLdData = data;
+        chrData = data;
+      }
+    });
+    requests.push(request);
+
+    $.when.apply($, requests).done(function() {
+      showPlot();
+    })
+  } else if (plotChoice == "bdist") {
+    chrDiv.classList.remove("collapsed");
+    pcaSampDiv.classList.add("collapsed");
+    var chr = document.getElementById("chr-field").value;
+    var requests = [];
+    var request = $.ajax({
+      url: "/chr_bdist",
+      method: "POST",
+      data: {
+        genome: genome,
+        markers: markers,
+        chrom: chr,
+      },
+      success: function (data) {
+        chrData = data;
       }
     });
     requests.push(request);
@@ -64,7 +104,11 @@ var plotChoice = document.getElementById("choice-field")
       showPlot();
     })
   } else {
-    ldChrDiv.classList.add("collapsed");
+    chrDiv.classList.add("collapsed");
+    pcaSampDiv.classList.add("collapsed");
+    if (plotChoice === "pca") {
+      pcaSampDiv.classList.remove("collapsed");
+    }
     showPlot();
   }
 }
@@ -130,10 +174,10 @@ function fillTable(plotChoice) {
       var table = document.getElementById("plot-table");
       table.innerHTML = "";
       if ((plotChoice == "smiss") | (plotChoice == "shet")) {
-    var idColumn = "Sample";
+        var idColumn = "Sample";
       }
       else {
-    var idColumn = "Variant";
+        var idColumn = "Variant";
       }
       var cols = [idColumn, xLabels[plotChoice]];
 
@@ -177,11 +221,16 @@ function fillTable(plotChoice) {
 
 // Plot
 function showPlot() {
-  var plotChoice = document.getElementById("choice-field").value;
+  if (typeof(haps) !== "undefined" && haps[markers]) {
+    var plotChoice = document.getElementById("hap-choice-field").value;
+  } else {
+    var plotChoice = document.getElementById("choice-field").value;
+  }
   if (histData == null) {
     return;
   }
   var data = histData[plotChoice];
+  var traces = [];
 
   if (plotChoice === "dens") {
     var origSizes = Object.fromEntries(names.map((ch, i) => [ch, sizes[i]]));
@@ -228,7 +277,8 @@ function showPlot() {
       hovertemplate: "%{text}",
       marker: { color: "#47b023" },
     };
-  
+    traces.push(trace);
+
     var layout = {
       title: {
         text: pTitles[plotChoice],
@@ -274,36 +324,166 @@ function showPlot() {
     }
     layout.shapes = spanShapes;
   } else if (plotChoice === "pca") {
-    var pcs = Array.from({ length: data.length }, (_, i) => i + 1);
+    var[plottedSamples, PCAdata, PVEs] = data;
+    var sampleGroupChoice = [];
+    document.querySelectorAll(".samples_group-checkbox").forEach( function(cbox) {
+      if (cbox.checked) {
+        // Keep both group contents and name
+        var samplesList = JSON.parse(cbox.value);
+        sampleGroupChoice.push(
+          [
+            samplesList,
+            cbox.nextElementSibling.textContent]);
+      }
+    });
+    var legend = (sampleGroupChoice.length > 0);
+    var opacity = legend ? 0.5 : 1;
+
     var trace = {
-      type: "scatter",
-      x: pcs,
-      y: data,
-      mode: "lines+markers",
-      line: {
-        color: "#47b023",
-      },
-      marker: {
-        color: "#014e60",
-        size: 10
-      },
-    };
+      x: PCAdata[0],
+      y: PCAdata[1],
+      z: PCAdata[2],
+      name: "<i>All samples</i>",
+      type: "scatter3d",
+      mode: "markers",
+      text: plottedSamples,
+      opacity: opacity,
+      showlegend: legend,
+      hovertemplate: "%{text}",
+      hoverlabel: {
+        namelength: 0,
+        bgcolor: "white",
+       },
+       marker: {
+         size: 4,
+       }
+    }
+    traces.push(trace);
+
+    // Plot of sample groups
+    if (sampleGroupChoice.length > 0) {
+      for (var [idx, group] of sampleGroupChoice.entries()) {
+        var [members, groupName] = group;
+        var trace = {
+          x: PCAdata[0].filter((_, idx) => members.includes(plottedSamples[idx])),
+          y: PCAdata[1].filter((_, idx) => members.includes(plottedSamples[idx])),
+          z: PCAdata[2].filter((_, idx) => members.includes(plottedSamples[idx])),
+          name: groupName,
+          type: "scatter3d",
+          mode: "markers",
+          text: plottedSamples.filter(v => members.includes(v)),
+          opacity: opacity,
+          showlegend: legend,
+          hovertemplate: "%{text}",
+          hoverlabel: {
+            namelength: 0,
+            bgcolor: "white",
+           },
+           marker: {
+             color: plotColors[idx],
+             size: 4,
+           }
+        }
+        traces.push(trace);
+      }
+    }
+
+    var annotations = [];
+    annotations.push({
+      text: "PVE:",
+      x: 1,
+      y: 1,
+      showarrow: false,
+      yanchor: "middle",
+      valign: "top",
+      xref: "paper",
+      yref: "paper",
+      font: { family: "monospace", size: 14 },
+    });
+    PVEs.forEach(function(PVE, idx) {
+      idx ++;
+      annText = `PC${idx}: `;
+      if (idx < 10 && PVE < 10) {
+        annText += " ";
+      }
+      annText += `${PVE.toFixed(2)}%`;
+      annotations.push({
+        text: annText,
+        x: 1,
+        y: 1 - (idx * Math.min(0.05, (1 / PVEs.length))),
+        showarrow: false,
+        yanchor: "middle",
+        valign: "top",
+        xref: "paper",
+        yref: "paper",
+        font: { family: "monospace", size: 14 },
+      });
+    });
     var layout = {
-      title: "Scree plot",
-      xaxis: {
-        title: "Principal component",
-        tickvals: pcs,
-        ticktext: pcs,
-      },
-      yaxis: { 
-        title: "Proportion of variance explained",
-        //range: [0, 100],
+      annotations: annotations,
+      scene: {
+        camera: {
+          eye: {
+            x: 0,
+            y: 0,
+            z: 2,
+          }
+        },
+        xaxis: {
+          title: "PC1",
+          showgrid: false,
+        },
+        yaxis: {
+          title: "PC2",
+          showgrid: false,
+         },
+        zaxis: {
+          title: "PC3",
+          showgrid: false,
+        },
       },
       margin: {
-        t: 70,
+        t: 30,
+        b: 10,
+        l: 10,
+        r: 10,
         pad: 4
       },
     }
+
+
+
+//    var pcs = Array.from({ length: data.length }, (_, i) => i + 1);
+//    var trace = {
+//      type: "scatter",
+//      x: pcs,
+//      y: data,
+//      mode: "lines+markers",
+//      line: {
+//        color: "#47b023",
+//      },
+//      marker: {
+//        color: "#014e60",
+//        size: 10
+//      },
+//    };
+//    traces.push(trace);
+//    var layout = {
+//      title: "Scree plot",
+//      xaxis: {
+//        title: "Principal component",
+//        tickvals: pcs,
+//        ticktext: pcs,
+//      },
+//      yaxis: { 
+//        title: "Proportion of variance explained",
+//        //range: [0, 100],
+//      },
+//      margin: {
+//        t: 70,
+//        pad: 4
+//      },
+//    }
   } else if (plotChoice === "kin") {
     var trace = {
       type: "heatmap",
@@ -314,6 +494,7 @@ function showPlot() {
         title: "Distance",
       },
     };
+    traces.push(trace);
     var layout = {
       xaxis: {
         tickangle: -45,
@@ -326,20 +507,59 @@ function showPlot() {
         pad: 4
       },
     }
+  } else if (plotChoice === "bdist") {
+//    var trace = {
+//      type: "scatter",
+//    };
+//    traces.push(trace);
+//    var layout = {
+//      shapes: chrData.map(line => ({
+//        type: "line",
+//        x0: line[0],
+//        x1: line[1],
+//        y0: line[2],
+//        y1: line[2],
+//      })),
+//      margin: {
+//        t: 10,
+//        pad: 0
+//      },
+//    }
+    var trace = {
+      type: "bar",
+      x: chrData.map(v => (v[0] + v[1]) / 2),
+      y: chrData.map(v => v[2]),
+      width: chrData.map(v => v[1] - v[0]),
+      opacity: 0.7,
+    };
+    console.log(trace);
+    traces.push(trace);
+    var layout = {
+      margin: {
+        t: 10,
+        pad: 0
+      },
+//      yaxis: {
+//        type: "log",
+//      },
+    }
   } else if (plotChoice === "ld") {
-    var ldChr = document.getElementById("ld-chr-field").value;
     var trace = {
       type: "heatmap",
-      z: chrLdData[0],
-      x: chrLdData[1],
-      y: chrLdData[1],
+      z: chrData[0],
+      x: chrData[1],
+      y: chrData[1],
       colorscale: [
        [0, "rgb(255,255,255)"],
        [1, "rgb(255,0,0)"]],
+      zmin: 0,
+      zmax: 1,
+      autocolorscale: false,
       colorbar: {
         title: "LD",
       },
     };
+    traces.push(trace);
     var layout = {
       xaxis: {
         tickangle: -45,
@@ -354,14 +574,46 @@ function showPlot() {
       plot_bgcolor: "rgb(150,150,150)",
       //plot_bgcolor: "rgb(0,0,0)",
     }
+  } else if (plotChoice === "baf") {
+    var [hgts, bins] = data;
+    for (let i = 0; i < hgts.length; i++) {
+      var trace = {
+        type: "bar",
+        name: `${ordinal(i+1)} haplotype`,
+        x: bins,
+        y: hgts[i],
+        opacity: 0.4,
+      }
+      traces.push(trace);
+    };
+    var yMax = Math.max(...hgts.reduce((acc, hgt) => acc.concat(hgt), [])) + 1;
+    var layout = {
+      barmode: "overlay",
+      bargap: 0,
+      yaxis: {
+        autorange: false,
+        range: [0, yMax],
+      },
+    }
   } else {
+    var txt = data[0].map((val, idx) => { return `${data[1][idx]}-${data[1][idx+1]}` });
     var trace = {
       type: "bar",
       x: data[1],
       y: data[0],
+      text: txt,
+      hovertemplate: "%{text}<br>Count: %{y}",
+      hoverlabel: {
+        namelength: 0,
+        bgcolor: "white",
+//        font: {
+//          size: 13,
+//        },
+      },
       marker: { color: "#47b023" },
+      offset: 0,
     };
-
+    traces.push(trace);
     var layout = {
       title: {
         text: pTitles[plotChoice],
@@ -377,6 +629,7 @@ function showPlot() {
         title: "Count",
         gridcolor: "rgba(0,0,0,0.1)",
       },
+      hovermode: "closest",
       margin: {
         l: 80,
         r: 40,
@@ -418,7 +671,7 @@ function showPlot() {
 
   document.getElementById("plot-div").innerHTML = "";
   //Plotly.purge("plot-div");
-  Plotly.newPlot("plot-div", [trace], layout);
+  Plotly.newPlot("plot-div", traces, layout);
 };
 
 function resizePlot() {
@@ -431,7 +684,8 @@ function resizePlot() {
 function fetchPlots(markers, callback) {
   payload = {};
   payload["genome"] = genome;
-  payload["markers"] = markers
+  payload["markers"] = markers;
+  payload["hap"] = haps[markers];
 
   $.ajax({
     url: "/hist",
@@ -441,4 +695,18 @@ function fetchPlots(markers, callback) {
       callback(results);
     }
   });
+}
+
+function ordinal(i) {
+    let j = i % 10, k = i % 100;
+    if (j == 1 && k != 11) {
+        return i + "st";
+    }
+    if (j == 2 && k != 12) {
+        return i + "nd";
+    }
+    if (j == 3 && k != 13) {
+        return i + "rd";
+    }
+    return i + "th";
 }

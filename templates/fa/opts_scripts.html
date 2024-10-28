@@ -15,7 +15,7 @@
       var geneOnly = document.getElementById("impact-geneonly").checked;
       var target = document.getElementById("target-field").value;
       var promDiv = document.getElementById("promsize-div");
-      if (target === "cds") {
+      if (target === "cds" || target === "full") {
         promDiv.classList.add("collapsed");
       } else if (target === "prom") {
         promDiv.classList.remove("collapsed");

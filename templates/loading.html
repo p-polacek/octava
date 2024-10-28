@@ -22,7 +22,23 @@
   <div class="padded-left">
     <div class="padded-top padded-left padded-right">
        <h2 id="status" class="padded-bottom"></h2>
-       <h3 id="redirect" class="collapsed bold"><a id="redirectLink" href="">Click here</a> to see results.</h3>
+       </h3>
+       <h3
+        id="redirect"
+        class="collapsed bold">
+         <a
+          id="redirectLink"
+          {% if form %}
+            href="#"
+            onclick="document.querySelector('form').submit();"
+          {% else %}
+            href=""
+          {% endif %}
+         >
+           Click here
+         </a>
+         to see results.
+       </h3>
     </div>
   </div>
   <div class="results-wrapper">
@@ -38,9 +54,18 @@
   </div>
   <div class="padded-left">
     <div class="padded-left padded-right">
-       <h3 id="keep_open" class="bold">Keep this window open to see progress.</h3>
+       <h3 id="time-help" class="bold">Keep this window open to see progress.</h3>
     </div>
   </div>
+  {% if form %}
+    <form
+     action="{{ url_for('finemap', genome=genome, task_id=task_id) }}"
+     method="POST">
+    {% for k, v in form.items() %}
+      <input type="hidden" name="{{ k }}" value="{{ v }}">
+    {% endfor %}
+    </form>
+  {% endif %}
 {% endblock %}
 
 {% block script %}
@@ -48,6 +73,7 @@
     var genome  = '{{ genome }}';
     var taskId  = '{{ task_id }}';
     var task    = '{{ task }}';
+    var form    = {{ form|tojson }};
     if (task === "setup") {
       var redirectHref = "{{ url_for('assoc_qc', genome=genome) }}";
     } else if (task === "filt") {
@@ -60,22 +86,36 @@
 
     function processStream(stream) {
       var result = [];
+
+      var lines = document.getElementById("progress").childNodes;
+      var lastLine = lines[lines.length - 1];
+      if (lastLine != null) {
+        if (lastLine.textContent.length === 0) {
+          result = ["\n"];
+        } else {
+          result = Array.from(lastLine.textContent);
+        }
+        lastLine.remove();
+      }
+
       for (let char of stream) {
         if (char === "\x08") {
           if (result.length > 0) {
             result.pop();
           }
-        } else if (char === "\n") {
-          result.push("<br>");
+        } else if (char === "\r") {
+          while (result.length > 0 && result[result.length - 1] !== "\n") {
+            result.pop();
+          }
         } else {
           result.push(char);
         }
       }
-      return result.join("");
+      return result.join("").replaceAll("\n", "<br>");
     }
 
     function checkStatus(taskId) {
-      fetch(`/status/${taskId}`)
+      fetch("{{ url_for('get_status', task_id=task_id) }}")
         .then(response => {
           return response.json().then(data => {
             return [response.status, data];
@@ -89,8 +129,16 @@
             statusText.innerText = "Task is queued.";
             setTimeout(() => checkStatus(taskId), 10000);
           } else {
+            if ((statusCode == 200) || (statusCode == 500)) {
+              var [data, secs] = data;
+              var duration = (
+                (secs / 3600 | 0 ? (secs / 3600 | 0) + " h " : "") +
+                ((secs % 3600) / 60 | 0 ? ((secs % 3600) / 60 | 0) + " min " : "") +
+                (secs % 60) + " sec");
+            }
             var progressDiv = document.getElementById("progress-container");
-            document.getElementById("progress").innerHTML += `${processStream(data)}`;
+            var newText = `${processStream(data)}`;
+            document.getElementById("progress").innerHTML += newText;
             progressDiv.scrollTop = progressDiv.scrollHeight;
 //            if (processStream(data) !== "") {
 //              document.getElementById("progress").innerHTML += new Date().toLocaleTimeString() + "\n";
@@ -101,11 +149,11 @@
             } else if (statusCode === 200) {
               statusText.innerText = "Task is finished!";
               document.getElementById("redirect").classList.remove("collapsed");
-              document.getElementById("keep_open").classList.add("collapsed");
+              document.getElementById("time-help").innerHTML = " Total time: " + duration;
             } else if (statusCode === 500) {
               statusText.innerText = "Task Failed. Check log for more information.";
               statusText.classList.add("red-text");
-              document.getElementById("keep_open").classList.add("collapsed");
+              document.getElementById("time-help").innerHTML = " Total time: " + duration;
             }
           }
         })
@@ -113,12 +161,14 @@
           var statusText = document.getElementById("status");
           statusText.innerText = "Connection with server lost.";
           statusText.classList.add("red-text");
-          document.getElementById("keep_open").classList.add("collapsed");
+          document.getElementById("time-help").classList.add("collapsed");
         });
     }
         
     document.addEventListener("DOMContentLoaded", function() {
-      document.getElementById("redirectLink").href = redirectHref;
+      if (form == null) {
+        document.getElementById("redirectLink").href = redirectHref;
+      }
       checkStatus(taskId);
     });
   </script>

@@ -65,7 +65,7 @@
 {# =================================================================== Icon #}
             {% if not edit and genome %}
               <div class="row-div">
-                <div class="wide-input-div justified padded-top padded-bottom">
+                <div class="wide-input-div justified small-padded-top small-padded-bottom">
                   {{ form.icon.label(class="default-label bold") }}
                    <div class="input-field-sized">
                      {{ form.icon(
@@ -92,10 +92,10 @@
               </div>
             {% endif %}
 {# ======================================================= Edit input files #}
-            {% if genome and (not edit or(edit and allow)) %}
+            {% if genome and (not edit or (edit and allow)) %}
               <div class="row-div padded-top small-padded-bottom">
                 <h2>
-                  {% if edit %}Edit{% else %}Input{% endif %} files:
+                  {% if edit %}Edit{% else %}Required {% endif %} files:
                 </h2>
               </div>
               {% if edit %}
@@ -121,22 +121,57 @@
               {% endfor %}
 {# ======================================================== New input files #}
               {% else %}
-                <div class="wide-input-div justified padded-bottom">
+                <div class="wide-input-div justified small-padded-bottom">
                   {{ form.vcf.label(class="default-label bold") }}
                   {{ form.vcf(
                    class="default-input",
                    id="vcf-field",
                    onchange="updateChr(this.value);") }}
                 </div>
-                {% for file in ("ann", "seq", "phe", "exp", "run", "proj", "samp") %}
-                  <div class="wide-input-div justified padded-bottom">
+                {% for file in ("ann", "seq") %}
+                  <div class="wide-input-div justified small-padded-bottom">
                     {{ form[file].label(class="default-label bold") }}
                     {{ form[file](
                      class="default-input",
                      id=file+"-field") }}
                   </div>
                 {% endfor %}
-                <div class="wide-input-div justified padded-bottom">
+                <div class="row-div padded-top small-padded-bottom">
+                  <h2>
+                    Phenotype file:
+                  </h2>
+                </div>
+                <div class="wide-input-div justified small-padded-bottom">
+                  {{ form.phe.label(class="default-label bold") }}
+                  {{ form.phe(
+                   class="default-input",
+                   id="phe-field") }}
+                </div>
+                <div class="row-div padded-top small-padded-bottom">
+                  <h2>
+                    Gene expression files:
+                  </h2>
+                </div>
+                {% for file in ("exp", "run", "proj") %}
+                  <div class="wide-input-div justified small-padded-bottom">
+                    {{ form[file].label(class="default-label bold") }}
+                    {{ form[file](
+                     class="default-input",
+                     id=file+"-field") }}
+                  </div>
+                {% endfor %}
+                <div class="row-div padded-top small-padded-bottom">
+                  <h2>
+                    Additional information files:
+                  </h2>
+                </div>
+                <div class="wide-input-div justified small-padded-bottom">
+                  {{ form.samp.label(class="default-label bold") }}
+                  {{ form.samp(
+                   class="default-input",
+                   id="samp-field") }}
+                </div>
+                <div class="wide-input-div justified small-padded-bottom">
                   {{ form.info.label(class="default-label bold") }}
                   {{ form.info(
                    class="default-input",
@@ -193,7 +228,7 @@
                     {{ form.snpeff }}
                   </div>
                 </div>
-                <div class="row-div padded-top padded-bottom">
+                <div class="row-div small-padded-top small-padded-bottom">
                   <div class="wide-input-div justified">
                     {{ form.sev.label(
                      class="default-label bold") }}
@@ -234,7 +269,7 @@
                   </div>
                 </div>
 {# ================================================== Chromosome visibility #}
-                <div class="row-div padded-top padded-bottom">
+                <div class="row-div small-padded-top small-padded-bottom">
                   <button
                    type="button"
                    class="wide-dropdown-button"
@@ -288,7 +323,7 @@
                     {{ form.igv_vis(class="default-input promsize-input") }}
                   </div>
                 </div>
-                <div class="wide-input-div justified padded-top">
+                <div class="wide-input-div justified small-padded-top">
                   {{ form.igv_h.label(class="default-label bold") }}
                   <div class="promsize-div">
                     {{ form.igv_h(class="default-input promsize-input") }}

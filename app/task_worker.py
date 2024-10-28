@@ -2,18 +2,25 @@
 
 import traceback
 import subprocess
+from time import time
 
 from __main__ import (
-  lock,
+  get_lock,
   task_queue,
+  master_lock,
   task_status)
 
 def task_worker():
     while True:
         task_id, task_spec, (task, data) = task_queue.get()
+        with master_lock:
+            lock = get_lock("task_status")
         with lock:
             task_status["specs"].append(task_spec)
-            task_status[task_id] = {"progress": "", "code": 202}
+            task_status[task_id] = {
+              "progress": "",
+              "code": 202,
+              "start": time()}
 
         try:
             task(**data)
@@ -31,9 +38,12 @@ def task_worker():
             task_queue.task_done()
             task_status["specs"].remove(task_spec)
 
-def progress(task_id, msg, bold=True):
+def progress(task_id, msg, bold=True, newline=True):
     if bold:
         msg = f"<b>{msg}</b>"
-    msg += "\n"
+    if newline:
+        msg += "\n"
+    with master_lock:
+        lock = get_lock("task_status")
     with lock:
         task_status[task_id]["progress"] += msg

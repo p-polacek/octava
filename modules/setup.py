@@ -18,7 +18,6 @@ from app.task_worker import progress
 from app.gffutils_db import gffutils_db_path
 
 from modules.assoc import run_qc
-from modules.load_input import load_config
 
 def genome_setup(
   genome,
@@ -93,7 +92,7 @@ def genome_setup(
           genome,
           params[file])
         if file == "seq":
-            if not os.path.exists(file_path + ".fai"):
+            if not os.path.exists(file_path + ".fai") or not os.path.exists(file_path + ".gzi"):
                 progress(task_id, f"Indexing {file} file")
                 _ = pysam.FastaFile(file_path)
         else:
@@ -134,113 +133,135 @@ def genome_setup(
       data_dir,
       genome,
       ".gdata")
-    if not os.path.exists(gdata_path):
-        gdata = dict()
-        # Get chromosome names, sizes and offsets
-        vcf = pysam.VariantFile(vcf_path)
-        chroms = list(vcf.header.contigs)
-        sizes = [vcf.header.contigs[c].length for c in chroms]
-        offsets = [sum(sizes[:i]) for i in range(len(sizes))]
-        gdata["chr_names"] = chroms
-        gdata["chr_sizes"] = sizes
-        gdata["chr_offsets"] = offsets
+#    if not os.path.exists(gdata_path):
+    gdata = dict()
+    # Get chromosome names, sizes and offsets
+    vcf = pysam.VariantFile(vcf_path)
+    chroms = list(vcf.header.contigs)
+    sizes = [vcf.header.contigs[c].length for c in chroms]
+    offsets = [sum(sizes[:i]) for i in range(len(sizes))]
+    gdata["chr_names"] = chroms
+    gdata["chr_sizes"] = sizes
+    gdata["chr_offsets"] = offsets
 
-        # Get first gene ID in the file
-        for rec in db.region(
-          region=str(chroms[0]),
-          featuretype="gene"):
-            gdata["id_fmt"] = rec.id
-            break
+    # Get first gene ID in the file
+    for rec in db.region(
+      region=str(chroms[0]),
+      featuretype="gene"):
+        gdata["id_fmt"] = rec.id
+        break
 
-        # Check that samples match between VCF and SEQ files
-        idx_path = os.path.join(
+    # Check that samples match between VCF and SEQ files
+    idx_path = os.path.join(
+      data_dir,
+      genome,
+      params["seq"] + ".fai")
+    idx_df = pd.read_csv(
+      idx_path,
+      sep="\t",
+      header=None)
+    seq_chroms = idx_df.iloc[:, 0].astype(str).tolist()
+    seq_sizes = idx_df.iloc[:, 1].tolist()
+
+    if seq_chroms != chroms or seq_sizes != sizes:
+        print(
+          "Chromosomes do not match in size or names between "
+          "vcf and seq files.")
+        raise OSError
+
+    progress(task_id, "Parsing phenotypes")
+    # Save sample list, combine with phenotyped samples
+    samples = list(vcf.header.samples)
+    if not params["phe"]:
+        params["phe"] = "phe.txt"
+        phe_path = os.path.join(
           data_dir,
           genome,
-          params["seq"] + ".fai")
-        idx_df = pd.read_csv(
-          idx_path,
+          params["phe"])
+        with open(phe_path, "w") as phe_out:
+            phe_out.write("\n".join(["Acc"] + samples))
+    else:
+        phe_path = os.path.join(
+          data_dir,
+          genome,
+          params["phe"])
+        if os.path.islink(phe_path):
+            link_path = os.readlink(phe_path)
+            os.unlink(phe_path)
+            shutil.copy2(link_path, phe_path)
+        phe_df = pd.read_csv(
+          phe_path,
           sep="\t",
-          header=None)
-        seq_chroms = idx_df.iloc[:, 0].astype(str).tolist()
-        seq_sizes = idx_df.iloc[:, 1].tolist()
+          header=[0],
+          index_col=[0])
+        # Make trait names filename-friendly
+        safe_cols = [
+          re.sub("\W", "_", col)
+          for col in phe_df.columns]
+        phe_df = phe_df.set_axis(
+          safe_cols,
+          axis=1)
+        for sample in phe_df.index:
+            if sample not in samples:
+                samples.append(sample)
+        miss_df = pd.DataFrame(
+          np.nan,
+          index=[s for s in samples if s not in phe_df.index],
+          columns=phe_df.columns)
+        (pd
+          .concat([phe_df, miss_df])
+          .loc[samples]
+          .rename_axis("Acc")
+          .to_csv(
+            phe_path,
+            sep="\t"))
 
-        if seq_chroms != chroms or seq_sizes != sizes:
-            print(
-              "Chromosomes do not match in size or names between "
-              "vcf and seq files.")
-            raise OSError
+    # Rename samples
+    if not params["samp"]:
+        params["samp"] = "samp.txt"
+        samp_path = os.path.join(
+          data_dir,
+          genome,
+          params["samp"])
+        (pd
+          .DataFrame(
+            samples,
+            index=samples,
+            columns=["Name"])
+          .rename_axis("Acc")
+          .to_csv(
+            samp_path,
+            sep="\t"))
+    else:
+        samp_path = os.path.join(
+          data_dir,
+          genome,
+          params["samp"])
+        samp_df = pd.read_csv(
+          samp_path,
+          sep="\t",
+          header=[0],
+          index_col=[0])
 
-        progress(task_id, "Parsing phenotypes")
-        # Save sample list, combine with phenotyped samples
-        samples = list(vcf.header.samples)
-        if not params["phe"]:
-            params["phe"] = "phe.txt"
-            phe_path = os.path.join(
-              data_dir,
-              genome,
-              params["phe"])
-            with open(phe_path, "w") as phe_out:
-                phe_out.write("\n".join(["Acc"] + samples))
-        else:
-            phe_path = os.path.join(
-              data_dir,
-              genome,
-              params["phe"])
-            if os.path.islink(phe_path):
-                link_path = os.readlink(phe_path)
-                os.unlink(phe_path)
-                shutil.copy2(link_path, phe_path)
-            phe_df = pd.read_csv(
-              phe_path,
-              sep="\t",
-              header=[0],
-              index_col=[0])
-            # Make trait names filename-friendly
-            safe_cols = [
-              re.sub("\W", "_", col)
-              for col in phe_df.columns]
-            phe_df = phe_df.set_axis(
-              safe_cols,
-              axis=1)
-            for sample in phe_df.index:
-                if sample not in samples:
-                    samples.append(sample)
-            miss_df = pd.DataFrame(
-              np.nan,
-              index=[s for s in samples if s not in phe_df.index],
-              columns=phe_df.columns)
-            (pd
-              .concat([phe_df, miss_df])
-              .loc[samples]
-              .rename_axis("Acc")
-              .to_csv(
-                phe_path,
-                sep="\t"))
+        miss_samples = [s for s in samples if s not in samp_df.index]
+        miss_df = pd.DataFrame(
+          miss_samples,
+          index=miss_samples,
+          columns=[samp_df.columns[0]])
+        (pd
+          .concat([phe_df, miss_df])
+          .loc[samples]
+          .rename_axis("Acc")
+          .to_csv(
+            samp_path,
+            sep="\t"))
 
-        # Rename samples
-        if params["samp"]:
-            samp_path = os.path.join(
-              data_dir,
-              genome,
-              params["samp"])
+    # Initialise empty list for groups
+    gdata["groups"] = dict()
 
-            with open(samp_path, "r") as samp_in:
-                samp_dict = dict(
-                  line.strip().split("\t")[:2]
-                  for line in samp_in)
-
-            gdata["samples"] = [
-              (sample, samp_dict.get(sample, sample))
-              for sample in samples]
-        else:
-            gdata["samples"] = samples
-
-        # Initialise empty list for groups
-        gdata["groups"] = dict()
-
-        # Save genome data to JSON file
-        with open(gdata_path, "w") as gdata_out:
-            json.dump(gdata, gdata_out)
+    # Save genome data to JSON file
+    with open(gdata_path, "w") as gdata_out:
+        json.dump(gdata, gdata_out)
 
     # Save parameters as config.ini
     _ = [params.pop(v) for v in ("name", "icon", "snpeff", "sev", "csrf_token")]
@@ -248,6 +269,7 @@ def genome_setup(
     params["enr"] = json.dumps(params["enr"])
     params["concat"] = json.dumps(params["concat"])
     params = {k: str(v) for k, v in params.items()}
+    params["rm_markers"] = True
 
     config = configparser.ConfigParser()
     config["setup"] = params
@@ -274,65 +296,6 @@ def genome_setup(
       "assoc")
     if not os.path.exists(assoc_dir):
         os.mkdir(assoc_dir)
-
-    # Create dummy VCF for faster IGV visualisation
-    #progress(task_id, "Extracting variants")
-    var_only = os.path.join(
-      data_dir,
-      genome,
-      "var_only.vcf.gz")
-    if not os.path.exists(var_only):
-#        info_rm = subprocess.Popen(
-#          ["bcftools", "annotate",
-#           "-x", "INFO",
-#           vcf_path],
-#          stdout=subprocess.PIPE,
-#          stderr=subprocess.PIPE)
-#        gt_rm = subprocess.Popen(
-#          ["bcftools", "view",
-#           "-G",
-#           "-Oz", "-o",
-#           var_only],
-#          stdin=info_rm.stdout,
-#          stdout=subprocess.PIPE,
-#          stderr=subprocess.PIPE)
-#        out, err = gt_rm.communicate()
-#        if gt_rm.returncode != 0:
-#            raise OSError(err.decode())
-        bim_path = os.path.join(
-          data_dir,
-          genome,
-          "stats",
-          "gt.bim")
-        vcf_hdr = (
-          "##fileformat=VCFv4.2\n" +
-          "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n")
-        bim_df = pd.read_csv(
-          bim_path,
-          sep="\t",
-          header=None,
-          index_col=None,
-          chunksize=100000)
-        with pysam.BGZFile(var_only, "w") as pysam_out:
-            pysam_out.write(vcf_hdr.encode())
-            for chk in bim_df:
-                pysam_out.write(
-                  chk
-                    .set_axis(
-                      ["C", "ID", "S", "P", "R", "A"],
-                      axis=1)
-                    .assign(ID=".")
-                    .assign(R=".")
-                    .assign(A=".")
-                    .assign(Q=".")
-                    .assign(F=".")
-                    .assign(INFO=".")
-                    .loc[:, ["C", "P", "ID", "R", "A", "Q", "F", "INFO"]]
-                    .to_csv(sep="\t", index=False, header=False).encode())
-        # Index VCF
-        pysam.tabix_index(
-          var_only,
-          preset="vcf")
 
     init_path = os.path.join(
       data_dir,

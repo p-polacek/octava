@@ -5,10 +5,26 @@ function showHelp(event, field, helpText) {
     helpText = helpTexts[field];
   }
   helpPopup.innerHTML = helpText;
-  helpPopup.style.top = (event.clientY + window.scrollY) + "px";
-  helpPopup.style.left = (event.clientX + window.scrollX) + "px";
+
   helpPopup.classList.remove("collapsed");
+  const popupWidth = helpPopup.offsetWidth + 20;
+  const popupHeight = helpPopup.offsetHeight + 20;
+  const windowWidth = window.innerWidth;
+  const windowHeight = window.innerHeight;
+  let topPos = event.clientY + window.scrollY;
+  let leftPos = event.clientX + window.scrollX;
+
+  // Ensure the popup doesn't extend beyond the bottom or left of the window
+  if (topPos + popupHeight > windowHeight + window.scrollY) {
+    topPos = Math.max(0, windowHeight + window.scrollY - popupHeight);
+  }
+  if (leftPos + popupWidth > windowWidth + window.scrollX) {
+    leftPos = Math.max(0, windowWidth + window.scrollX - popupWidth);
+  }
+  helpPopup.style.top = topPos + "px";
+  helpPopup.style.left = leftPos + "px";
   event.stopPropagation();
+  event.preventDefault();
 }
 function showDropdown(event, clickedElem) {
   // Shows dropdown below the clicked element
@@ -141,7 +157,7 @@ function toggleAll(dropdownData, filter) {
     }
   }
   updateCount(dropdown);
-  if (["runs-table", "projects-table"].includes(tableId)) {
+  if (["runs-table", "projects-table", "samples-table"].includes(tableId)) {
     updateTableCount(tableId);
   }
   if (tableId === "projects-table") {
@@ -162,17 +178,22 @@ function popupClickedRetain(popup) {
 }
 function showGroupContents(checkboxRow) {
   checkboxRow.addEventListener("contextmenu", function(event) {
-    // Don't show default menu
-    event.preventDefault();
-    const helpPopup = document.getElementById("help-popup");
     var items = JSON.parse(checkboxRow.children[0].value);
-    helpPopup.innerHTML = checkboxRow.innerText + ":<br>" + items.join("<br>");
-    helpPopup.style.left = event.clientX + "px";
-    helpPopup.style.top = event.clientY + "px";
-    helpPopup.classList.remove("collapsed");
+    showHelp(event, null, "<b>" + checkboxRow.innerText + ":</b><br>" + items.join("<br>"));
   });
-}
+}
+
+
 document.addEventListener("DOMContentLoaded", function() {
+  document.querySelectorAll(".traits_group-option").forEach(opt => {
+    showGroupContents(opt);
+  });
+  document.querySelectorAll(".samples_group-option").forEach(opt => {
+    showGroupContents(opt);
+  });
+  document.querySelectorAll(".scrollable").forEach( container => {
+    container.addEventListener("scroll", () => hideDropdown(visibleDropdown));
+  });
   document.querySelectorAll(".dropdown-menu").forEach(dropdown => {
     // Count checked boxes per dropdown
     var checkboxes = dropdown.querySelectorAll("input[type='checkbox']");

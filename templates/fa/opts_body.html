@@ -1,11 +1,11 @@
 {% block input_options %}
   <form
    method="POST"
-   action="{{ url_for('am_res', genome=genome) }}"
+   action="{{ url_for('fa_res', genome=genome) }}"
    onsubmit="return validateForm();">
     {{ form.hidden_tag() }}
 {# =========================================================== Input format #}
-    <div class="object-div param-div-default">
+    <div class="object-div param-div-default">      <div class="row-div padded-bottom">        <h2>          Input marker set:        </h2>      </div>      <div class="row-input-div justified small-padded-top">        {{ form.dataset.label(class="default-label bold") }}        <div class="row-div justified">          {{ form.dataset(           class="default-input",           id="dataset-field") }}        </div>      </div>    </div>    <div class="object-div param-div-default">
       <div class="row-div padded-bottom">
         <h2>
           Input format:
@@ -72,7 +72,7 @@
               {{ form.gene.label(class="default-label bold") }}
               {{ form.gene(
                class="default-input",
-               id="gene-field") }}
+               id="genes-field") }}
           </div>
         </div>
         <button
@@ -152,7 +152,7 @@
           {{ form.end(class="default-input", id="end-field") }}
       </div>
     </div>
-    <div
+{# ============================================================ Coordinates #}    <div
      class="object-div param-div-default"
      id="coord-div">
       <div class="row-div padded-bottom">
@@ -166,14 +166,12 @@
          onclick="showHelp(event, 'coord');">
           &#63;
         </button>
-      </div>
-      <div class="row-input-div justified small-padded-top">
-        {{ form.coord(
-         class="default-input row-input-sized",
-         id="coord-field") }}
-      </div>
-    </div>
-{# ================================================================= Impact #}
+      </div>      <div class="row-div small-padded-top">
+        <div class="row-input-div">
+          {{ form.coord(
+           class="fullwidth-input row-input-sized",
+           id="coords-field") }}         </div>
+        <button         type="button"         class="aux-button button-save"         id="make-group"         title="Save selection as group"         onclick="makeGroup(event, 'coords')">          &#43;        </button>      </div>        <div class="row-div small-padded-top">          <div class="row-input-div">            <button             type="button"             class="dropdown-button"             onclick="showDropdown(event, this);">              {{ form.coord_groups.label(class="default-label bold") }}              <span               class="default-label counter"               id="coord_groups-count">                0 selected              </span>            </button>            <div             class="dropdown-menu collapsed"             id="coords_group-dropdown">              <div class="sticky non-transparent small-padding">                <input                 type="text"                 class="search-bar"                 placeholder="Search..."                 onkeyup="filterDropdown(visibleDropdown);">                <button                 type="button"                 onclick="toggleAll(visibleDropdown);">                  Select all                </button>              </div>              {% for choice in form.coord_groups %}                <div class="checkbox-row group-option">                  {{ choice(                   class="coords_group-checkbox",                   onchange="updateCount(                    this.parentElement.parentElement);") }}                  {{ choice.label(class="checkbox-label") }}                </div>              {% endfor %}            </div>          </div>          <button           type="button"           id="delete-group"           class="aux-button button-delete"           title="Delete selected groups"           onclick="deleteGroup(event, 'coords');">            &times;          </button>        </div>    </div>{# ================================================================= Impact #}
     <div class="object-div param-div-default">
       <div class="row-div padded-bottom">
         <h2>
@@ -228,114 +226,12 @@
         {{ form.skip_no_var.label(class="checkbox-label") }}
       </div>
     </div>
-{# ========================================================= Filter samples #}
-    <div class="object-div param-div-default">
-      <h2 class="padded-bottom">
-        Filter samples by:
-      </h2>
-      <div class="row-div small-padded-top">
-        <button
-         type="button"
-         class="dropdown-button"
-         onclick="showDropdown(event, this);">
-          {{ form.samples.label(class="default-label bold") }}
-          <span
-           class="default-label counter"
-           id="samples-count">
-            0 selected
-          </span>
-        </button>
-        <button
-         type="button"
-         id="make-group"
-         class="aux-button button-save"
-         title="Save selection as group"
-         onclick="makeGroup(event, 'samples');">
-          &#43;
-        </button>
-        <div class="dropdown-menu collapsed">
-          <div class="sticky non-transparent small-padding">
-            <input
-             type="text"
-             class="search-bar"
-             placeholder="Search..."
-             onkeyup="filterDropdown(visibleDropdown);">
-            <button
-             type="button"
-             onclick="toggleAll(visibleDropdown);">
-              Select all
-            </button>
-          </div>
-          {% for choice in form.samples %}
-            <div class="checkbox-row">
-              {{ choice(
-               class="samples-checkbox",
-               onchange="updateCount(
-                this.parentElement.parentElement);") }}
-              {{ choice.label(class="checkbox-label") }}
-            </div>
-          {% endfor %}
-        </div>
-      </div>
-      <div class="row-div small-padded-top">
-        <button
-         type="button"
-         class="dropdown-button"
-         onclick="showDropdown(event, this);">
-          {{ form.sample_groups.label(class="default-label bold") }}
-          <span
-           class="default-label counter"
-           id="sample_groups-count">
-            0 selected
-          </span>
-        </button>
-        <button
-         type="button"
-         id="delete-group"
-         class="aux-button button-delete"
-         title="Delete selected groups"
-         onclick="deleteGroup(event, 'samples');">
-          &times;
-        </button>
-        <div
-         id="samples_group-dropdown"
-         class="dropdown-menu collapsed">
-          <div class="sticky non-transparent small-padding">
-            <input
-             type="text"
-             class="search-bar"
-             placeholder="Search..."
-             onkeyup="filterDropdown(visibleDropdown);">
-            <button
-             type="button"
-             onclick="toggleAll(visibleDropdown);">
-              Select all
-            </button>
-          </div>
-          {% for choice in form.sample_groups %}
-            <div class="checkbox-row group-option">
-              {{ choice(
-               class="samples_group-checkbox",
-               onchange="updateCount(
-                this.parentElement.parentElement);") }}
-              {{ choice.label(class="checkbox-label") }}
-            </div>
-          {% endfor %}
-        </div>
-      </div>
-      <h3 class="padded-top">
-        View samples: right-click group
-      </h3>
-      <h3 class="mini-padded-top">
-        Leave blank to include all
-      </h3>
-    </div>
-{# ======================================================== Filter variants #}
-    <div class="object-div param-div-default">
-      <h2 class="padded-bottom">
-        Filter variants by:
-      </h2>
-      <div class="row-div small-padded-top">
+{# ======================================================== Variant quality #}    <div class="object-div param-div-default">      <div class="row-div padded-bottom">        <h2>          Filter variant quality:        </h2>        <button         type="button"         class="aux-button button-help"         title="Help"         onclick="showHelp(event, 'var-qual');">          &#63;        </button>      </div>      {% for field in ("mis", "het", "maf") %}        <div class="row-input-div justified small-padded-top">          {{ form[field].label(class="default-label bold") }}          {{ form[field](class="small-num-input", id=field+"-field") }}        </div>      {% endfor %}    </div>{# ============================================ Filter samples and variants #}
+    <div class="object-div param-div-default">      <div class="row-div padded-bottom">
+        <h2>
+          Filter by:
+        </h2>        <button         type="button"         class="aux-button button-help"         title="Help"         onclick="showHelp(event, 'types');">          &#63;        </button>      </div>
+      <div class="row-div small-padded-top">        <button         type="button"         class="dropdown-button"         onclick="showDropdown(event, this);">          {{ form.samples_group.label(class="default-label bold") }}          <span           class="default-label counter"           id="samples_group-count">            0 selected          </span>        </button>        <div         id="samples_group-dropdown"         class="dropdown-menu collapsed">          <div class="sticky non-transparent small-padding">            <input             type="text"             class="search-bar"             placeholder="Search..."             onkeyup="filterDropdown(visibleDropdown);">            <button             type="button"             onclick="toggleAll(visibleDropdown);">              Select all            </button>          </div>          {% for choice in form.samples_group %}            <div class="checkbox-row group-option">              {{ choice(               class="samples_group-checkbox",               onchange="updateCount(                this.parentElement.parentElement);") }}              {{ choice.label(class="checkbox-label") }}            </div>          {% endfor %}        </div>      </div>      <div class="row-div small-padded-top">
         <button
          type="button"
          class="dropdown-button"
@@ -346,13 +242,6 @@
            class="default-label counter">
             0 selected
           </span>
-        </button>
-        <button
-         type="button"
-         class="aux-button button-help"
-         title="Help"
-         onclick="showHelp(event, 'types');">
-          &#63;
         </button>
         <div class="dropdown-menu collapsed">
           <div class="sticky non-transparent small-padding">
@@ -388,13 +277,6 @@
            class="default-label counter">
             0 selected
           </span>
-        </button>
-        <button
-         type="button"
-         class="aux-button button-help"
-         title="Help"
-         onclick="showHelp(event, 'csqs');">
-          &#63;
         </button>
         <div class="dropdown-menu collapsed">
           <div class="sticky non-transparent small-padding">

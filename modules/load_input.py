@@ -4,6 +4,10 @@ import os
 import json
 import configparser
 
+from __main__ import (
+  get_lock,
+  master_lock)
+
 from app.dirs import data_dir
 
 def load_gdata(genome):
@@ -11,8 +15,11 @@ def load_gdata(genome):
       data_dir,
       genome,
       ".gdata")
-    with open(gdata_path, "r") as gdata_in:
-        gdata = json.load(gdata_in)
+    with master_lock:
+        lock = get_lock(gdata_path)
+    with lock:
+        with open(gdata_path, "r") as gdata_in:
+            gdata = json.load(gdata_in)
     return gdata
 
 def load_config(genome):
@@ -21,5 +28,8 @@ def load_config(genome):
       data_dir,
       genome,
       "config.ini")
-    _ = config.read(conf_path)
+    with master_lock:
+        lock = get_lock(conf_path)
+    with lock:
+        _ = config.read(conf_path)
     return config["setup"]

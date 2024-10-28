@@ -94,6 +94,95 @@ function createTable(tableData, table) {
   table.style.opacity = "";
   parentElem.appendChild(table);
 }
+var dropdowns = {}; // Array to store dropdown menus for each column
+function dropDown(event, clickedElem) {
+  var colIndex = clickedElem.id.split(/[_]+/).pop();
+  var table = findParentTable(clickedElem);
+  var tableId = table.id
+  if (dropdowns[tableId]) {
+    var dropdown = dropdowns[tableId][colIndex];
+  } else {
+    dropdowns[tableId] = {};
+  }
+
+  // Check if dropdown already exists
+  if (!dropdown) {
+    var uniqueValues = getUniqueValues(table, colIndex);
+    var dropdown = makeDropdown(tableId, colIndex, uniqueValues);
+
+    // Remove starting rows from "Filter samples" dropdown
+    if (tableId === "vars-table" && colIndex == 0) {
+      deleteDropdownRows(dropdown, [0,1,2,3,4,5,6]);
+    }
+
+    // Update runs-table and projects-table counters on filtering
+    if (["runs-table", "projects-table", "samples-table"].includes(tableId)) {
+      var checkboxes = dropdown.querySelectorAll("input[type='checkbox']");
+      checkboxes.forEach(function(checkbox) {
+        checkbox.addEventListener("change", function(event) {
+          updateTableCount(tableId);
+        });
+      });
+    }
+
+    // Update runs-table on filtering project-table
+    if (tableId === "projects-table") {
+      var checkboxes = dropdown.querySelectorAll("input[type='checkbox']");
+      checkboxes.forEach(function(checkbox) {
+        checkbox.addEventListener("change", function(event) {
+          filterRunsTable();
+        });
+      });
+    }
+  }
+
+  // Position the dropdown menu
+  var headerRect = clickedElem.getBoundingClientRect();
+  dropdown.style.top = (headerRect.bottom + window.scrollY) + "px";
+  dropdown.style.left = (headerRect.left + window.scrollX) + "px";
+
+  var clickedIsVisible = !dropdown.classList.contains("collapsed");
+  if (visibleDropdown) {
+    hideDropdown(visibleDropdown);
+  }
+
+  if (!clickedIsVisible) {
+    dropdown.classList.remove("collapsed");
+    visibleDropdown = [dropdown, tableId];
+    event.stopPropagation();
+
+    // Gray-out checkbox values only available for hidden rows
+    // Get visible unique values for the column
+    var visibleValues = [];
+    var rows = table.querySelector("tbody").getElementsByTagName("tr");
+    for (let i = 0; i < rows.length; i++) {
+      if (!rows[i].classList.contains("collapsed")) {
+        var cell = rows[i].children[colIndex].textContent;
+        if (!visibleValues.includes(cell)) {
+          visibleValues.push(cell);
+        }
+      }
+    }
+
+    // Loop through checkboxes and gray-out
+    var checkboxes = dropdown.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(function(checkbox) {
+      var checkboxRow = checkbox.parentElement;
+      if (!(visibleValues.includes(checkbox.value)) && checkbox.checked) {
+        checkboxRow.classList.add("grayed-out");
+      } else {
+        checkboxRow.classList.remove("grayed-out");
+      }
+    });
+
+    // Focus on the search bar
+    dropdown.querySelector("input[type='text']").focus();
+
+    sortGray(dropdown);
+    event.stopPropagation();
+  }
+}
+
 function getUniqueValues(table, colIndex) {
   // Returns all unique values in a table column
   var uniqueValues = [];

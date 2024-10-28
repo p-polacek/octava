@@ -84,16 +84,16 @@ def serve_assoc(genome, markers, fn):
       fn)
 
 # LD file for locus fine-mapping
-@app.route("/ld_file/<out_hash>")
-def serve_ld(out_hash):
+@app.route("/ld_file/<task_id>")
+def serve_ld(task_id):
     return send_from_directory(
       tmp_dir,
-      f"{out_hash}.vcor2")
+      f"{task_id}.r2")
 
 # PIP file for locus fine-mapping
-@app.route("/pip_file/<opt_hash>")
-def serve_pip(opt_hash):
+@app.route("/pip_file/<task_id>")
+def serve_pip(task_id):
     return send_from_directory(
       tmp_dir,
-      f"{opt_hash}.pip")
+      f"{task_id}.fm")
 

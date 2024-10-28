@@ -11,55 +11,18 @@
 {% endblock %}
 {% block script %}
   <script
-   src="https://code.jquery.com/jquery-3.6.4.min.js">
+   src="https:code.jquery.com/jquery-3.6.4.min.js">
   </script>
   <script
-   src="https://cdn.jsdelivr.net/npm/igv@2.15.5/dist/igv.min.js">
+   src="https:cdn.jsdelivr.net/npm/igv@2.15.5/dist/igv.min.js">
   </script>
 
   <script type="module">
     var genome  = '{{ genome }}';
     var markers = '{{ markers }}';
     var model   = '{{ model }}';
-    var optHash = '{{ opt_hash }}';
+    var taskId = '{{ task_id }}';
     const igvConfig = {{ igv_conf|tojson|safe }};
     var igvDiv = document.getElementById("igv-div");
-    const browser = await igv.createBrowser(igvDiv, igvConfig);
-    browser.on("trackclick", function (track, popoverData) {
-      if (popoverData.length > 0) {
-        var ch = popoverData[0].value;
-        var pos = popoverData[1].value;
-        const trackToAccess = browser.trackViews
-          .map(trackView => trackView.track)
-          .find(track => track?.name == "LD");
-        browser.removeTrack(trackToAccess);
-        $.get('/ld/'
-              + optHash + '/'
-              + genome + '/'
-              + model + '/'
-              + markers + '/'
-              + ch + '/'
-              + pos, function(outHash) {
-          const LDTrack = {
-            name: "LD",
-            type: "gwas",
-            format: "gwas",
-            posteriorProbability: "true",
-            url: "/ld_file/" + outHash,
-            visibilityWindow: '{{ vis_win }}',
-            height: '{{ height }}',
-            columns: {
-              chromosome: 1,
-              position: 2,
-              value: 3
-            },
-            min: -0.1,
-            max: 1.1,
-            dotSize: 3,
-            }
-          browser.loadTrack(LDTrack);
-        });
-      }
-    });
-  </script>
+    const browser = await igv.createBrowser(igvDiv, igvConfig);    browser.on("trackclick", function (track, popoverData) {      if (popoverData.length > 0) {        var ch = popoverData[0].value;        var pos = popoverData[1].value;        console.log(ch, pos);        const trackToAccess = browser.trackViews          .map(trackView => trackView.track)          .find(track => track?.name == "LD");        if (trackToAccess != null) {          browser.removeTrack(trackToAccess);        }        var request = $.ajax({          url: "{{ url_for('fetch_ld') }}",          method: "POST",          data: {            genome: genome,            model: model,            markers: markers,            ch: ch,            pos: pos,          },          success: function(task_id) {            const LDTrack = {              name: "LD",              type: "gwas",              format: "gwas",              posteriorProbability: "true",              url: "{{ url_for('serve_ld', task_id='') }}" + task_id,              visibilityWindow: '{{ vis_win }}',              height: '{{ height }}',              columns: {                chromosome: 1,                position: 2,                value: 3              },              min: -0.1,              max: 1.1,              dotSize: 3,            }            browser.loadTrack(LDTrack);          }, error: function() {            //alert("Something went wrong when fetching LD.");          }        });      }      //return false;    });  </script>
 {% endblock %}

@@ -11,13 +11,16 @@ import matplotlib.pyplot as plt
 
 from modules.load_input import load_gdata
 
-def mplot(
+def mqplot(
   genome,
   in_df,
+  out_fn,
   concat,
   ch_col="Chr",
   pos_col="Pos",
-  pval_col="P.value"):
+  pval_col="P.value",
+  thresh=True,
+  qqplot=True):
     gdata   = load_gdata(genome)
     chroms  = gdata["chr_names"]
     sizes   = {ch: size for ch, size in zip(chroms, gdata["chr_sizes"])}
@@ -30,10 +33,11 @@ def mplot(
           lambda ch: (
             ch if ch not in concat else "Other"))
 
-    fig = plt.figure(figsize=(6, 4))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
     colors = cycle(["#014e60", "#47b023"])
 
-    plt.grid(
+    # Manhattan plot
+    ax1.grid(
       visible=True,
       zorder=-1,
       axis="y",
@@ -42,7 +46,7 @@ def mplot(
       ch_col,
       sort=False):
         color = next(colors)
-        plt.scatter(
+        ax1.scatter(
           x      = data[pos_col],
           y      = data[pval_col],
           color  = color,
@@ -50,13 +54,14 @@ def mplot(
           s      = 4,
           zorder = 10)
 
-    plt.axhline(
-      y      = -np.log10(0.05/in_df.shape[0]),
-      color  = "red",
-      lw     = 1,
-      zorder = 0)
+    if thresh:
+        ax1.axhline(
+          y      = -np.log10(0.05/in_df.shape[0]),
+          color  = "red",
+          lw     = 1,
+          zorder = 0)
 
-    ticks  = [
+    ticks = [
       sizes[ch]//2 + offsets[ch]
       for ch in chroms if ch not in concat]
     labels = [ch for ch in chroms if ch not in concat]
@@ -68,41 +73,36 @@ def mplot(
           ))
         labels.append("Other")
 
-    plt.xticks(ticks=ticks, labels=labels)
-    plt.xlabel("Chromosomes")
-    plt.ylabel("$-log_{10}$(p) values")
+    ax1.set_xticks(ticks=ticks, labels=labels, rotation=45)
+    ax1.set_xlabel("Chromosome")
+    ax1.set_ylabel("$-log_{10}$(p) values")
 
-    #plt.tight_layout()
+    # QQ plot
+    if qqplot:
+        in_df = in_df.sort_values(
+          by=pval_col)
+        num_tests = in_df.shape[0]
+        theor_quant = -np.log10(
+                        np.linspace(
+                          1,
+                          1/num_tests,
+                          num = num_tests))
+        ax2.scatter(
+          x     = theor_quant,
+          y     = in_df[pval_col],
+          color = "#014e60",
+          s     = 4)
+        ax2.plot(
+          [0, theor_quant[-1]],
+          [0, theor_quant[-1]],
+          color  = "#47b023",
+          zorder = 0)
+        ax2.set_xlabel("Expected $-log_{10}$(p)")
+        ax2.set_ylabel("Observed $-log_{10}$(p)")
 
-    return fig
+    plt.tight_layout()
 
-def qqplot(
-  in_df,
-  pval_col="P.value"):
-    in_df = in_df.sort_values(
-      by=pval_col)
-
-    num_tests = in_df.shape[0]
-    theor_quant = -np.log10(
-                    np.linspace(
-                      1,
-                      1/num_tests,
-                      num = num_tests))
-
-    fig = plt.figure(figsize=(6, 4))
-    plt.scatter(
-      x     = theor_quant,
-      y     = in_df[pval_col],
-      color = "#014e60",
-      s     = 4)
-    plt.plot(
-      [0, theor_quant[-1]],
-      [0, theor_quant[-1]],
-      color  = "#47b023",
-      zorder = 0)
-
-    plt.xlabel("Expected $-log_{10}$(p)")
-    plt.ylabel("Observed $-log_{10}$(p)")
-    plt.tight_layout()    
-
-    return fig
+    fig.savefig(
+      out_fn,
+      dpi=300,
+      format="png")

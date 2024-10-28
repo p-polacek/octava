@@ -15,3 +15,11 @@ def clean():
               fn)
             if time() - os.path.getmtime(fn_path) > 86400:
                 os.remove(fn_path)
+    if os.path.exists("output"):
+        for fn in os.listdir("output"):
+            # 1 day = 86,400 seconds
+            fn_path = os.path.join(
+              "output",
+              fn)
+            if time() - os.path.getmtime(fn_path) > 86400:
+                os.remove(fn_path)

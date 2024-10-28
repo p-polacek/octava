@@ -4,12 +4,14 @@ import os
 import re
 import json
 import gffutils
+import bed_reader
+import numpy as np
 
 from .csq import var_csq
 from .vcf_reader import VcfReader
 from .load_input import load_config
 
-from app.dirs import data_dir
+from app.dirs import data_dir, tool_dir
 from app.gffutils_db import gffutils_db_path
 
 """
@@ -86,13 +88,30 @@ def am_pipeline(genome, form):
 
     try:
         if query["impact"] != ["geneonly"]:
-            vcf_fn = gconfig["vcf"]
-            vcf_path = os.path.join(
-              data_dir,
-              genome,
-              vcf_fn)
+            if query["dataset"] == "":
+                vcf_path = os.path.join(
+                  data_dir,
+                  genome,
+                  gconfig["vcf"])
+            else:
+                markers_root = os.path.join(
+                  data_dir,
+                  genome,
+                  "assoc",
+                  query["dataset"])
+                vcf_path = os.path.join(
+                  markers_root,
+                  "gt",
+                  "gt.vcf.gz")
+                params_path = os.path.join(
+                  markers_root,
+                  "stats",
+                  "params")
+                with open(params_path, "r") as params_in:
+                    is_hap = json.load(params_in)[1][11] == "Yes"
             vcf_reader = VcfReader(vcf_path)
-    except:
+    except Exception as e:
+        print(e)
         errors.append("Problem loading VCF file.")
         
     try:
@@ -205,7 +224,7 @@ def am_pipeline(genome, form):
         query["region"] = regions
         _ = query.pop("gene", None)
 
-    for group in query["sample_groups"]:
+    for group in query["samples_group"]:
         query["samples"] += group.split(",")
 
 ###############################################################################
@@ -351,7 +370,7 @@ def am_pipeline(genome, form):
                         None,
                         gene[7]]
                        for gene in genes.values()]
-
+                                                                                #### MULTIPLE REGIONS WITHIN A SINGLE GENE GIVE WRONG RESULTS
         elif target == "prom":
             # Each promoter from start to end,
             # with entry for affected gene and affected transcript
@@ -397,6 +416,8 @@ def am_pipeline(genome, form):
           anns,
           errors)
 
+    ann_positions = set()
+
     # Filter by sample
     if query["samples"]:
         samples = [
@@ -410,10 +431,9 @@ def am_pipeline(genome, form):
     for sample in samples:
         gts.append([])
 
-    ann_positions = set()
     for region in regions:
         chrom = region[0]
-        # VcfReader does not consider first position of a region
+        # VcfReader is 0-based
         vcf_reader.set_region(chrom,
                               region[1] - 1,
                               region[2])
@@ -428,14 +448,15 @@ def am_pipeline(genome, form):
 
         for var in vcf_reader:
             # Filter by type
-            if query["types"] and (var.VAR_TYPE not in query["types"]):
-                continue
-
-            if "SEV" in query["impact"]:
-                if all([
-                  sev.rsplit("|", 1)[1] == "TOLERATED"
-                  for sev in var.parsed_info_fields().get("SEV", "")]):
+            if query["dataset"] == "":
+                if query["types"] and (var.VAR_TYPE not in query["types"]):
                     continue
+
+                if "SEV" in query["impact"]:
+                    if all([
+                      sev.rsplit("|", 1)[1] == "TOLERATED"
+                      for sev in var.parsed_info_fields().get("SEV", "")]):
+                        continue
 
 ###############################################################################
 ### Iterate over annotations, extract those matching query
@@ -449,10 +470,10 @@ def am_pipeline(genome, form):
             # Multiple vars per position are given an index to distinguish
             if pos == prev_pos:
                 dup_cnt += 1
-                pos = ".".join(map(str, (prev_pos, dup_cnt)))
+                pos = ".".join(map(str, (pos, dup_cnt)))
             else:
                 dup_cnt = 0
-            prev_pos = pos
+                prev_pos = pos
 
             # For overlapping regions, update only affected genes/promoters
             # rest of the data is the same
@@ -561,21 +582,22 @@ def am_pipeline(genome, form):
                     continue
 
             sevs = list()
-            for sev in var.parsed_info_fields().get("SEV", ""):
-                data = sev.split("|")
-                try:
-                    var_num = var.ALLELES.index(data[0])
-                    str_var = typ + str(var_num)
-                except:
-                    str_var = "Unknown"
-                score = str(round(float(data[7]), 2))
-                sevs.append(
-                  " | ".join(
-                    (str_var,
-                     data[0],
-                     score)))
-                sevs.append(
-                     data[11])
+            if query["dataset"] == "":
+                for sev in var.parsed_info_fields().get("SEV", ""):
+                    data = sev.split("|")
+                    try:
+                        var_num = var.ALLELES.index(data[0])
+                        str_var = typ + str(var_num)
+                    except:
+                        str_var = "Unknown"
+                    score = str(round(float(data[7]), 2))
+                    sevs.append(
+                      " | ".join(
+                        (str_var,
+                         data[0],
+                         score)))
+                    sevs.append(
+                         data[11])
 
 ###############################################################################
 ### Save variant entry
@@ -590,12 +612,15 @@ def am_pipeline(genome, form):
                     aff_genes = sorted({ann["Gene_ID"] for ann in ann_list})
 
             # Save annotation entry
-            if len(ref) > 5:
-                ref = compress_sv(ref)
+            if query["dataset"] == "":
+                if len(ref) > 5:
+                    ref = compress_sv(ref)
+            else:
+                ref = f"({len(ref)} bp)"
 
             anns.append(
               [chrom,
-               var.POS,
+               pos,
                aff_genes,
                ref,
                print_anns,
@@ -606,6 +631,9 @@ def am_pipeline(genome, form):
 ### Get genotype data
 ###############################################################################
 
+            min_c = 0
+            mis_c = 0
+            het_c = 0
             for samp_idx, sample in enumerate(samples):
                 data = var.get_sample_call(sample)
                 gt = data["GT"]
@@ -613,6 +641,12 @@ def am_pipeline(genome, form):
                 for delim in ("/", "|", "\\"):
                     if delim in gt:
                         a, b = gt.split(delim)
+                        if a == "." or b == ".":
+                            mis_c += 1
+                        else:
+                            min_c += sum(1 for v in (a, b) if v != "0")
+                            if a != b:
+                                het_c += 1
                         a = "·" if a == "0" else "—" if a == "." else typ + a
                         b = "·" if b == "0" else "—" if b == "." else typ + b
                         genotype = delim.join((a, b)) if a != b else a
@@ -624,32 +658,48 @@ def am_pipeline(genome, form):
 ### Get allelic depths and qualities for a call
 ###############################################################################
 
-                quals = list()
-                qual = ""
-                if "GQ" in data.keys():
-                    try:
-                        qual = int(data["GQ"])
-                    except ValueError:
-                        pass
-
-                if qual == "" and "PL" in data.keys():
-                    for q in data["PL"].split(","):
+                if query["dataset"] == "":
+                    quals = list()
+                    qual = ""
+                    if "GQ" in data.keys():
                         try:
-                            quals.append(int(q))
+                            qual = int(data["GQ"])
                         except ValueError:
                             pass
-                    qual = sorted(quals)[1] if quals else ""
 
-                if qual == "" and "GL" in data.keys():
-                    # Genotype likelihoods converted to Phred-scale
-                    for q in data["GL"].split(","):
-                        try:
-                            quals.append(float(q))
-                        except ValueError:
-                            pass
-                    qual = sorted(quals)[1] * -10 if quals else ""
+                    if qual == "" and "PL" in data.keys():
+                        for q in data["PL"].split(","):
+                            try:
+                                quals.append(int(q))
+                            except ValueError:
+                                pass
+                        qual = sorted(quals)[1] if quals else ""
+
+                    if qual == "" and "GL" in data.keys():
+                        # Genotype likelihoods converted to Phred-scale
+                        for q in data["GL"].split(","):
+                            try:
+                                quals.append(float(q))
+                            except ValueError:
+                                pass
+                        qual = sorted(quals)[1] * -10 if quals else ""
+                else:
+                    qual = ""
 
                 gts[samp_idx].append([genotype, qual])
+
+            gen_c = (len(samples) - mis_c) * 2
+            mis = mis_c / len(samples)
+            het = het_c / gen_c
+            maf = min(min_c / gen_c, 1 - min_c / gen_c)
+            if (
+              (query["mis"] and mis > query["mis"]) or 
+              (query["het"] and het > query["het"]) or
+              (query["maf"] and maf < query["maf"])):
+                _ = anns.pop()
+                gts = [gt[:-1] for gt in gts]
+            else:
+                anns[-1] += [np.round(mis, 3), np.round(het, 3), np.round(maf, 3)]
 
 ###############################################################################
 ### Filter out positions without variation
@@ -736,9 +786,18 @@ def am_pipeline(genome, form):
     # Sort positions
     order = sorted(
               range(len(anns)),
-              key=lambda x: (anns[x][0], anns[x][1]))
+              key=lambda x: (anns[x][0], int(str(anns[x][1]).split(".", 1)[0])))
 
     anns   = [anns[idx] for idx in order]
+    for i in range(len(anns)):
+        if "." in str(anns[i][1]):
+            idx = str(anns[i][1]).split(".", 1)[1]
+        else:
+            idx = ""
+        anns[i][1] = f"{int(str(anns[i][1]).split('.', 1)[0]):,}"
+        if idx:
+            anns[i][1] += "." + idx
+
     gts    = [[samp_data[idx] for idx in order] for samp_data in gts]
     groups = [([k[idx] for idx in order], v) for k, v in groups.items()]
 

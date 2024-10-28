@@ -1,12 +1,16 @@
 #!/usr/bin/env python
 
 import os
+import re
 import gzip
 import json
 import math
+import uuid
 import pysam
 import shutil
 import hashlib
+import bed_reader
+import subprocess
 import numpy as np
 import pandas as pd
 from collections import Counter
@@ -21,7 +25,10 @@ from flask import (
 
 import app.path
 
-from __main__ import app
+from __main__ import (
+  app,
+  get_lock,
+  master_lock)
 
 from modules.forms import AssocResForm
 from modules.vcf_reader import VcfReader
@@ -33,7 +40,8 @@ from modules.load_input import (
 
 from app.dirs import (
   tmp_dir,
-  data_dir)
+  data_dir,
+  tool_dir)
 
 
 # Fetch columns for possible enrichment and chromosomes to show/hide
@@ -125,54 +133,132 @@ def fetch_chr_ld():
         chr_r2 = json.load(r2_in)
     return jsonify(chr_r2)
 
-# Per-marker LD for locus fine-mapping
-@app.route("/ld/<opt_hash>/<genome>/<markers>/<model>/<ch>/<pos>")
-def fetch_ld(
-  opt_hash,
-  genome,
-  markers,
-  model,
-  ch,
-  pos):
-    in_ld = os.path.join(
+# Per-locus LD
+@app.route("/locus_ld", methods=["POST"])
+def fetch_locus_ld():
+    form = request.form
+    genome = form["genome"]
+    coord  = form["coord"]
+    task_id = str(uuid.uuid4())
+
+    plink_path = os.path.join(
+      tool_dir,
+      "plink2")
+    gt_root = os.path.join(
+      data_dir,
+      genome,
+      "stats",
+      "gt")
+    out_root = os.path.join(
       tmp_dir,
-      f"{opt_hash}.vcor2")
-    in_var = os.path.join(
+      task_id)
+
+    # Extract genotype data at QTLs
+    with open(f"{out_root}.bed1", "w") as coord_out:
+        for locus in coord.split(", "):
+            chrom, start = locus.split(":")
+            start = start.replace(",", "")
+            if "-" in start:
+                start, end = start.split("-")
+            else:
+                end = start
+            _ = coord_out.write("\t".join((chrom, start, end)) + "\n")
+    pr = subprocess.run(
+      [plink_path,
+       "--bfile", gt_root,
+       "--extract", "bed1", f"{out_root}.bed1",
+       "--thin-count", "1000",
+       "--r2-unphased", "square0",
+       "--out", out_root],
+      check=True,
+      text=True,
+      stdout=subprocess.PIPE)
+    output = pr.stdout
+    try:
+        num_loaded = int(re.search("(\d+) variants loaded", output).group(1))
+        num_removed = int(re.search("\-\-extract bed1\: (\d+)", output).group(1))
+        num_markers = num_loaded - num_removed
+    except:
+        num_markers = None
+
+    r2_vals = pd.read_csv(
+      f"{out_root}.unphased.vcor2",
+      sep="\t",
+      header=None,
+      index_col=None).round(3).fillna("")
+    r2_idx = pd.read_csv(
+      f"{out_root}.unphased.vcor2.vars",
+      sep="\t",
+      header=None,
+      index_col=None)
+
+    return jsonify([r2_vals.values.tolist(), r2_idx[0].tolist(), num_markers])
+
+# Per-chromosome block distribution
+@app.route("/chr_bdist", methods=["POST"])
+def fetch_chr_bdist():
+    form = request.form
+    genome  = form["genome"]
+    markers = form["markers"]
+    chrom   = form["chrom"]
+    stats_dir = os.path.join(
+      data_dir,
+      genome,
+      "assoc",
+      markers,
+      "stats")
+    bdist_path = os.path.join(
+      stats_dir,
+      f"{chrom}.bdist.gz")
+    chr_bdist = pd.read_csv(
+      bdist_path,
+      sep="\t",
+      header=None,
+      index_col=None).values.tolist()
+    return jsonify(chr_bdist)
+
+#Per-marker LD for locus fine-mapping
+@app.route("/ld", methods=["POST"])
+def fetch_ld():
+    form = request.form
+    marker_id = form["ch"] + ":" + form["pos"]
+    task_id = str(uuid.uuid4())
+
+    plink_path = os.path.join(
+      tool_dir,
+      "plink2")
+    in_root = os.path.join(
+      data_dir,
+      form["genome"],
+      "assoc",
+      form["markers"],
+      "gt",
+      "gt")
+    out_root = os.path.join(
       tmp_dir,
-      f"{opt_hash}.vcor2.vars")
-    out_hash = hashlib.sha256(
-                 str(
-                   [markers,
-                    model,
-                    ch,
-                    pos]).encode()
-                  ).hexdigest()
-    out_ld = os.path.join(
-      tmp_dir,
-      f"{out_hash}.vcor2")
-
-    var = pd.read_csv(
-      in_var,
-      sep="\t",
-      header=None)[0]
-    var_idx = var[var == f"{ch}:{pos}"].index.values[0]
-
-    ld = pd.read_csv(
-      in_ld,
-      sep="\t",
-      header=None)
-
-    ld = ld[[var_idx]].set_axis(
-      ["R2"],
-      axis=1)
-    ld[["Chr", "Pos"]] = var.str.split(":", expand=True)
-    ld = ld[["Chr", "Pos", "R2"]]
-    ld.to_csv(
-      out_ld,
-      sep="\t",
-      index=False)
-
-    return jsonify(out_hash)
+      task_id)
+    subprocess.run(
+      [plink_path,
+       "--bfile", in_root,
+       "--r2-unphased",
+       "--ld-snp", marker_id,
+       "--ld-window-kb", "1000",
+       "--ld-window-r2", "0",
+       "--out", out_root],
+      check=True)
+    (pd
+      .read_csv(
+        f"{out_root}.vcor",
+        sep="\t",
+        header=0,
+        index_col=None,
+        usecols=[3,4,6])
+      .to_csv(
+        f"{out_root}.r2",
+        sep="\t",
+        header=True,
+        index=False))
+    return jsonify(task_id)
 
 # Per-metric table data for GWAS QC filtering
 @app.route("/filt", methods=["POST"])
@@ -221,27 +307,39 @@ def fetch_hist():
       markers,
       "stats")
     hist_data = dict()
-    for metric in (
-      "smiss",
-      "vmiss",
-      "shet",
-      "vhet",
-      "maf",
-      "hwe",
-      "dens",
-      "pca",
-      "kin"):
+    if form["hap"] == "true":
+        metrics = (
+          "smiss",
+          "vmiss",
+          "shet",
+          "vhet",
+          "bsp",
+          "bmc",
+          "bhc",
+          "bfhc",
+          "baf",
+          "pca",
+          "kin")
+    else:
+        metrics = (
+          "smiss",
+          "vmiss",
+          "shet",
+          "vhet",
+          "maf",
+          "hwe",
+          "dens",
+          "pca",
+          "kin")
+    for metric in metrics:
         hist_path = os.path.join(stats_dir, metric)
         with open(hist_path, "r") as hist_in:
             hist_data[metric] = json.load(hist_in)
 
-    with open(os.path.join(stats_dir, "cnts"), "r") as cnts_in:
-        samp_num, var_num = json.load(cnts_in)
+#    with open(os.path.join(stats_dir, "cnts"), "r") as cnts_in:
+#        samp_num, var_num = json.load(cnts_in)
 
-    return jsonify([
-      hist_data,
-      samp_num,
-      var_num])
+    return jsonify(hist_data)
 
 # Manhattan plot data for GWAS visualisation
 @app.route("/mplot", methods=["POST"])
@@ -308,7 +406,8 @@ def fetch_bblplot():
                 continue
 
             df = pd.read_feather(assoc_path)
-            df = df.drop(["Effect", "std Error"], axis=1)
+            df = df.loc[:, df.columns[:3]]
+            #df = df.drop(["Effect", "std Error"], axis=1)
             df = df.set_axis(["Chr", "Pos", string_key], axis=1)
             df = df[df[string_key] >= thresh]
             df = df.set_index(["Chr", "Pos"])
@@ -402,6 +501,75 @@ def contextmenu():
 
         return jsonify([data, keys])
 
+    elif action == "pve":
+        data = request.form
+        if data["model"] != "mlm":
+            return jsonify(
+              [[["PVE calculation is only supported for MLM."]],
+               []])
+        chrom, pos = data["pos"].split(":")
+        pos = pos.replace(",", "")
+        pos_id = ":".join((chrom, pos))
+        pos = int(pos)
+
+        gt_root = os.path.join(
+          data_dir,
+          data["genome"],
+          "assoc",
+          data["markers"],
+          "gt",
+          "gt")
+        bed = bed_reader.open_bed(f"{gt_root}.bed")
+
+        phe_path = os.path.join(
+          data_dir,
+          data["genome"],
+          gconfig["phe"])
+        with master_lock:
+            lock = get_lock(phe_path)
+        with lock:
+            phe_df = pd.read_csv(
+              phe_path,
+              sep="\t",
+              header=0,
+              index_col=0,
+              usecols=["Acc", data["trait"]]).loc[bed.iid].dropna()
+
+        gts = bed.read(dtype="int8")[
+            [i for i, n in enumerate(bed.iid) if n in phe_df.index],
+            np.where(bed.sid == pos_id)[0][0]]
+        gt_var = np.var(gts)
+        phe_var = np.var(phe_df[data["trait"]])
+
+        res_fn = os.path.join(
+          data_dir,
+          data["genome"],
+          "assoc",
+          data["markers"],
+          "res",
+          f"{data['model']}.{data['trait']}.tsv.gz")
+        res = pysam.TabixFile(res_fn)
+        records = list(res.fetch(chrom, pos - 1, pos))
+        if len(records) != 1:
+            return jsonify(
+              [[["Error calculating PVE."]],
+               []])
+        beta = float(records[0].split("\t")[3])
+        pve = (beta**2*gt_var) / phe_var
+
+        if 1:
+            af = sum(gts) / (gts.size * 2)
+            se = float(records[0].split("\t")[4])
+            pve2 = (2*(beta**2) * af * (1 - af)) / (2*(beta**2) * af * (1 - af) + (se**2) * 2 * gts.size * af * (1 - af))
+            #from scipy.stats import linregress
+            #slope, intercept, r_value, p_value, std_err = linregress(gts, phe_df[data["trait"]])
+            #print(r_value**2)
+
+        return jsonify(
+          [[[round(pve * 100, 2)], [round(pve2 * 100, 2)]],
+          ["PVE"]])
+
+        
     else:
         if action == "markers":
             params_json = os.path.join(
@@ -427,11 +595,6 @@ def contextmenu():
         try:
             with open(params_json, "r") as params_in:
                 params = json.load(params_in)
-            # Last element is phenotype variance kept for finemapping
-            # Skipped here
-#            return jsonify(
-#            [[col[:-1] for col in params[1:]],
-#             params[0][:-1]])
             return jsonify([params[1:], params[0]])
 
         except:
@@ -443,40 +606,62 @@ def contextmenu():
 def group():
     data = json.loads(request.get_data())
     genome = data["genome"]
-    print(data["items"])
+
+    if data["set"] == "trait_sgl":
+        config = load_config(genome)
+        phe_path = os.path.join(
+          data_dir,
+          genome,
+          config["phe"])
+        with master_lock:
+            lock = get_lock(phe_path)
+        with lock:
+            phe_df = pd.read_csv(
+              phe_path,
+              sep="\t",
+              header=[0],
+              index_col=[0])
+            (phe_df
+              .drop(
+                [data["items"]],
+                axis=1)
+              .to_csv(
+                phe_path,
+                sep="\t"))
+        return "", 204
 
     gdata_path = os.path.join(
       data_dir,
       genome,
       ".gdata")
 
-    gdata = load_gdata(genome)
-    gdata["groups"].setdefault(data["set"], [])
+    with master_lock:
+        lock = get_lock(gdata_path)
+    with lock:
+        with open(gdata_path, "r") as gdata_in:
+            gdata = json.load(gdata_in)
+        gdata["groups"].setdefault(data["set"], [])
 
-    # If making a group from a list of items
-    if "name" in data.keys():
-        group_entry = (
-          data["items"],
-          data["name"])
+        # If making a group from a list of items
+        if "name" in data.keys():
+            group_entry = (
+              data["items"],
+              data["name"])
+            # If a group with the given name exists, return error
+            for group in gdata["groups"][data["set"]]:
+                if group[1] == data["name"]:
+                    return "Group with this name alrady exists.", 400
+            gdata["groups"][data["set"]].append(group_entry)
+        # If deleting one or multiple groups
 
-        # If a group with the given name exists, return error
-        for group in gdata["groups"][data["set"]]:
-            if group[1] == data["name"]:
-                return "Group with this name alrady exists.", 400
-
-        gdata["groups"][data["set"]].append(group_entry)
-
-    # If deleting one or multiple groups
-    else:
-        filt = [
-          group for group in gdata["groups"][data["set"]]
-          if group[1] not in data["items"]]
-        gdata["groups"][data["set"]] = filt
-
-    # Re-save the edited genome data
-    with open(gdata_path, "w") as data_out:
-        json.dump(gdata, data_out)
-
+        else:
+            filt = [
+              group for group in gdata["groups"][data["set"]]
+              if group[1] not in data["items"]]
+            gdata["groups"][data["set"]] = filt
+        # Re-save the edited genome data
+        with open(gdata_path, "w") as data_out:
+            json.dump(gdata, data_out)
     return "", 204
 
 @app.route("/rm_markers", methods=["POST"])

@@ -1,29 +1,44 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title> HS -{% block title %} {% endblock %} </title>
+    <title> {% block title %} {% endblock %} </title>
     <link 
      rel="stylesheet"
      type="text/css"
      href="{{ url_for('static', filename='style.css') }}">
     <link
      rel="icon"
+     {#
+     type="image/vnd.microsoft.icon"
      href="{{ url_for('favicon') }}"
-     type="image/vnd.microsoft.icon">
+     #}
+     type="image/svg+xml"
+     href="{{ url_for('static', filename='favicon.svg') }}"
+    >
     {% block style %} {% endblock %}
   </head>
   <body>
-    <div class="row-div">
+    <div class="row-div padded-bottom">
       <a href="{{ url_for('index') }}">
         <img
          class="logo"
-         src="{{ url_for('static', filename='WUR_RGB_standard_2021.png') }}"
-         alt="Wageningen University" />
+         {# 
+           src="{{ url_for('static', filename='WUR_RGB_standard_2021.png') }}"
+         #}
+           src="{{ url_for('static', filename='logo.svg') }}"
+         alt="octava" />
       </a>
-      <div class="padded-left">
-	     <h2 id="genome-title">
+      <div
+        {% if not genome %}
+          class="logo-sep collapsed"
+        {% else %}
+          class="logo-sep"
+        {% endif %}
+        id="logo-sep"></div>
+      <div class="genome-label">
+	     <h1 id="genome-title">
           {{ genome }}
-        </h2>
+        </h1>
       </div>
     </div>
 
@@ -37,16 +52,253 @@
     <div id="empty"></div>
 
     <script>
+      // Scripts used at multiple parts that require jinja
+      function contextMenu(event, payload) {
+        event.preventDefault();
+        payload["genome"] = genome;
+  
+        $.ajax({
+          url: "{{ url_for('contextmenu') }}",
+          method: "POST",
+          data:   payload,
+          success: function (results) {
+            var varData = results[0];
+            var keys = results[1];
+  
+            if (keys.length > 0) {
+              var fieldText = "<table>";
+              for (let i = 0; i < varData[0].length; i++) {
+                fieldText += "<tr><th>" + keys[i] + "</th>";
+                varData.forEach( function(elem) {
+                  fieldText += "<td>" + elem[i] + "</td>";
+                });
+                fieldText += "</tr>";
+              }
+              fieldText += "</table>";
+            } else {
+              var fieldText = varData[0];
+            }
+            showHelp(event, null, fieldText);
+            return;
+          }
+        });
+      }
+  
+      function makeGroup(event, setToGroup) {
+        if (setToGroup === "genes") {
+          var selectedItems = document.getElementById("genes-field").value.split(",");
+          for (let i = 0; i < selectedItems.length; i++) {
+            selectedItems[i] = selectedItems[i].trim();
+          }
+        } else if (setToGroup === "expruns") {
+          var runsTable = document.getElementById("runs-table")
+          var runRows = runsTable.querySelector("tbody").querySelectorAll("tr");
+          var selectedItems = [];
+          for (let i = 0; i < runRows.length; i++) {
+            if (!runRows[i].classList.contains("collapsed")) {
+              selectedItems.push(runRows[i].querySelector("td").innerHTML);
+            }
+          }
+        } else if (setToGroup === "samples") {
+          var samplesTable = document.getElementById("samples-table")
+          var sampleRows = samplesTable.querySelector("tbody").querySelectorAll("tr");
+          var selectedItems = [];
+          for (let i = 0; i < sampleRows.length; i++) {
+            if (!sampleRows[i].classList.contains("collapsed")) {
+              selectedItems.push(sampleRows[i].querySelector("td").innerHTML);
+            }
+          }
+        } else if (setToGroup === "coords") {
+          var selectedItems = document.getElementById("coords-field").value.split(",");
+          for (let i = 0; i < selectedItems.length; i++) {
+            selectedItems[i] = selectedItems[i].trim();
+          }
+        } else {
+          var allItems = document.querySelectorAll("." + setToGroup + "-checkbox");
+          var selectedItems = [];
+          for (var item of allItems) {
+            if (item.checked) {
+              selectedItems.push(item.value);
+            }
+          }
+        }
+  
+        if (selectedItems.length !== 0) {
+          var groupName = "";
+          while (groupName === "") {
+            var groupName = window.prompt("Group name:");
+          }
+          if (groupName !== null) {
+            var data = JSON.stringify({
+             genome: genome,
+             set: setToGroup,
+             name: groupName,
+             items: selectedItems});
+            var request = new XMLHttpRequest();
+            request.open("POST", "{{ url_for('group') }}", true);
+            request.send(data);
+  
+            request.onreadystatechange = function() {
+              if (request.readyState === XMLHttpRequest.DONE) {
+                if (request.status === 204) {
+                  var dropdownId = setToGroup + "_group-dropdown";
+                  var dropdown = document.getElementById(dropdownId);
+                  var checkboxRow = document.createElement("div");
+                  checkboxRow.classList.add("checkbox-row");
+                  checkboxRow.classList.add("group-option");
+                  var checkbox = document.createElement("input")
+                  checkbox.type = "checkbox";
+                  checkbox.checked = "checked";
+                  checkbox.classList.add(setToGroup + "_group-checkbox");
+                  checkbox.id = setToGroup + "_group-dropdown" + groupName;
+                  checkbox.value = JSON.stringify(selectedItems);
+  
+                  checkbox.addEventListener("change", function(event) {
+                    updateCount(this.parentElement.parentElement);
+                    if (setToGroup === "expruns") {
+                      filterRunsTable();
+                    }
+                    if (setToGroup === "samples") {
+                      filterSamplesTable();
+                    }
+                  });
+  
+                  var label = document.createElement("label");
+                  label.classList.add("checkbox-label")
+                  label.htmlFor = checkbox.id;
+                  label.appendChild(document.createTextNode(groupName));
+  
+                  showGroupContents(checkboxRow);
+  
+                  checkboxRow.appendChild(checkbox);
+                  checkboxRow.appendChild(document.createTextNode(" "));
+                  checkboxRow.appendChild(label);
+                  dropdown.appendChild(checkboxRow);
+                  updateCount(dropdown);
+  
+                  if (!["expruns", "samples"].includes(setToGroup)) {
+                    var allItems = document.querySelectorAll("." + setToGroup + "-checkbox");
+                    for (var item of allItems) {
+                      item.checked = "";
+                    }
+                    dropdown = document.getElementById(setToGroup + "-dropdown");
+                    if (dropdown != null) {
+                      hideDropdown([dropdown, null]);
+                    } else {
+                      document.getElementById(setToGroup + "-field").value = "";
+                    }
+                  }
+                } else {
+                  alert(request.responseText);
+                }
+              }
+            };
+          }
+        } else {
+          showHelp(event, "make-group");
+        }
+        event.preventDefault();
+      }
+  
+      function deleteGroup(event, setToDelete) {
+        if (setToDelete === "trait_sgl") {
+          var traitField = document.getElementById("trait_sgl-field");
+          var deletePrompt = window.confirm("Delete selected trait?");
+          if (deletePrompt == true) {
+            var data = JSON.stringify(
+              {genome: genome,
+               set: setToDelete,
+               items: traitField.value});
+  
+            var request = new XMLHttpRequest();
+            request.open("POST", "{{ url_for('group') }}", true);
+            request.send(data);
+            request.onreadystatechange = function() {
+              if (request.readyState === XMLHttpRequest.DONE) {
+                if (request.status == 204) {
+                  traitIndex = traitField.selectedIndex
+                  traitField.remove(traitIndex);
+                  traitField.selectedIndex = Math.max(0, traitIndex - 1);
+                  sglPlot();
+                } else {
+                  alert("Something went wrong, try again.");
+                }
+              }
+            }
+          }
+        } else {
+          var checkboxClass = "." + setToDelete + "_group-checkbox";
+          var allItems = document.querySelectorAll(checkboxClass);
+          var selectedItems = [];
+          for (var item of allItems) {
+            if (item.checked) {
+              selectedItems.push(item);
+            }
+          }
+          if (selectedItems.length !== 0) {
+            var deletePrompt = window.confirm("Delete selected groups?");
+            if (deletePrompt == true) {
+              var names = [];
+              for (var item of selectedItems) {
+                names.push(item.nextElementSibling.textContent);
+              }
+              var data = JSON.stringify(
+                {genome: genome,
+                 set: setToDelete,
+                 items: names});
+  
+              var request = new XMLHttpRequest();
+              request.open("POST", "/group", true);
+              request.send(data);
+              request.onreadystatechange = function() {
+                if (request.readyState === XMLHttpRequest.DONE) {
+                  if (request.status == 204) {
+                    // Remove checkboxes from the dropdown
+                    for (let i = 0; i < selectedItems.length; i++) {
+                      selectedItems[i].parentElement.remove();
+                    }
+                    var dropdownId = setToDelete + "_group-dropdown";
+                    var dropdown = document.getElementById(dropdownId);
+                    updateCount(dropdown);
+                    if (setToDelete === "expruns") {
+                      filterRunsTable();
+                    }
+                    if (setToDelete === "samples") {
+                      filterSamplesTable();
+                    }
+                  } else {
+                    alert("Something went wrong, try again.");
+                  }
+                }
+              }
+            }
+          } else {
+            showHelp(event, "delete-group");
+          }
+        }
+        event.preventDefault();
+      }
+
       // Enable scrolling past the bottom of the page
       function extendScroll() {
         var empty = document.getElementById("empty");
-        empty.style.height = window.outerHeight / 2 + "px";
+        //empty.style.height = window.outerHeight / 2 + "px";
+        empty.style.height = "50px";
       }
 
       extendScroll();
       window.addEventListener("resize", function() {
         extendScroll()
       });
+
+    // Hide shown popup on click
+    var visibleDropdown = null;
+    document.addEventListener("click", function(event) {
+      if (visibleDropdown !== null) {
+        hideDropdown(visibleDropdown);
+      }
+      document.getElementById("help-popup").classList.add("collapsed");
+    });
     </script>
     {% block script %} {% endblock %}
   </body>

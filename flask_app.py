@@ -18,7 +18,11 @@ app.config["UPLOAD_FOLDER"] = os.path.join("static", "icons")
 
 Compress(app)
 
-lock = Lock()
+lock_dict = {}
+master_lock = Lock()
+def get_lock(obj):
+    return lock_dict.setdefault(obj, Lock())
+
 task_queue = queue.Queue()
 task_status = {"specs": []}
 
@@ -33,8 +37,8 @@ from app.routes import (
   assoc,
   error,
   index,
-  am_res,
-  am_opts,
+  fa_res,
+  fa_opts,
   assoc_qc,
   assoc_res,
   assoc_filt,

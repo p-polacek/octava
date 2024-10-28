@@ -71,13 +71,13 @@ class AddForm(FlaskForm):
       "Run info:",
       choices=[])
     proj = SelectField(
-      "Project info:",
+      "Study info:",
       choices=[])
     samp = SelectField(
-      "Sample names:",
+      "Sample info:",
       choices=[])
     info = SelectField(
-      "Gene information:",
+      "Gene info:",
       choices=[])
     enr = MultiCheckboxField(
       "Enrichment for:",
@@ -133,7 +133,10 @@ class RegionForm(FlaskForm):
     coord = StringField(
       "")
 
-class AlleleMinerForm(RegionForm):
+class FuncAnalysisForm(RegionForm):
+    dataset = SelectField(
+      "Markers:",
+      choices = [("", "raw VCF")])
     target = SelectField(
       "Target:",
       choices = [
@@ -147,6 +150,9 @@ class AlleleMinerForm(RegionForm):
       "Gene:")
     gene_groups = MultiCheckboxField(
       "Gene group:",
+      choices = [])
+    coord_groups = MultiCheckboxField(
+      "Region group:",
       choices = [])
     prom_size = IntegerField(
       "Size:",
@@ -171,7 +177,7 @@ class AlleleMinerForm(RegionForm):
     samples = MultiCheckboxField(
       "Sample:",
       choices = [])
-    sample_groups = MultiCheckboxField(
+    samples_group = MultiCheckboxField(
       "Sample group:",
       choices = [])
     types = MultiCheckboxField(
@@ -180,6 +186,13 @@ class AlleleMinerForm(RegionForm):
     csqs = MultiCheckboxField(
       "Consequence:",
       choices = csqs)
+
+    mis = DecimalField(
+      "Missingness:")
+    het = DecimalField(
+      "Heterozygosity:")
+    maf = DecimalField(
+      "MAF:")
 
     skip_samples = MultiCheckboxField(
       "",
@@ -218,15 +231,30 @@ class TraitViewForm(FlaskForm):
     traits = MultiCheckboxField(
       "Trait:",
       choices=[])
-    trait_groups = MultiCheckboxField(
+    traits_group = MultiCheckboxField(
       "Trait group:",
       choices = [])
     samples = MultiCheckboxField(
       "Sample:",
       choices = [])
-    sample_groups = MultiCheckboxField(
+    samples_group = MultiCheckboxField(
       "Sample group:",
       choices = [])
+    transform = RadioField(
+      "Method:",
+      choices=[
+        ("log", "Log(e) transform"),
+        #("bc", "Box-cox transform"),
+        ("pca", "PCA transform"),
+        ("bin", "Make binary")])
+    num_pc = IntegerField(
+      "Number of PCs:",
+      default=5)
+    binthr = IntegerField(
+      "Threshold:")
+    samples_sel = StringField("")
+    t_name = StringField("")
+    t_type = StringField("")
 
 class PlotForm(FlaskForm):
     plot = SelectField(
@@ -247,8 +275,39 @@ class PlotForm(FlaskForm):
         ("maf",
          "Minor allele frequency"),
         ("hwe",
-         "-log10(P) HW equilibrium")])
-    ld_chr = SelectField(
+         "-log10(P) HW equilibrium")
+        ])
+    plothap = SelectField(
+      "Plot:",
+      choices = [
+        ("bdist",
+         "Block distribution"),
+        ("ld",
+        "Linkage disequilibrium"),
+        ("smiss",
+         "Sample missingness"),
+        ("vmiss",
+         "Haplotype missingness"),
+        ("shet",
+         "Sample heterozygosity"),
+        ("vhet",
+         "Haplotype heterozygosity"),
+        ("bsp",
+         "Block size"),
+        ("bmc",
+         "Block marker count"),
+        ("bhc",
+         "Block total haplotype count"),
+        ("bfhc",
+         "Block MAF-filtered haplotype count"),
+        ("baf",
+         "Block allele frequency"),
+        ("kin",
+         "Kinship matrix"),
+        ("pca",
+         "Principal components")
+        ])
+    chr = SelectField(
       "Chrom:",
       choices=[])
 
@@ -288,6 +347,19 @@ class AssocQCform(PlotForm):
       default="checked")
     hap = BooleanField(
       "Make Haplotypes")
+    btype = SelectField(
+      "Method:",
+      choices=[
+        ("ld", "LD-based"),
+        ("snpwin", "SNP number window"),
+        ("bpwin", "Base-pair window")])
+    bsize = IntegerField(
+      "Max size (kb):",
+      default=1000)
+    bspan = IntegerField(
+      "Block span:")
+    bstep = IntegerField(
+      "Block step:")
     name = StringField(
       "Set name:")
 
@@ -304,13 +376,49 @@ class AssocResForm(RegionForm, PlotForm):
     models = MultiCheckboxField(
       "Model:",
       choices = models)
+    samples_group = MultiCheckboxField(
+      "By sample group:",
+      choices = [])
     traits = MultiCheckboxField(
       "Trait:",
       choices = [])
-    trait_groups = MultiCheckboxField(
+    traits_group = MultiCheckboxField(
       "Trait group:",
       choices = [])
     new_phe = FileField()
+    mtry = IntegerField(
+      "Test markers:")
+    ntree = IntegerField(
+      "Trees per forest:",
+      default = 100)
+    niter = IntegerField(
+      "Iterations:",
+      default = 20)
+    nperm = IntegerField(
+      "Permutations:",
+      default = 100)
+
+    pm_w = IntegerField(
+      "Burn-in steps:")
+    pm_s = IntegerField(
+      "Sampling steps:")
+    pm_num = IntegerField(
+      "Thinning:")
+    pm_hmin = IntegerField(
+      "Min heritability:")
+    pm_hmax = IntegerField(
+      "Max heritability:")
+    pm_pmin = IntegerField(
+      "Min causal SNPs:")
+    pm_pmax = IntegerField(
+      "Max causal SNPs:")
+    pm_nstart = IntegerField(
+      "Init causal SNPs:")
+    pm_smin = IntegerField(
+      "Model min SNPs:")
+    pm_smax = IntegerField(
+      "Model max SNPs:")
+
     k = BooleanField(
       "Kinship (K) correction",
       default = True)
@@ -323,6 +431,14 @@ class AssocResForm(RegionForm, PlotForm):
     kq_from = RadioField(
       "K/Q from:",
       choices=[])
+    overwrite = BooleanField(
+      "Overwrite existing")
+    fm_method = RadioField(
+      "Method:",
+      choices=[
+        ("", "(none)"),
+        ("pm", "PiMASS"),
+        ("rf", "Random forest")])
     mrk  = StringField(
       "")
     mod  = StringField(

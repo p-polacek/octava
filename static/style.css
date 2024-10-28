@@ -152,13 +152,14 @@ a:active {
 
 .results-subcontainer {
 	height: 65vh;
+    padding-right: 20px;
 }
 
 .promsize-div {
 	font-size: 0.8em;
 }
 
-.static-plot-half {
+.static-plot {
 	height: 100%;
 	width: 100%;
 	object-fit: contain;
@@ -318,8 +319,22 @@ a:active {
 */
 
 .logo {
-	width: 250px;
-	height: auto;
+	height: 33px;
+	width: auto;
+    padding: 20px 25px 10px 20px;
+    vertical-align: bottom;
+}
+
+.logo-sep {
+    height: 43px;
+    margin: 15px 0px 5px 0px;
+    border-left: 1px solid black;
+}
+
+.genome-label {
+    padding-top: 11px;
+    padding-left: 25px;
+    
 }
 
 .genome-icon {
@@ -386,6 +401,15 @@ button {
 	padding: 2.5px;
 	height: 25px;
 }
+
+.fullwidth-input {
+	font-size: 0.8em;
+	box-sizing: border-box;
+	border: 1px solid #999;
+	border-radius: 4px;
+	padding: 2.5px;
+	height: 25px;
+}    
 
 .promsize-input {
 	width: 6em;
