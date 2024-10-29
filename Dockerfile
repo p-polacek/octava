@@ -12,9 +12,11 @@ COPY requirements.txt .
 
 # Download external tools
 RUN apt-get update &&\
-    apt-get install -y python3.10.15 python3-pip git wget tar unzip emboss ncbi-blast+ cd-hit plink1.9 plink2 beagle gemma &&\
+    apt-get install -y python3.10.12 python3-pip git wget tar unzip emboss ncbi-blast+ cd-hit plink1.9 plink2 beagle gemma &&\
     pip install --upgrade pip &&\
     pip install numpy==1.26.4 &&\
+    apt-get install llvm &&\
+    pip install numba llvmlite &&\
     pip install -r requirements.txt &&\
     mkdir ./modules/tools &&\
     cd ./modules/tools/ &&\
