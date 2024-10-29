@@ -2,16 +2,17 @@
 
 from flask_wtf import FlaskForm
 
-from wtforms import (widgets,
-                     FileField,
-                     RadioField,
-                     HiddenField,
-                     SelectField,
-                     StringField,
-                     BooleanField,
-                     DecimalField,
-                     IntegerField,
-                     SelectMultipleField)
+from wtforms import (
+  widgets,
+  FileField,
+  RadioField,
+  HiddenField,
+  SelectField,
+  StringField,
+  BooleanField,
+  DecimalField,
+  IntegerField,
+  SelectMultipleField)
 
 from modules.csq import var_csq
 

@@ -5,7 +5,7 @@ from flask import send_from_directory
 
 import app.path
 
-from __main__ import app
+from flask_app import app
 
 from app.dirs import (
   tmp_dir,

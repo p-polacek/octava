@@ -4,7 +4,7 @@ import os
 import json
 import configparser
 
-from __main__ import (
+from flask_app import (
   get_lock,
   master_lock)
 

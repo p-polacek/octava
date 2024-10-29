@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import app.path
-from __main__ import (
+from flask_app import (
   app,
   get_lock,
   task_queue,
@@ -129,8 +129,7 @@ def index():
     with master_lock:
         lock = get_lock("__clean__")
     with lock:
-        #clean()
-        pass
+        clean()
     genomes = list(
       enumerate(
         sorted(

@@ -15,3 +15,10 @@ tool_dir = os.path.join(
   "modules",
   "tools")
 
+
+plink1_path = os.path.join(
+  tool_dir,
+  "plink1.9")
+plink2_path = os.path.join(
+  tool_dir,
+  "plink2")

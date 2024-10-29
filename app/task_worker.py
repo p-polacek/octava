@@ -4,7 +4,7 @@ import traceback
 import subprocess
 from time import time
 
-from __main__ import (
+from flask_app import (
   get_lock,
   task_queue,
   master_lock,

@@ -18,7 +18,7 @@ from flask import (
   url_for,
   redirect)
 
-from __main__ import (
+from flask_app import (
   get_lock,
   master_lock,
   task_status)
@@ -27,7 +27,9 @@ from app.dirs import (
   tmp_dir,
   data_dir,
   root_dir,
-  tool_dir)
+  tool_dir,
+  plink1_path,
+  plink2_path)
 
 from modules.load_input import (
   load_gdata,
@@ -89,10 +91,6 @@ def run_qc(genome, task_id, markers=None):
     config = load_config(genome)
     gdata = load_gdata(genome)
 
-    plink_path = os.path.join(
-      tool_dir,
-      "plink2")
-
     if not markers:
         in_path = os.path.join(
           data_dir,
@@ -152,7 +150,7 @@ def run_qc(genome, task_id, markers=None):
         if markers:
             popen(
               task_id,
-              [plink_path,
+              [plink2_path,
                "--bfile", in_path,
                "--missing",
                "--geno-counts",
@@ -164,7 +162,7 @@ def run_qc(genome, task_id, markers=None):
         else:
             popen(
               task_id,
-              [plink_path,
+              [plink2_path,
                "--vcf", in_path,
                "--missing",
                "--geno-counts",
@@ -404,7 +402,7 @@ def run_qc(genome, task_id, markers=None):
         if not os.path.exists(f"{var_only_root}.vcf.gz"):
             popen(
               task_id,
-              [plink_path,
+              [plink2_path,
                "--bfile", gt_out,
                "--make-just-pvar",
                "cols=vcfheader,qual,filter,info",
@@ -453,10 +451,6 @@ def calc_chr_ld(
     config = load_config(genome)
     gdata = load_gdata(genome)
 
-    plink_path = os.path.join(
-      tool_dir,
-      "plink2")
-
     if not markers:
         in_path = os.path.join(
           data_dir,
@@ -499,7 +493,7 @@ def calc_chr_ld(
             continue
         popen(
           task_id,
-          [plink_path,
+          [plink2_path,
            "--bfile", gt_out,
            "--chr", str(ch),
            "--thin-count", "1000",
@@ -540,13 +534,6 @@ def filt_qc(
     vcf_file = config["vcf"]
     markers = data["name"]
 
-    plink_path = os.path.join(
-      tool_dir,
-      "plink2")
-    plink1_path = os.path.join(
-      tool_dir,
-      "plink1.9")
-
     stats_dir = os.path.join(
       data_dir,
       genome,
@@ -577,7 +564,7 @@ def filt_qc(
 
     # Filter based on missingness
     if data["smiss"] or data["vmiss"]:
-        cmd = [plink_path, "--vcf", f"{plink_in}.vcf.gz"]
+        cmd = [plink2_path, "--vcf", f"{plink_in}.vcf.gz"]
         cmd = cmd + ["--mind", str(data["smiss"])] if data["smiss"] else cmd
         cmd = cmd + ["--geno", str(data["vmiss"])] if data["vmiss"] else cmd
         cmd = cmd + [
@@ -619,7 +606,7 @@ def filt_qc(
 
     # Filter based on remaining thresholds
     if any(data[f] for f in ("shet", "vhet", "maf", "hwe")):
-        cmd = [plink_path, "--vcf", f"{plink_out}.miss.vcf.gz"]
+        cmd = [plink2_path, "--vcf", f"{plink_out}.miss.vcf.gz"]
         cmd = cmd + ["--remove", shet_exc] if data["shet"] else cmd
         cmd = cmd + ["--exclude", vhet_exc] if data["vhet"] else cmd
         cmd = cmd + ["--maf", str(data["maf"])] if data["maf"] else cmd
@@ -634,7 +621,7 @@ def filt_qc(
     # Impute missing genotypes
     beagle_path = os.path.join(
       tool_dir,
-      "beagle.22Jul22.46e.jar")
+      "beagle.jar")
 
     vcf_in = plink_out + ".filt.vcf.gz"
     full_root = os.path.join(
@@ -653,7 +640,7 @@ def filt_qc(
            f"out={full_root}"])
         popen(
           task_id,
-          [plink_path,
+          [plink2_path,
            "--vcf", full_vcf,
            "--make-bed",
            "--allow-extra-chr",
@@ -667,7 +654,7 @@ def filt_qc(
           if str(data["window"]) else "200kb")
 
         popen(task_id,
-          [plink_path,
+          [plink2_path,
           "--vcf", full_vcf,
           "--indep-pairwise", data["window"], str(data["prune"]),
           "--allow-extra-chr",
@@ -675,7 +662,7 @@ def filt_qc(
         prune_in = plink_out + ".prune.in"
 
         cmd = [
-          plink_path,
+          plink2_path,
           "--vcf", full_vcf,
           "--extract", prune_in,
           "--allow-extra-chr",
@@ -698,7 +685,7 @@ def filt_qc(
         # Make necessary genotype format files
         popen(
           task_id,
-          [plink_path,
+          [plink2_path,
            "--vcf", f"{plink_out}.vcf.gz",
            "--allow-extra-chr",
            "--make-bpgen",
@@ -733,7 +720,7 @@ def filt_qc(
         progress(task_id, "Making haplotype VCF")
         popen(
           task_id,
-          [plink_path,
+          [plink2_path,
            "--bfile", plink_out,
            "--export", "vcf", "bgz",
            "--allow-extra-chr",
@@ -744,7 +731,7 @@ def filt_qc(
         # Make necessary genotype format files
         popen(
           task_id,
-          [plink_path,
+          [plink2_path,
            "--vcf", f"{plink_out}.vcf.gz",
            "--make-bed",
            "--allow-extra-chr",
@@ -760,7 +747,7 @@ def filt_qc(
     progress(task_id, "Determining kinship and population structure")
     popen(
       task_id,
-      [plink_path,
+      [plink2_path,
        "--bfile", kin_in,
        "--make-rel", "square",
        "--pca", "10",
@@ -1474,9 +1461,6 @@ def assoc_finemap(
     out_root = os.path.join(
       tmp_dir,
       task_id)
-    plink_path = os.path.join(
-      tool_dir,
-      "plink2")
     pimass_path = os.path.join(
       tool_dir,
       "pimass",
@@ -1525,7 +1509,7 @@ def assoc_finemap(
             _ = coord_out.write("\t".join((chrom, start, end)) + "\n")
     popen(
       task_id,
-      [plink_path,
+      [plink2_path,
        "--bfile", gt_root,
        "--extract", "bed1", f"{out_root}.bed1",
        "--export", "Av",

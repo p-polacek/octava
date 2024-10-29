@@ -25,7 +25,7 @@ from flask import (
 
 import app.path
 
-from __main__ import (
+from flask_app import (
   app,
   get_lock,
   master_lock)
@@ -41,7 +41,8 @@ from modules.load_input import (
 from app.dirs import (
   tmp_dir,
   data_dir,
-  tool_dir)
+  tool_dir,
+  plink2_path)
 
 
 # Fetch columns for possible enrichment and chromosomes to show/hide
@@ -141,9 +142,6 @@ def fetch_locus_ld():
     coord  = form["coord"]
     task_id = str(uuid.uuid4())
 
-    plink_path = os.path.join(
-      tool_dir,
-      "plink2")
     gt_root = os.path.join(
       data_dir,
       genome,
@@ -164,7 +162,7 @@ def fetch_locus_ld():
                 end = start
             _ = coord_out.write("\t".join((chrom, start, end)) + "\n")
     pr = subprocess.run(
-      [plink_path,
+      [plink2_path,
        "--bfile", gt_root,
        "--extract", "bed1", f"{out_root}.bed1",
        "--thin-count", "1000",
@@ -224,9 +222,6 @@ def fetch_ld():
     marker_id = form["ch"] + ":" + form["pos"]
     task_id = str(uuid.uuid4())
 
-    plink_path = os.path.join(
-      tool_dir,
-      "plink2")
     in_root = os.path.join(
       data_dir,
       form["genome"],
@@ -238,7 +233,7 @@ def fetch_ld():
       tmp_dir,
       task_id)
     subprocess.run(
-      [plink_path,
+      [plink2_path,
        "--bfile", in_root,
        "--r2-unphased",
        "--ld-snp", marker_id,
