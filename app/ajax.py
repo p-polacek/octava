@@ -460,20 +460,28 @@ def contextmenu():
     if action == "vars":
         genome = request.form["genome"]
         chrom  = request.form["chrom"]
-        pos    = int(request.form["pos"])
+        pos    = int(request.form["pos"].replace(",", ""))
         field  = request.form["field"]
 
         # Get the requested field for the given variant position
-        vcf_path = os.path.join(
-          data_dir,
-          genome,
-          gconfig["vcf"])
-        vcf_reader = VcfReader(vcf_path)
-        vcf_reader.set_region(chrom, pos - 1, pos)
+        if field == "SEV":
+            sev_path = os.path.join(
+              data_dir,
+              genome,
+              f"sev.{gconfig['vcf']}")
+            reader = VcfReader(sev_path)
+            reader.set_region(chrom, pos - 1, pos)
+        else:
+            vcf_path = os.path.join(
+              data_dir,
+              genome,
+              gconfig["vcf"])
+            reader = VcfReader(vcf_path)
+            reader.set_region(chrom, pos - 1, pos)
 
         data = list()
         keys = list()
-        for record in vcf_reader:
+        for record in reader:
             if record.POS != pos:
                 continue
             if field == "REF":
@@ -485,7 +493,7 @@ def contextmenu():
                 data += [[ann[key] for key in keys] for ann in csq]
             elif field == "SEV":
                 csq   = record.parsed_info_fields()["SEV"]
-                desc  = vcf_reader.metadata["INFO"]["SEV"][0]["Description"]
+                desc  = reader.metadata["INFO"]["SEV"][0]["Description"]
                 desc  = desc.split("'")[1].split("'")[0]
                 keys  = [label.strip() for label in desc.split("|")]
                 data += [ann.split("|") for ann in csq]

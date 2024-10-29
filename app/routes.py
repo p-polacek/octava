@@ -32,6 +32,7 @@ from flask import (
   flash,
   jsonify,
   request,
+  session,
   url_for,
   redirect,
   Response,
@@ -62,6 +63,7 @@ from app.serve import (
 
 from modules.am import am_pipeline
 from modules.tmp_clean import clean
+from modules.sev import annotate_sev
 from modules.setup import genome_setup
 
 from modules.assoc import (
@@ -580,6 +582,8 @@ def fa_res(genome):
     gdata = load_gdata(genome)
     config = load_config(genome)
     form = FuncAnalysisForm(request.form)
+    if not form.data["fmt"]:
+        form.process(data=session.get("sev_form", {}))
 
     form.chrom.choices = gdata["chr_names"]
     samp_path = os.path.join(
@@ -710,6 +714,48 @@ def fa_res(genome):
       exp_data  = exp_data,
       colors    = colors,
       igv_conf  = igv_conf)
+
+###############################################################################
+### Annotate severity
+###############################################################################
+
+@app.route(
+  "/<genome>/Annotate_severity",
+  methods=["POST"])
+def ann_sev(genome):
+    prot_db = os.path.join(
+      "res",
+      "prot_db",
+      "prot")
+
+    form = FuncAnalysisForm(request.form)
+    markers = json.loads(form.data["ann_sev"])
+
+    marker_data = list()
+    for marker in markers:
+        ch, pos = marker.split(":")
+        pos = int(pos.split(".")[0])
+        marker_data.append((ch, pos))
+
+    task_id = str(uuid.uuid4())
+    task_spec = ("sev", genome, marker_data)
+    task = (
+      annotate_sev,
+      {"genome": genome,
+       "markers": marker_data,
+       "task_id": task_id})
+
+    task_queue.put((task_id, task_spec, task))
+    form.ann_sev.data = ""
+    session["sev_form"] = form.data
+    return render_template(
+      "loading.html",
+      genome    = genome,
+      task      = "sev",
+      task_id   = task_id,
+      task_spec = task_spec,
+      form      = form.data,
+      warning   = "")
 
 ###############################################################################
 ### Association analysis redirect

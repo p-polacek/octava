@@ -110,6 +110,15 @@ def am_pipeline(genome, form):
                 with open(params_path, "r") as params_in:
                     is_hap = json.load(params_in)[1][11] == "Yes"
             vcf_reader = VcfReader(vcf_path)
+
+            sev_path = os.path.join(
+              data_dir,
+              genome,
+              f"sev.{gconfig['vcf']}")
+            if os.path.exists(sev_path):
+                sev_reader = VcfReader(sev_path)
+            else:
+                sev_reader = None
     except Exception as e:
         print(e)
         errors.append("Problem loading VCF file.")
@@ -582,22 +591,29 @@ def am_pipeline(genome, form):
                     continue
 
             sevs = list()
-            if query["dataset"] == "":
-                for sev in var.parsed_info_fields().get("SEV", ""):
-                    data = sev.split("|")
-                    try:
-                        var_num = var.ALLELES.index(data[0])
-                        str_var = typ + str(var_num)
-                    except:
-                        str_var = "Unknown"
-                    score = str(round(float(data[7]), 2))
-                    sevs.append(
-                      " | ".join(
-                        (str_var,
-                         data[0],
-                         score)))
-                    sevs.append(
-                         data[11])
+            if sev_reader and query["dataset"] == "":
+                sev_reader.set_region(
+                  var.CHROM,
+                  var.POS - 1,
+                  var.POS)
+                for sev in sev_reader:
+                    if sev.CHROM != var.CHROM or sev.POS != var.POS:
+                        continue
+                    for sev_ann in sev.parsed_info_fields().get("SEV", ""):
+                        data = sev_ann.split("|")
+                        try:
+                            var_num = var.ALLELES.index(data[0])
+                            str_var = typ + str(var_num)
+                        except:
+                            str_var = "Unknown"
+                        score = str(round(float(data[7]), 2))
+                        sevs.append(
+                          " | ".join(
+                            (str_var,
+                             data[0],
+                             score)))
+                        sevs.append(
+                             data[11])
 
 ###############################################################################
 ### Save variant entry

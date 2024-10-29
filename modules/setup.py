@@ -104,11 +104,13 @@ def genome_setup(
                       seq_col=1,
                       start_col=2,
                       end_col=3,
-                      line_skip=1)
+                      line_skip=1,
+                      force=True)
                 else:
                     pysam.tabix_index(
                       file_path,
-                      preset=("vcf" if file == "vcf" else "gff"))
+                      preset=("vcf" if file == "vcf" else "gff"),
+                      force=True)
     for file in params["bam"]:
         file_path = os.path.join(
           data_dir,

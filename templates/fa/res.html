@@ -76,6 +76,13 @@
         <div
          id="vars-div"
          class="results-container collapsed margin-top">
+          <div>
+            <h2 style="padding-left: 2px;" class="small-padded-bottom">
+              <a href="#" onclick="annotateSev();">
+                Annotate variant severity
+              </a>
+            </h2>
+          </div>
           <table id="vars-table">
             <tr>
               <th class="header-left">
@@ -1588,6 +1595,20 @@
       browserPromise.then(browser => {
         browser.goto(genesLoc);
       });
+    }
+{# ====================================================== Annotate severity #}
+    function annotateSev() {
+      var varCheckboxes = [...document.querySelectorAll(".var-checkbox")];
+      var selectedVars = varCheckboxes.filter( c => {
+        return c.checked;
+      }).map( c => {
+        return c.getAttribute("pos").replaceAll(",", "");
+      });
+      console.log( JSON.stringify(selectedVars));
+      document.getElementById("ann_sev").value = JSON.stringify(selectedVars);
+      var form = document.querySelector("form");
+      form.action = "{{ url_for('ann_sev', genome=genome) }}";
+      form.submit();
     }
 {# ======================================================= Construct tables #}
     function makeClustersTable() {

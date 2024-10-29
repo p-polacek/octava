@@ -59,11 +59,12 @@
   </div>
   {% if form %}
     <form
-     action="{{ url_for('finemap', genome=genome, task_id=task_id) }}"
+     {% if task == "finemap" %}
+       action="{{ url_for('finemap', genome=genome, task_id=task_id) }}"
+     {% elif task == "sev" %}
+       action="{{ url_for('fa_res', genome=genome) }}"
+     {% endif %}
      method="POST">
-    {% for k, v in form.items() %}
-      <input type="hidden" name="{{ k }}" value="{{ v }}">
-    {% endfor %}
     </form>
   {% endif %}
 {% endblock %}

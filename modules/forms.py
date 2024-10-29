@@ -173,6 +173,7 @@ class FuncAnalysisForm(RegionForm):
 #        ("SEV",
 #         "Only deleterious variants")
        ])
+    ann_sev = HiddenField("")
 
     samples = MultiCheckboxField(
       "Sample:",

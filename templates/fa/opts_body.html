@@ -5,7 +5,7 @@
    onsubmit="return validateForm();">
     {{ form.hidden_tag() }}
 {# =========================================================== Input format #}
-    <div class="object-div param-div-default">      <div class="row-div padded-bottom">        <h2>          Input marker set:        </h2>      </div>      <div class="row-input-div justified small-padded-top">        {{ form.dataset.label(class="default-label bold") }}        <div class="row-div justified">          {{ form.dataset(           class="default-input",           id="dataset-field") }}        </div>      </div>    </div>    <div class="object-div param-div-default">
+    <div class="object-div param-div-default">      {{ form.ann_sev(id="ann_sev") }}      <div class="row-div padded-bottom">        <h2>          Input marker set:        </h2>      </div>      <div class="row-input-div justified small-padded-top">        {{ form.dataset.label(class="default-label bold") }}        <div class="row-div justified">          {{ form.dataset(           class="default-input",           id="dataset-field") }}        </div>      </div>    </div>    <div class="object-div param-div-default">
       <div class="row-div padded-bottom">
         <h2>
           Input format:

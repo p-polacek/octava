@@ -597,7 +597,6 @@ class VcfRecord(object):
                         sample information will be read from this object
                         in order to initialize the VcfRecord object.
         '''
-
         self.cols = line.split("\t", 9) #only collect first 9 columns initially
                                         #splitting whole line on a VCF with
                                         #lots of columns/samples is costly
