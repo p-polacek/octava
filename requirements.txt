@@ -58,7 +58,6 @@ lazr.uri
 liknorm
 limix
 limix-plot
-llvmlite
 locket
 loguru
 MarkupSafe
@@ -71,7 +70,6 @@ mypy-extensions
 ndarray-listener
 ndindex
 netCDF4
-numba
 numexpr
 numpy-sugar
 oauthlib
