@@ -141,7 +141,7 @@ def run_rf(
     mtry = min(mtry, gt.shape[1])
     real_incmse = np.zeros((gt.shape[1], niter))
     for idx in range(niter):
-        progress(task_id, f"Iteration {idx + 1} of {niter}")
+        progress(task_id, f"\rIteration {idx + 1} of {niter}", newline=False)
         rf = RangerForestRegressor(
           n_estimators=ntree,
           mtry=mtry,
@@ -151,6 +151,7 @@ def run_rf(
           seed=random.randint(0, 2**32 - 1))
         rf.fit(gt, phe)
         real_incmse[:, idx] = rf.feature_importances_
+    progress(task_id, "")
 
 ################################################################################
 ### Run permutation by correlation
@@ -198,7 +199,7 @@ def run_rf(
 
     perm_incmse = np.zeros((gt.shape[1], nperm))
     for idx in range(nperm):
-        progress(task_id, f"Permutation {idx + 1} of {nperm}")
+        progress(task_id, f"\rPermutation {idx + 1} of {nperm}", newline=False)
         perm_rf = RangerForestRegressor(
           n_estimators=ntree,
           mtry=mtry,
@@ -208,6 +209,7 @@ def run_rf(
           seed=random.randint(0, 2**32 - 1))
         perm_rf.fit(gt, shuffle(phe))
         perm_incmse[:, idx] = perm_rf.feature_importances_
+    progress(task_id, "")
 
 ################################################################################
 ### Calculate importance thresholds
