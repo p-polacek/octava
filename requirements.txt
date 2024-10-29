@@ -73,7 +73,6 @@ ndindex
 netCDF4
 numba
 numexpr
-numpy
 numpy-sugar
 oauthlib
 optimix
