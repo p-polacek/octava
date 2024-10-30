@@ -17,6 +17,7 @@ import os
 import re
 import json
 import uuid
+#import magic
 import pysam
 import tabix
 import shutil
@@ -252,7 +253,7 @@ def setup(genome):
         else:
             mime_types = ["image/jpg", "image/jpeg", "image/png"]
             ext = os.path.splitext(icon.filename)[-1]
-            if (
+            if 0 and (
               magic.from_buffer(icon.read(2048), mime=True) not in mime_types
               or ext not in (".png", ".jpg", ".jpeg")):
                 error = "Icon is the wrong file type."
@@ -1229,6 +1230,7 @@ def finemap(
   task_id):
     form = AssocResForm(request.form)
     params = form.data
+    print(params)
     config  = load_config(genome)
     markers = params["mrk"]
     model   = params["mod"]
@@ -1236,6 +1238,7 @@ def finemap(
     pval    = params["pval"]
     coord   = params["coord"]
 
+    print(params["fm_method"])
     if params["fm_method"] == "pm":
         igv_conf = igv_fm(
           genome,

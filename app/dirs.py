@@ -13,7 +13,7 @@ tool_dir = os.path.join(
 
 plink1_path = os.path.join(
   tool_dir,
-  "plink1.9")
+  "plink")
 plink2_path = os.path.join(
   tool_dir,
   "plink2")

@@ -717,6 +717,9 @@ def filt_qc(
           min_haps,
           task_id)
 
+        for ext in (".bed", ".bim", ".fam"):
+            os.symlink(plink_out + ext, full_root + ext)
+
         progress(task_id, "Making haplotype VCF")
         popen(
           task_id,
@@ -724,8 +727,8 @@ def filt_qc(
            "--bfile", plink_out,
            "--export", "vcf", "bgz",
            "--allow-extra-chr",
-           "--out", plink_out])
-        kin_in =  plink_out + ".full"
+           "--out", full_root])
+        kin_in =  plink_out + ".allhaps"
     else:
         progress(task_id, "Processing filtered data")
         # Make necessary genotype format files
@@ -1479,7 +1482,7 @@ def assoc_finemap(
     out_fam = f"{gt_root}.fam"
     samples = pd.read_csv(
         out_fam,
-        sep="\t",
+        sep="\s+",
         header=None,
         index_col=None,
         usecols=[1])[1]

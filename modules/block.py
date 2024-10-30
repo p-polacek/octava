@@ -101,8 +101,8 @@ def block_genotype(
     gt = pgenlib.PgenReader(f"{gt_root}.pgen".encode("utf8"))
     out_gt = list()
     out_bed = f"{gt_root}.bed"
-    out_gt_full = list()
-    out_bed_full = f"{gt_root}.full.bed"
+    out_gt_allhaps = list()
+    out_bed_allhaps  = f"{gt_root}.allhaps.bed"
     # Marker to index map
     marker_map = {
       marker: idx for (idx, marker) in
@@ -192,7 +192,7 @@ def block_genotype(
         for idx in range(haps.shape[0]):
             hap_chromatids = np.all(block_gt == haps[idx], axis=1)
             hap_gt = np.sum(hap_chromatids.reshape(-1, 2), axis=1)
-            out_gt_full.append(hap_gt)
+            out_gt_allhaps.append(hap_gt)
 
     progress(task_id, f"\rProgress: 100%", bold=False)
     progress(task_id, "", bold=False)
@@ -234,8 +234,8 @@ def block_genotype(
         index=False))
     # Full data for kinship and PC calculation
     bed_reader.to_bed(
-      out_bed_full,
-      np.stack(out_gt_full, axis=0).transpose(),
+      out_bed_allhaps,
+      np.stack(out_gt_allhaps, axis=0).transpose(),
       properties={
         "iid": samples,
 #        "chromosome": chrs,
