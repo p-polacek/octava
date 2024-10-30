@@ -843,7 +843,7 @@ def assoc_qc(genome):
       genome,
       "assoc")
     saved_sets = [
-      d for d in os.listdir(markers_root)
+      d.casefold() for d in os.listdir(markers_root)
       if os.path.isdir(os.path.join(markers_root, d)) and
       os.path.exists(
         os.path.join(
@@ -1214,6 +1214,7 @@ def assoc_locus(genome):
       "task_id": task_id})
 
     task_queue.put((task_id, task_spec, task))
+    session["fm_form"] = form.data
     return render_template(
       "loading.html",
       genome    = genome,
@@ -1229,6 +1230,8 @@ def finemap(
   genome,
   task_id):
     form = AssocResForm(request.form)
+    form.process(data=session.get("fm_form", {}))
+
     params = form.data
     config  = load_config(genome)
     markers = params["mrk"]
@@ -1237,7 +1240,6 @@ def finemap(
     pval    = params["pval"]
     coord   = params["coord"]
 
-    print(params["fm_method"])
     if params["fm_method"] == "pm":
         igv_conf = igv_fm(
           genome,
