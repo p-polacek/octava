@@ -1230,7 +1230,6 @@ def finemap(
   task_id):
     form = AssocResForm(request.form)
     params = form.data
-    print(params)
     config  = load_config(genome)
     markers = params["mrk"]
     model   = params["mod"]
