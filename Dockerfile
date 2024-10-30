@@ -18,6 +18,7 @@ RUN apt-get update &&\
     apt-get update &&\
     apt-get install -y git wget tar unzip &&\
     mkdir data/ &&\
+    mkdir tmp/ &&\
     mkdir ./modules/tools &&\
     cd ./modules/tools/ &&\
     wget https://s3.amazonaws.com/plink1-assets/plink_linux_x86_64_20241022.zip -O plink1.zip &&\
