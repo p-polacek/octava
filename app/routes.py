@@ -722,10 +722,19 @@ def fa_res(genome):
   "/<genome>/Annotate_severity",
   methods=["POST"])
 def ann_sev(genome):
-    prot_db = os.path.join(
-      "res",
-      "prot_db",
-      "prot")
+    #prot_db = os.path.join(
+    #  "res",
+    #  "prot_db",
+    #  "prot")
+    prot_dir = os.path.join(
+      data_dir,
+      genome,
+      "prot_db")
+    if not os.path.exists(prot_dir):
+        return render_template(
+          "error.html",
+          error="Missing required input files.")
+
 
     form = FuncAnalysisForm(request.form)
     markers = json.loads(form.data["ann_sev"])

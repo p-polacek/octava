@@ -15,7 +15,6 @@ from collections import Counter
 
 from app.dirs import data_dir
 from app.task_worker import progress
-from app.gffutils_db import gffutils_db_path
 
 from modules.assoc import run_qc
 
@@ -28,14 +27,13 @@ def genome_setup(
 ### Set up GFFUtils database
 ###############################################################################
 
-    if not os.path.exists(gffutils_db_path):
-        os.makedirs(gffutils_db_path)
     ann_path = os.path.join(
       data_dir,
       genome,
       params["ann"])
     db_path = os.path.join(
-      gffutils_db_path,
+      data_dir,
+      genome,
       f"{genome}.db")
     if not os.path.exists(db_path):
         progress(task_id, "Creating an annotation database")

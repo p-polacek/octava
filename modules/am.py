@@ -12,7 +12,6 @@ from .vcf_reader import VcfReader
 from .load_input import load_config
 
 from app.dirs import data_dir, tool_dir
-from app.gffutils_db import gffutils_db_path
 
 """
 Allele mining pipeline
@@ -125,7 +124,8 @@ def am_pipeline(genome, form):
         
     try:
         db_path = os.path.join(
-          gffutils_db_path,
+          data_dir,
+          genome,
           f"{genome}.db")
         db = gffutils.FeatureDB(db_path)
     except:

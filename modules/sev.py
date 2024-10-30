@@ -14,9 +14,7 @@ from flask_app import (
   get_lock,
   master_lock)
 
-from app.dirs import (
-  sev_dir,
-  data_dir)
+from app.dirs import data_dir
 
 from app.task_worker import progress
 
@@ -69,6 +67,10 @@ def annotate_sev(genome, markers, task_id):
       data_dir,
       genome,
       config["vcf"])
+    prot_dir = os.path.join(
+      data_dir,
+      genome,
+      "prot_db")
     sev_path = os.path.join(
       data_dir,
       genome,
@@ -134,8 +136,7 @@ def annotate_sev(genome, markers, task_id):
 
                 t_id = ann["Feature_ID"]
                 seq_path = os.path.join(
-                  sev_dir,
-                  genome,
+                  prot_dir,
                   transcripts_dir,
                 f"{t_id}.fasta")
                 t_seq = SeqIO.read(
@@ -265,8 +266,7 @@ def annotate_sev(genome, markers, task_id):
         full_set = set()
         # Get transcript sequence
         seq_path = os.path.join(
-          sev_dir,
-          genome,
+          prot_dir,
           transcripts_dir,
           f"{t_id}.fasta")
         if not os.path.exists(seq_path):
@@ -276,13 +276,11 @@ def annotate_sev(genome, markers, task_id):
           "fasta")
 
         blastp_pos_fn = os.path.join(
-          sev_dir,
-          genome,
+          prot_dir,
           blastp_out_pos_dir,
           f"{t_id}.blastp_out.txt")
         clusters_fn = os.path.join(
-          sev_dir,
-          genome,
+          prot_dir,
           clusters_dir,
           f"{t_id}.clusters.clstr")
 
@@ -301,8 +299,7 @@ def annotate_sev(genome, markers, task_id):
             clusters_raw = clusters_in.read().strip().split("\n>")
 
         hits_out = os.path.join(
-          sev_dir,
-          genome,
+          prot_dir,
           aligned_hits_dir,
           f"{t_id}.aligned_hits.fasta")
         hits = {
@@ -338,7 +335,7 @@ def annotate_sev(genome, markers, task_id):
 
             matching_seqs = set(
               blastp_pos_df[
-                (blastp_pos_df["qstart"] <= start_pos) |
+                (blastp_pos_df["qstart"] <= start_pos) &
                 (blastp_pos_df["qend"] >= end_pos)]["sseqid"])
             for cluster in clusters:
                 filt_cluster = [
@@ -351,9 +348,11 @@ def annotate_sev(genome, markers, task_id):
             anns.at[idx, "Supporting_set"] = supp_set
             full_set.update(sum(supp_set, []))
 
+        if len(full_set) == 0:
+            continue
+
         supp_set_fn = os.path.join(
-          sev_dir,
-          genome,
+          prot_dir,
           "supporting_set.fasta")
         SeqIO.write(
           [hits[seq_name] for seq_name in full_set],
@@ -406,6 +405,9 @@ def annotate_sev(genome, markers, task_id):
               newline=False)
             sev_anns = list()
             for var in pos.to_dict(orient="records"):
+                if len(var["Supporting_set"]) == 0:
+                    continue
+
                 mutated_seq = Seq.MutableSeq(t_seq.seq)
                 if (
                   mutated_seq[var["Start_pos"] - 1] != var["Start_ref"] or
@@ -418,8 +420,7 @@ def annotate_sev(genome, markers, task_id):
 
                 mutated_seq[var["Start_pos"] - 1:var["End_pos"]] = var["Subs"]
                 mutated_seq_fn = os.path.join(
-                  sev_dir,
-                  genome,
+                  prot_dir,
                   "mutated.fasta")
                 SeqIO.write(
                   [SeqRecord.SeqRecord(mutated_seq)],
@@ -502,15 +503,16 @@ def annotate_sev(genome, markers, task_id):
                       else "TOLERATED" if sev_score <= 2.5
                       else "DELETERIOUS_REF")))))
 
-            sev_lines.append(
-              (var["Chrom"],
-               var["Pos"],
-               ".",
-               var["Ref"],
-               var["Alt"],
-               ".",
-               ".",
-               "SEV=" + ",".join(sev_anns)))
+            if sev_anns:
+                sev_lines.append(
+                  (var["Chrom"],
+                   var["Pos"],
+                   ".",
+                   var["Ref"],
+                   var["Alt"],
+                   ".",
+                   ".",
+                   "SEV=" + ",".join(sev_anns)))
         progress(task_id, "")
 
     new_sev = pd.DataFrame(sev_lines)

@@ -4,7 +4,7 @@ FROM openjdk:11-jre-slim
 
 ENV PYTHONUNBUFFERED=1
 
-WORKDIR .
+WORKDIR /octava
 
 COPY . .
 
@@ -12,12 +12,12 @@ COPY requirements.txt .
 
 # Download external tools
 RUN apt-get update &&\
-    apt-get install -y python3.10 python3-pip git wget tar unzip emboss ncbi-blast+ cd-hit plink1.9 plink2 beagle gemma &&\
+    apt-get install -y python3.10 python3-pip &&\
     pip install --upgrade pip &&\
-    pip install numpy==1.26.4 &&\
-    apt-get install llvm &&\
-    pip install numba llvmlite &&\
     pip install -r requirements.txt &&\
+    apt-get update &&\
+    apt-get install -y git wget tar unzip &&\
+    mkdir data/ &&\
     mkdir ./modules/tools &&\
     cd ./modules/tools/ &&\
     wget https://s3.amazonaws.com/plink1-assets/plink_linux_x86_64_20241022.zip -O plink1.zip &&\
@@ -28,7 +28,9 @@ RUN apt-get update &&\
     wget https://www.haplotype.org/download/pimass-latest.tar.gz -O pimass.tar.gz &&\
     tar -zxf pimass.tar.gz &&\
     git clone https://github.com/Menggg/BLINK.git &&\
-    unzip BLINK/bin.zip -d BLINK/
+    unzip BLINK/bin.zip -d BLINK/ &&\
+    apt-get update &&\
+    apt-get install -y emboss gemma
 
 #    wget https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/ncbi-blast-2.16.0+-x64-linux.tar.gz -O blast.tar.gz &&\
 #    mkdir blast/ &&\
@@ -44,10 +46,9 @@ RUN apt-get update &&\
 #    cd cdhit/ &&\
 #    make &&\
 #    rm cdhit.tar.gz &&\
-#    wget http://faculty.washington.edu/browning/beagle/beagle.06Aug24.a91.jar -O beagle.jar &&\
 #    wget https://github.com/genetics-statistics/GEMMA/releases/download/v0.98.5/gemma-0.98.5-linux-static-AMD64.gz -O gemma.gz &&\
 #    gunzip gemma.gz &&\
- 
+
 EXPOSE 5101
 
-ENTRYPOINT FLASK_APP=flask_app.py flask run --host=0.0.0.0
+ENTRYPOINT FLASK_APP=flask_app.py flask run --host=0.0.0.0 --port 5101
