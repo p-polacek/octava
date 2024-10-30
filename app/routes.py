@@ -17,7 +17,7 @@ import os
 import re
 import json
 import uuid
-#import magic
+import magic
 import pysam
 import tabix
 import shutil
@@ -253,7 +253,7 @@ def setup(genome):
         else:
             mime_types = ["image/jpg", "image/jpeg", "image/png"]
             ext = os.path.splitext(icon.filename)[-1]
-            if 0 and (
+            if (
               magic.from_buffer(icon.read(2048), mime=True) not in mime_types
               or ext not in (".png", ".jpg", ".jpeg")):
                 error = "Icon is the wrong file type."
