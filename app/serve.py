@@ -20,20 +20,28 @@ def favicon():
       mimetype="image/vnd.microsoft.icon")
 
 # Index page genome icon
-@app.route("/icon/<fn>")
-def serve_icon(fn):
-    icon_dir = os.path.join(
-      "static",
-      "icons")
+@app.route("/icon/<genome>")
+def serve_icon(genome):
+    if genome == "add_new":
+        icon_dir = os.path.join(
+          "static",
+          "icons")
+        return send_from_directory(
+          icon_dir,
+          "add_new.png")
 
-    if not os.path.exists(
-      os.path.join(
-        icon_dir, 
-        f"{fn}.png")
-    ):
-        fn = "Icon_default.png"
+    icon_dir = os.path.join(
+      data_dir,
+      genome)
+    for ext in (".jpg", ".jpeg", ".png"):
+        if os.path.exists(os.path.join(icon_dir, "icon" + ext)):
+            fn = "icon" + ext
+            break
     else:
-        fn += ".png"
+        icon_dir = os.path.join(
+          "static",
+          "icons")
+        fn = "icon_default.png"
 
     return send_from_directory(
       icon_dir,

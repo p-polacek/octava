@@ -540,10 +540,10 @@ def annotate_sev(genome, markers, task_id):
             with pysam.BGZFile(sev_path, "wb") as sev_out:
                 _ = sev_out.write(sev_header.encode("utf-8"))
                 _ = sev_out.write(sev_output.getvalue().encode("utf-8"))
-        pysam.tabix_index(
-          sev_path,
-          preset="vcf",
-          force=True)
+            pysam.tabix_index(
+              sev_path,
+              preset="vcf",
+              force=True)
 
 
 def fetch_sev():

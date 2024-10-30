@@ -450,7 +450,7 @@ def fetch_bblplot():
 def contextmenu():
     genome = request.form["genome"]
     action = request.form["action"]
-    gconfig = load_config(genome)
+    config = load_config(genome)
 
     if action == "vars":
         genome = request.form["genome"]
@@ -463,20 +463,25 @@ def contextmenu():
             sev_path = os.path.join(
               data_dir,
               genome,
-              f"sev.{gconfig['vcf']}")
-            reader = VcfReader(sev_path)
-            reader.set_region(chrom, pos - 1, pos)
+              f"sev.{config['vcf']}")
+            with master_lock:
+                lock = get_lock(sev_path)
+            with lock:
+                reader = VcfReader(sev_path)
+                reader.set_region(chrom, pos - 1, pos)
+                records = list(reader)
         else:
             vcf_path = os.path.join(
               data_dir,
               genome,
-              gconfig["vcf"])
+              config["vcf"])
             reader = VcfReader(vcf_path)
             reader.set_region(chrom, pos - 1, pos)
+            records = list(reader)
 
         data = list()
         keys = list()
-        for record in reader:
+        for record in records:
             if record.POS != pos:
                 continue
             if field == "REF":
@@ -493,11 +498,21 @@ def contextmenu():
                 keys  = [label.strip() for label in desc.split("|")]
                 data += [ann.split("|") for ann in csq]
             else:
-                gdata = load_gdata(genome)
-                if isinstance(gdata["samples"][0], tuple):
-                    field = [
-                      s_id for (s_id, s_name) in gdata["samples"]
-                      if s_name == field][0]
+                samp_path = os.path.join(
+                  data_dir,
+                  genome,
+                  config["samp"])
+                with master_lock:
+                    lock = get_lock(samp_path)
+                with lock:
+                    samp_df = pd.read_csv(
+                      samp_path,
+                      sep="\t",
+                      header=0,
+                      index_col=None,
+                      usecols=[0,1])
+                    samples = dict(samp_df.to_records(index=False))
+                field = samples.get(field, field)
                 qual  = record.get_sample_call(field)
                 keys  = list(qual.keys())
                 data += [[qual[key] for key in keys]]
@@ -527,7 +542,7 @@ def contextmenu():
         phe_path = os.path.join(
           data_dir,
           data["genome"],
-          gconfig["phe"])
+          config["phe"])
         with master_lock:
             lock = get_lock(phe_path)
         with lock:

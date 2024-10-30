@@ -63,7 +63,7 @@
              class="genome-icon"
              src="{{ url_for(
               'serve_icon',
-              fn=genome_name) }}"
+              genome=genome_name) }}"
              alt="{{ genome_name }}">
             <h2
              class="text-wrap padded-top"
@@ -82,7 +82,7 @@
            class="genome-icon"
            src="{{ url_for(
             'serve_icon',
-            fn='add_new') }}"
+            genome='add_new') }}"
            alt="Add new dataset">
           <h2
            class="text-wrap padded-top"

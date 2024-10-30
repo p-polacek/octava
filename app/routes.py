@@ -240,7 +240,7 @@ def setup_new(genome):
   methods=["POST"])
 def setup(genome):
     form = AddForm(request.form)
-    icon = request.files["icon"]#
+    icon = request.files["icon"]
     warning = ""
     error = ""
     if icon.filename:
@@ -260,8 +260,9 @@ def setup(genome):
                 icon.seek(0) 
                 icon.save(
                   os.path.join(
-                    app.config["UPLOAD_FOLDER"],
-                    genome + ext))
+                    data_dir,
+                    genome,
+                    "icon" + ext))
     if error:
         return render_template(
           "error.html",
