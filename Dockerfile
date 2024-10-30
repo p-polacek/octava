@@ -21,8 +21,8 @@ RUN apt-get update &&\
     mkdir tmp/ &&\
     mkdir ./modules/tools &&\
     cd ./modules/tools/ &&\
-    wget https://s3.amazonaws.com/plink1-assets/plink_linux_x86_64_20241022.zip -O plink1.zip &&\
-    unzip plink1.zip &&\
+    wget https://s3.amazonaws.com/plink1-assets/plink_linux_x86_64_20241022.zip -O plink1.9.zip &&\
+    unzip plink1.9.zip &&\
     wget https://s3.amazonaws.com/plink2-assets/plink2_linux_x86_64_20241020.zip -O plink2.zip &&\
     unzip plink2.zip &&\
     wget http://faculty.washington.edu/browning/beagle/beagle.06Aug24.a91.jar -O beagle.jar &&\
