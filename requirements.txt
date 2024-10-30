@@ -6,7 +6,6 @@ Flask-Compress
 Flask-WTF
 gffutils
 limix
-magic
 matplotlib
 numpy==1.26.4
 pandas
