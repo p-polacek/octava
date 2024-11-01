@@ -252,7 +252,7 @@ def setup(genome):
         else:
             mime_types = ["image/jpg", "image/jpeg", "image/png"]
             ext = os.path.splitext(icon.filename)[-1]
-            if ext not in (".png", ".jpg", ".jpeg")):
+            if ext not in (".png", ".jpg", ".jpeg"):
                 error = "Icon is the wrong file type."
             else:
                 icon.seek(0) 
