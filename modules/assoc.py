@@ -10,6 +10,7 @@ import subprocess
 import numpy as np
 import configparser
 import pandas as pd
+import statsmodels.api as sm
 from collections import Counter
 from glimix_core.lmm import LMM
 import matplotlib.pyplot as plt
@@ -1004,7 +1005,7 @@ def run_assoc(genome, params, task_id):
             f"{in_root}.txt",
             sep="\t"))
 
-        if params["q_num"] > 0:
+        if params["q"] and params["q_num"] > 0:
             # Covariates file created to only keep top n selected ones
             # and filtered for necessary samples
             q_matr = (pd
@@ -1059,7 +1060,7 @@ def run_assoc(genome, params, task_id):
               ["Markers", "Samples", "PCs", "Kinship", "K/Q source"],
               [sum(1 for l in open(f"{in_root}.bim")),
                phe_df.loc[samples][trait].dropna().shape[0],
-               params["q_num"],
+               params["q_num"] if params["q"] else 0,
                "No",
                params["kq_from"] or markers]]
             with open(
@@ -1097,7 +1098,11 @@ def run_assoc(genome, params, task_id):
                 samples,
                 params["traits"]])
 
-        if params["q_num"] > 0:
+        if params["k"] and (not params["q"] or params["q_num"] == 0):
+            raise OSError(
+              "<b>Kiship correction must be used " +
+              "together with PCA correction.<b>")
+        if params["q"] and params["q_num"] > 0:
             # Covariates file filtered to keep top n selected ones
             # and necessary samples
             q_matr = (pd
@@ -1143,23 +1148,25 @@ def run_assoc(genome, params, task_id):
             phe = phe_df[trait]
             phe_samples = phe[~pd.isna(phe)].index
             phe = phe.loc[phe_samples]
-            if params["q_num"] > 0:
+            phe_gt = gt[np.isin(samples, phe_samples), :]
+
+            if params["q"] and params["q_num"] > 0:
                 phe_q = q_matr.loc[phe_samples]
+                phe_q = sm.add_constant(phe_q)
                 if params["k"]:
                     phe_k = k_matr.loc[phe_samples, phe_samples]
                     S, Q = np.linalg.eigh(phe_k)
+                    lmm = LMM(
+                      phe,
+                      phe_q,
+                      QS=(
+                        (Q,
+                         np.array((phe.size, 0))),
+                        S))
+                    lmm.fit()
+                    phe_corr = lmm.mean()
                 else:
-                    phe_k = None
-                lmm = LMM(
-                  phe,
-                  phe_q,
-                  QS=(
-                    (Q,
-                     np.array((phe.size, 0))),
-                    S))
-                lmm.fit()
-                phe_corr = lmm.mean()
-                phe_gt = gt[np.isin(samples, phe_samples), :]
+                    phe_corr = sm.OLS(phe, phe_q).fit().resid
             else:
                 phe_corr = phe
 
@@ -1231,7 +1238,7 @@ def run_assoc(genome, params, task_id):
               ["Markers", "Samples", "PCs", "Kinship", "K/Q source"],
               [sum(1 for l in open(f"{in_root}.bim")),
                phe_samples.shape[0],
-               params["q_num"],
+               params["q_num"] if params["q"] else 0,
                "Yes" if params["k"] else "No",
                params["kq_from"] or markers]]
             with open(
@@ -1275,7 +1282,7 @@ def run_assoc(genome, params, task_id):
             header=False,
             index=False))
 
-        if model != "glm" or params["q_num"] > 0:
+        if model != "glm" or (params["q"] and params["q_num"] > 0):
             # Covariates file created to only keep top n selected ones
             # and filtered for necessary samples
             q_matr = pd.read_csv(
@@ -1335,7 +1342,7 @@ def run_assoc(genome, params, task_id):
             else:
                 command += ["-lmm", "1"]
                 command += ["-k", f"{in_root}.kin"]
-            if params["q_num"] > 0:
+            if params["q"] and params["q_num"] > 0:
                 command += ["-c", f"{in_root}.cov"]
             popen(
               task_id,
@@ -1357,7 +1364,7 @@ def run_assoc(genome, params, task_id):
               ["Markers", "Samples", "PCs", "Kinship", "K/Q source"],
               [sum(1 for l in open(f"{in_root}.bim")),
                phe_df.loc[samples][trait].dropna().shape[0],
-               params["q_num"],
+               params["q_num"] if params["q"] else 0,
                "No" if model == "glm" else "Yes",
                params["kq_from"] or markers]]
             if model == "mtmlm":

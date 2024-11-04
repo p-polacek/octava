@@ -156,7 +156,7 @@ class FuncAnalysisForm(RegionForm):
       "Region group:",
       choices = [])
     prom_size = IntegerField(
-      "Size:",
+      "Size (bp):",
       default = 2000)
     impact = MultiCheckboxField(
       "Variant impact:",

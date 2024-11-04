@@ -48,31 +48,31 @@
     </div>
     <div class="results-container padded-top">
       <div class="disp-flex">
-      <form
-       method="POST"
-       action="{{ url_for('ts', genome=genome) }}"
-       onkeydown="if(event.keyCode === 13) { event.target.blur(); }">
-        {{ form.hidden_tag() }}
-      <div class="scrollable results-subcontainer flex">
-        <div class="object-div param-div-flexheight">
+        <form
+         method="POST"
+         action="{{ url_for('ts', genome=genome) }}"
+         onkeydown="if(event.keyCode === 13) { event.target.blur(); }">
+          {{ form.hidden_tag() }}
+          <div class="scrollable results-subcontainer flex">
+            <div class="object-div param-div-flexheight">
 {# ================================================================= Single #}
-      <div class="row-div small-padded-bottom">
-        <div class="row-input-div justified">
-          {{ form.trait_sgl.label(class="default-label bold") }}
-          {{ form.trait_sgl(
-           class="default-input",
-           id="trait_sgl-field",
-           onchange="sglPlot();") }}
-        </div>
-        <button
-         type="button"
-         id="delete-group"
-         class="aux-button button-delete"
-         title="Delete selected trait"
-         onclick="deleteGroup(event, 'trait_sgl');">
-          &times;
-        </button>
-      </div>
+              <div class="row-div small-padded-bottom">
+                <div class="row-input-div justified">
+                  {{ form.trait_sgl.label(class="default-label bold") }}
+                  {{ form.trait_sgl(
+                   class="default-input",
+                   id="trait_sgl-field",
+                   onchange="sglPlot();") }}
+                </div>
+                <button
+                 type="button"
+                 id="delete-group"
+                 class="aux-button button-delete"
+                 title="Delete selected trait"
+                 onclick="deleteGroup(event, 'trait_sgl');">
+                  &times;
+                </button>
+              </div>
 {# ================================================================ Samples #}
               <div class="row-div mini-padded-top padded-bottom">
                 <h2>
@@ -107,31 +107,31 @@
                   &#43;
                 </button>
 {#
-                                                                            <div
-                                                                             id="samples-dropdown"
-                                                                             class="dropdown-menu collapsed">
-                                                                              <div class="sticky non-transparent small-padding">
-                                                                                <input
-                                                                                 type="text"
-                                                                                 class="search-bar"
-                                                                                 placeholder="Search..."
-                                                                                 onkeyup="filterDropdown(visibleDropdown);">
-                                                                                <button
-                                                                                 type="button"
-                                                                                 onclick="toggleAll(visibleDropdown);">
-                                                                                  Select all
-                                                                                </button>
-                                                                              </div>
-                                                                              {% for choice in form.samples %}
-                                                                                <div class="checkbox-row">
-                                                                                  {{ choice(
-                                                                                   class="samples-checkbox",
-                                                                                   onchange="updateCount(
-                                                                                    this.parentElement.parentElement);") }}
-                                                                                  {{ choice.label(class="checkbox-label") }}
-                                                                                </div>
-                                                                              {% endfor %}
+                                                                          <div
+                                                                           id="samples-dropdown"
+                                                                           class="dropdown-menu collapsed">
+                                                                            <div class="sticky non-transparent small-padding">
+                                                                              <input
+                                                                               type="text"
+                                                                               class="search-bar"
+                                                                               placeholder="Search..."
+                                                                               onkeyup="filterDropdown(visibleDropdown);">
+                                                                              <button
+                                                                               type="button"
+                                                                               onclick="toggleAll(visibleDropdown);">
+                                                                                Select all
+                                                                              </button>
                                                                             </div>
+                                                                            {% for choice in form.samples %}
+                                                                              <div class="checkbox-row">
+                                                                                {{ choice(
+                                                                                 class="samples-checkbox",
+                                                                                 onchange="updateCount(
+                                                                                  this.parentElement.parentElement);") }}
+                                                                                {{ choice.label(class="checkbox-label") }}
+                                                                              </div>
+                                                                            {% endfor %}
+                                                                          </div>
 #}
               </div>
               <div class="row-div small-padded-top">
@@ -400,19 +400,19 @@
                   </label>
                 </button>
               </div>
-            {{ form.samples_sel(
-             class="collapsed",
-             id="samples_sel-field") }}
-            {{ form.t_name(
-             class="collapsed",
-             id="t_name-field") }}
-            {{ form.t_type(
-             class="collapsed",
-             id="t_type-field") }}
+              {{ form.samples_sel(
+              class="collapsed",
+                id="samples_sel-field") }}
+              {{ form.t_name(
+               class="collapsed",
+               id="t_name-field") }}
+              {{ form.t_type(
+               class="collapsed",
+               id="t_type-field") }}
 {# ========================================================= Plot and table #}
-          </form>
-        </div>
-        </div>
+            </div>
+          </div>
+        </form>
         <div class="flex results-subcontainer scrollable">
           <div
             id="plot-div"
@@ -429,7 +429,7 @@
                 </b>
               </button>
               <h3>
-                Rows
+               Rows
                 <span id="table-from">
                   1
                 </span>
@@ -439,7 +439,7 @@
                 </span>
               </h3>
               <button onclick="increment()">
-                <b>
+              <b>
                   >
                 </b>
               </button>

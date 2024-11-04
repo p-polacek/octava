@@ -56,6 +56,7 @@ function fetchChr() {
   }
   var chrDiv = document.getElementById("chr-div");
   var pcaSampDiv = document.getElementById("pca-sample-div");
+  console.log(pcaSampDiv);
   if (plotChoice === "ld") {
     chrDiv.classList.remove("collapsed");
     pcaSampDiv.classList.add("collapsed");

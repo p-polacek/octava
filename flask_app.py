@@ -13,7 +13,7 @@ from app.dirs import (
 
 app = Flask(__name__)
 app.secret_key = "275b250b2816223102a047d297676ce0"
-app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
 app.config["UPLOAD_FOLDER"] = os.path.join("static", "icons")
 
 Compress(app)

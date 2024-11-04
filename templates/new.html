@@ -379,9 +379,9 @@
       var iconInput = document.getElementById("icon");
       if (iconInput.files && iconInput.files[0]) {
         var icon = iconInput.files[0];
-        if (icon.size  > 102400) {
+        if (icon.size  > 1048576) {
           iconInput.value = "";
-          alert("File should be 100kb maximum.");
+          alert("File should be 1Mb maximum.");
           return;
         }
         const validTypes = ["image/jpg", "image/jpeg", "image/png"];

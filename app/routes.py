@@ -82,6 +82,8 @@ from modules.forms import (
   FuncAnalysisForm)
 from modules.forms import models as models_dict
 
+models_dict = dict(models_dict)
+
 from modules.load_input import (
   load_gdata,
   load_config)
@@ -247,7 +249,7 @@ def setup(genome):
         icon.seek(0, os.SEEK_END)
         file_size = icon.tell()
         icon.seek(0)
-        if file_size > 102400:
+        if file_size > 1048576:
             error = "Submitted icon is too large."
         else:
             mime_types = ["image/jpg", "image/jpeg", "image/png"]
@@ -327,7 +329,7 @@ def edit(genome):
                     errors.append("<b>No columns found in file.</b>")
                 else:
                     safe_cols = [
-                      re.sub("[^\W\(\)_]", "_", col)
+                      re.sub("[^\w\(\)_]", "_", col)
                       for col in new_phe.columns]
                     new_phe = new_phe.set_axis(
                       safe_cols,
@@ -1172,7 +1174,7 @@ def assoc_res(genome):
                 analysed_models.append(model)
 
     form.traits.choices = analysed_traits
-    form.models.choices = [(m, dict(models_dict)[m]) for m in analysed_models]
+    form.models.choices = [(m, models_dict[m]) for m in analysed_models]
 
     form.traits_group.choices = [
       [json.dumps(group[0]), group[1]]
@@ -1191,6 +1193,7 @@ def assoc_res(genome):
       chroms  = chroms,
       sizes   = sizes,
       offsets = offsets,
+      models  = models_dict,
       concat  = concat)
 
 ###############################################################################

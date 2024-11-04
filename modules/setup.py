@@ -249,7 +249,7 @@ def genome_setup(
           index=miss_samples,
           columns=[samp_df.columns[0]])
         (pd
-          .concat([phe_df, miss_df])
+          .concat([samp_df, miss_df])
           .loc[samples]
           .rename_axis("Acc")
           .to_csv(
