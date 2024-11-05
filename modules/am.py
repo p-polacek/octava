@@ -6,10 +6,15 @@ import json
 import gffutils
 import bed_reader
 import numpy as np
+import pandas as pd
 
 from .csq import var_csq
 from .vcf_reader import VcfReader
 from .load_input import load_config
+
+from flask_app import (
+  get_lock,
+  master_lock)
 
 from app.dirs import data_dir, tool_dir
 
@@ -144,21 +149,24 @@ def am_pipeline(genome, form):
     # Initialise dictionaries for print-formatting consequences and samples
     csq_dict = dict(var_csq(impact_tag=False))
 
-    if gconfig["samp"]:
-        samp_fn = os.path.join(
-          data_dir,
-          genome,
-          gconfig["samp"])
-
-        try:
-            with open(samp_fn, "r") as samp_in:
-                samp_dict = dict(
-                  line.strip().split("\t", 2)[:2]
-                  for line in samp_in)
-        except:
-            errors.append("Problem loading sample names file.")
-    else:
-        samp_dict = None
+    samp_path = os.path.join(
+      data_dir,
+      genome,
+      gconfig["samp"])
+    with master_lock:
+        lock = get_lock(samp_path)
+    with lock:
+        samp_dict = (pd
+          .read_csv(
+            samp_path,
+            sep="\t",
+            header=0,
+            index_col=0,
+            usecols=[0,1])
+          .set_axis(
+            ["Name"],
+            axis=1)["Name"]
+          .to_dict())
 
     # Get attribute names of additional information for genes
     if gconfig["info"]:
@@ -632,7 +640,8 @@ def am_pipeline(genome, form):
                 if len(ref) > 5:
                     ref = compress_sv(ref)
             else:
-                ref = f"({len(ref)} bp)"
+                if is_hap:
+                    ref = f"({len(ref)} bp)"
 
             anns.append(
               [chrom,
