@@ -196,7 +196,7 @@ def genome_setup(
           index_col=[0])
         # Make trait names filename-friendly
         safe_cols = [
-          re.sub("\W", "_", col)
+          re.sub("[^\w\(\)_]", "_", col)
           for col in phe_df.columns]
         phe_df = phe_df.set_axis(
           safe_cols,

@@ -147,11 +147,11 @@ a:active {
 
 .results-container {
 	overflow-y: auto;
-	max-height: 70vh;
+	max-height: 80vh;
 }
 
 .results-subcontainer {
-	height: 65vh;
+	height: 75vh;
     padding-right: 20px;
 }
 

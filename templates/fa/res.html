@@ -75,7 +75,7 @@
       </div>
         <div
          id="vars-div"
-         class="results-container collapsed margin-top">
+         class="results-container collapsed margin-top scrollable">
           <div>
             <h2 style="padding-left: 2px;" class="small-padded-bottom">
               <a href="#" onclick="annotateSev();">
@@ -137,9 +137,11 @@
               </th>
               {% for ann in anns %}
                 <td class="center-text">
-                {% for gene in ann[2] %}
-                  {{ gene }}
-                {% endfor %}
+                  <div style="max-height: 150px; overflow-y: auto; vertical-align: middle; padding-right: 20px;">
+                    {% for gene in ann[2] %}
+                      {{ gene }}
+                    {% endfor %}
+                  </div>
                 </td>
               {% endfor %}   
             <tr>
@@ -165,8 +167,31 @@
                 Minor allele frequency
               </th>
               {% for ann in anns %}
-                <td class="center-text help-cursor">
-                  {{ ann[6] }} <br> {{ ann[7] }} <br> {{ ann[8] }}
+                <td class="center-text relative">
+                  <div>
+                    <span style="display: inline-block;">{{ ann[6] }}</span>
+                    <span style="background-color: rgba(
+                    {{ [255, ann[6] * 510]|min *0.8 }},
+                    {{ (255 - [0, (ann[6] * 510) - 255]|max) *0.8 }},
+                    0,
+                    0.65); position: absolute; right: 0; width: 13px; height: 13px; margin-right: 5px; border-radius: 50%;"></span>
+                  </div>
+                  <div>
+                    <span style="display: inline-block;">{{ ann[7] }}</span>
+                    <span style="background-color: rgba(
+                     {{ [255, ann[7] * 510]|min *0.8 }},
+                     {{ (255 - [0, (ann[7] * 510) - 255]|max) *0.8 }},
+                     0,
+                     0.65); position: absolute; right: 0; width: 13px; height: 13px; margin-right: 5px; border-radius: 50%;"></span>
+                  </div>
+                  <div>
+                    <span style="display: inline-block;">{{ ann[8] }}</span>
+                    <span style="background-color: rgba(
+                     {{ (255 - [0, ((ann[8] * 510) - 255) *2]|max) *0.8 }},
+                     {{ [255, (ann[8] * 510) *2]|min *0.8 }},
+                     0,
+                     0.65); position: absolute; right: 0; width: 13px; height: 13px; margin-right: 5px; border-radius: 50%;"></span>
+                  </div>
                 </td>
               {% endfor %}
             <tr class="header-top">
@@ -208,10 +233,12 @@
                      'chrom': '{{ ann[0] }}',
                      'pos': '{{ ann[1] }}',
                      'field': 'SEV'});">
-                  {% for ann_entry in ann[5] %}
-                    {{ ann_entry }}
-                    <br>
-                  {% endfor %}
+                    <div style="max-height: 150px; overflow-y: auto; vertical-align: middle; padding-right: 20px;">
+                      {% for ann_entry in ann[5] %}
+                        {{ ann_entry }}
+                        <br>
+                      {% endfor %}
+                    </div>
                   </td>
                 {% else %}
                   <td></td>
@@ -278,7 +305,7 @@
       </div>
       <div
        id="var-phe-div"
-       class="results-container collapsed">
+       class="results-container collapsed scrollable">
         <div class="disp-flex">
           <div class="param-div-flexheight padded-top">
             <div class="row-div padded-top padded-bottom">
@@ -380,7 +407,7 @@
       </div>
       <div
        id="genes-div"
-       class="results-container collapsed margin-top">
+       class="results-container collapsed margin-top scrollable">
         <table id="genes-table">
         </table>
       </div>
@@ -404,7 +431,7 @@
         </div>
         <div
          id="genexp-div"
-         class="results-container collapsed">
+         class="results-container collapsed scrollable">
           <div class="disp-flex">
             <div class="param-div-flexheight padded-top">
               <h2 class="padded-top padded-bottom">
@@ -615,7 +642,7 @@
         </div>
         <div
          id="genenr-div"
-         class="results-container collapsed">
+         class="results-container collapsed scrollble">
           <div class="disp-flex">
             <div class="param-div-flexheight padded-top">
               <h2 class="padded-top padded-bottom">
@@ -708,7 +735,7 @@
       </div>
       <div
        id="geneview-div"
-       class="results-container collapsed">
+       class="results-container collapsed scrollable">
         <div class="disp-flex">
           <div
            id="igv-div"
@@ -751,7 +778,7 @@
       </div>
       <div
        id="clusters-div"
-       class="results-container collapsed margin-top">
+       class="results-container collapsed margin-top scrollable">
         <table id="clusters-table">
         </table>
       </div>
@@ -768,7 +795,7 @@
     </div>
     <div
      id="params-div"
-     class="results-container collapsed padded-top margin-top">
+     class="results-container collapsed padded-top margin-top scrollable">
       {% include "fa/opts_body.html" %}
     </div>
   </div>
