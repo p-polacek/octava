@@ -388,6 +388,10 @@ class AssocResForm(RegionForm, PlotForm):
       "Trait group:",
       choices = [])
     new_phe = FileField()
+    mtryvals = StringField(
+      "Test markers:")
+    ntreevals = StringField(
+      "Trees per forest:")
     mtry = IntegerField(
       "Test markers:")
     ntree = IntegerField(

@@ -79,6 +79,8 @@
       var redirectHref = "{{ url_for('assoc_opts', genome=genome) }}";
     } else if (task === "assoc") {
       var redirectHref = "{{ url_for('assoc_res', genome=genome) }}";
+    } else if (task === "run_rf_optim") {
+      var redirectHref = "{{ url_for('rf_optim_view', task_id=task_id) }}";
     }
 
     var error = document.getElementById("error");

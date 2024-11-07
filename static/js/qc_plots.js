@@ -304,7 +304,7 @@ function showPlot() {
         pad: 4
       },
       bargap: 0,
-    };       
+    };
     var spanShapes = [];
     for (i = 0; i < chrNames.length; i+= 2) {
       var shape = {

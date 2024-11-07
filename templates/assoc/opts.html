@@ -283,7 +283,7 @@
                 </div>
             {% endif %} #}
 {# ========================================================== RF parameters #}
-            <span id="rf-params" class="collapsed padded-top">
+            <span id="rf-params" class="collapsed padded-top small-padded-bottom">
               <div class="row-div">
                 <h2>
                   Random forest options:
@@ -293,7 +293,7 @@
                  src="{{ url_for('serve_button', button='help') }}"
                  onclick="showHelp(event, 'rf-options');" />
               </div>
-              <div class="row-div padded-top">
+              <div class="row-div padded-top">                <h3 class="bold">                  Optimize parameters:                </h3>              </div>              {% for field in ("mtryvals", "ntreevals") %}                <div class="row-input-div justified small-padded-top">                    {{ form[field].label(                     class="default-label bold") }}                    {{ form[field](class="small-num-input") }}                </div>              {% endfor %}              <div class="row-input-div justified padded-top">                <button onclick="RFOptimize();">                  <label                   class="default-label bold">                    Optimize                  </label>                </button>              </div>              <div class="row-div padded-top">
                 <h3 class="bold">
                   Number of:
                 </h3>
@@ -305,7 +305,6 @@
                     {{ form[field](class="small-num-input") }}
                 </div>
               {% endfor %}
-              <div class="row-input-div small-padded-bottom"></div>
            </span>
 {# ======================================================== Limit to region #}
 {#            <div class="row-div padded-top">
@@ -409,7 +408,7 @@
               {{ form.overwrite() }}
             </div>
             <div class="row-input-div justified padded-top">
-              <button type="submit">
+              <button type="submit" onclick="setAction();">
                 <label
                  class="default-label bold">
                   Submit
@@ -588,7 +587,7 @@
         rfParams.classList.add("collapsed");
       }
     }
-
+    function RFOptimize() {      var form = document.querySelector("form");      form.action = "{{ url_for('rf_optimize', genome=genome) }}"      form.target = "_blank";      form.submit();    }    function setAction() {      var form = document.querySelector("form");      form.action = "{{ url_for('assoc_res', genome=genome) }}"      form.target = "";      form.submit();    }
     document.addEventListener("DOMContentLoaded", function() {
       fetchChr();
       //if (allowPhe !== "") {

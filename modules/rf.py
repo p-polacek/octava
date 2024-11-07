@@ -18,7 +18,44 @@ from skranger.ensemble import RangerForestRegressor
 from app.task_worker import progress
 
 ################################################################################
-### Load data
+### Parameter optimization
+################################################################################
+
+def optim_rf(
+  task_id,
+  gt,
+  phe,
+  mtryvals,
+  ntreevals):
+    #repnum = 1
+    #std = np.zeros((len(ntreevals), len(mtryvals)))
+    pves = np.zeros((len(ntreevals), len(mtryvals)))
+    for i, ntree in enumerate(ntreevals):
+        for j, mtry in enumerate(mtryvals):
+            progress(
+              task_id,
+              f"\rTesting {i*len(mtryvals)+j+1} of {len(ntreevals) * len(mtryvals)}",
+              newline=False)
+            #run = []
+            #for _ in range(repnum):
+            rf = RandomForestRegressor(
+              n_estimators=ntree,
+              max_features=mtry,
+              oob_score=True,
+              #max_depth=5,
+              n_jobs=-1)
+            rf.fit(
+              gt,
+              phe)
+            #run.append(rf.oob_score_)
+            #pves[i, j] = np.mean(run)
+            #std[i, j] = np.std(run)
+            pves[i, j] = rf.oob_score_
+    progress(task_id, "")
+    return pves.tolist()
+
+################################################################################
+### Main RF function
 ################################################################################
 
 def run_rf(
@@ -30,67 +67,7 @@ def run_rf(
   niter,
   nperm):
 
-################################################################################
-### Parameter optimization
-################################################################################
-    """
-    mtryvals = [
-      10,
-      round(np.sqrt(gt.shape[1])),
-      2 * round(np.sqrt(gt.shape[1])),
-      round(0.1 * gt.shape[1]),
-      round(0.2 * gt.shape[1]),
-      round(gt.shape[1] / 3)
-    ]
 
-    ntreevals = np.arange(10, 101, 10)
-    repnum = 1
-
-    opt = np.zeros((len(ntreevals), len(mtryvals)))
-    std = np.zeros((len(ntreevals), len(mtryvals)))
-
-    for i, ntree in enumerate(ntreevals):
-        print(f"\r{ntree}", end="")
-        for j, mtry in enumerate(mtryvals):
-            run = []
-            for _ in range(repnum):
-                rf = RandomForestRegressor(
-                  n_estimators=ntree,
-                  max_features=mtry,
-                  oob_score=True,
-                  #max_depth=5,
-                  n_jobs=-1)
-                rf.fit(
-                  gt,
-                  phe)
-                run.append(rf.oob_score_)
-            opt[i, j] = np.mean(run)
-            std[i, j] = np.std(run)
-
-    # Plot the results
-    colors = plt.cm.rainbow(np.linspace(0, 1, len(mtryvals)))
-    for i in range(len(mtryvals)):
-        plt.plot(
-          ntreevals,
-          opt[:, i],
-          label=mtryvals[i],
-          color=colors[i])
-
-    if repnum > 1:
-        for i in range(len(mtryvals)):
-            plt.errorbar(
-              ntreevals,
-              opt[:, i],
-              yerr=std[:, i],
-              color=colors[i],
-              fmt='-')
-
-    plt.xlabel("ntree")
-    plt.ylabel("PVE")
-    plt.ylim([0, 1])
-    plt.legend(title="mtry", loc="upper right")
-    plt.show()
-    """
 ################################################################################
 ### Run RandomForest with iterations based on correlation
 ################################################################################
@@ -141,7 +118,10 @@ def run_rf(
     mtry = min(mtry, gt.shape[1])
     real_incmse = np.zeros((gt.shape[1], niter))
     for idx in range(niter):
-        progress(task_id, f"\rIteration {idx + 1} of {niter}", newline=False)
+        progress(
+          task_id,
+          f"\rIteration {idx + 1} of {niter}",
+          newline=False)
         rf = RangerForestRegressor(
           n_estimators=ntree,
           mtry=mtry,
@@ -199,7 +179,10 @@ def run_rf(
 
     perm_incmse = np.zeros((gt.shape[1], nperm))
     for idx in range(nperm):
-        progress(task_id, f"\rPermutation {idx + 1} of {nperm}", newline=False)
+        progress(
+          task_id,
+          f"\rPermutation {idx + 1} of {nperm}",
+          newline=False)
         perm_rf = RangerForestRegressor(
           n_estimators=ntree,
           mtry=mtry,

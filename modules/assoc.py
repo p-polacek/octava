@@ -33,11 +33,14 @@ from app.dirs import (
   plink1_path,
   plink2_path)
 
+from modules.rf import (
+  run_rf,
+  optim_rf)
+
 from modules.load_input import (
   load_gdata,
   load_config)
 
-from modules.rf import run_rf
 from modules.wpgma import wpgma
 from modules.assoc_plot import mqplot
 from modules.block import (
@@ -954,6 +957,150 @@ def filt_qc(
 
 
 ###############################################################################
+### Optimize random forest parameters
+###############################################################################
+
+def run_rf_optim(genome, params, task_id):
+    if len(params["traits"]) != 1 or len(params["traits_group"]) != 0:
+        raise OSError("Single trait must be selected.")
+    config  = load_config(genome)
+    markers = params["markers_sgl"]
+
+    progress(task_id, "Preparing input files")
+    assoc_dir = os.path.join(
+      data_dir,
+      genome,
+      "assoc",
+      markers)
+    out_dir = os.path.join(
+      assoc_dir,
+      "res")
+    in_root = os.path.join(
+      assoc_dir,
+      "gt",
+      "gt")
+    phe_path = os.path.join(
+      data_dir,
+      genome,
+      config["phe"])
+    kq_root = os.path.join(
+      data_dir,
+      genome,
+      "assoc",
+      params["kq_from"] or markers,
+      "gt",
+      "gt")
+
+    # Correct for kinship and population structure
+    out_fam = f"{in_root}.fam"
+    samples = pd.read_csv(
+      out_fam,
+      sep="\t",
+      header=None,
+      index_col=None,
+      usecols=[1])[1]
+    phe_path = os.path.join(
+      data_dir,
+      genome,
+      config["phe"])
+    with master_lock:
+        lock = get_lock(phe_path)
+    with lock:
+        phe_df = (pd
+          .read_csv(
+            phe_path,
+            sep="\t",
+            header=[0],
+            index_col=[0])
+          .loc[
+            samples,
+            params["traits"]])
+
+    if params["k"] and (not params["q"] or params["q_num"] == 0):
+        raise OSError(
+          "<b>Kiship correction must be used " +
+          "together with PCA correction.<b>")
+    if params["q"] and params["q_num"] > 0:
+        # Covariates file filtered to keep top n selected ones
+        # and necessary samples
+        q_matr = (pd
+          .read_csv(
+            f"{kq_root}.eigenvec",
+            sep="\t",
+            header=[0],
+            index_col=[0,1])
+          .droplevel(0)
+          .assign(I=1))
+        if not samples.isin(q_matr.index).all():
+            raise OSError(
+              "<b>Dataset selected for K/Q correction does not contain " +
+              "all samples from the genotype dataset.<b>")
+        q_matr = q_matr.loc[
+          samples,
+          ["I"] + q_matr.columns.tolist()[:int(params["q_num"])]]
+    if params["k"]:
+        k_matr = (pd
+          .read_csv(
+            f"{kq_root}.rel",
+            sep="\t",
+            index_col=None,
+            header=None)
+          .set_index(
+            samples)
+          .set_axis(
+            samples,
+            axis=1))
+        if not samples.isin(k_matr.index).all():
+            raise OSError(
+              "<b>Dataset selected for K/Q correction does not contain " +
+              "all samples from the genotype dataset.<b>")
+        k_matr = k_matr.loc[
+          samples,
+          samples]
+    gt = bed_reader.open_bed(f"{in_root}.bed").read()
+
+    progress(task_id, "Running optimization")
+    phe = phe_df[params["traits"][0]]
+    phe_samples = phe[~pd.isna(phe)].index
+    phe = phe.loc[phe_samples]
+    phe_gt = gt[np.isin(samples, phe_samples), :]
+
+    if params["q"] and params["q_num"] > 0:
+        phe_q = q_matr.loc[phe_samples]
+        phe_q = sm.add_constant(phe_q)
+        if params["k"]:
+            phe_k = k_matr.loc[phe_samples, phe_samples]
+            S, Q = np.linalg.eigh(phe_k)
+            lmm = LMM(
+              phe,
+              phe_q,
+              QS=(
+                (Q,
+                 np.array((phe.size, 0))),
+                S))
+            lmm.fit()
+            phe_corr = lmm.mean()
+        else:
+            phe_corr = sm.OLS(phe, phe_q).fit().resid
+    else:
+        phe_corr = phe
+
+    mtryvals = [int(v.strip()) for v in params["mtryvals"].split(", ")]
+    ntreevals = [int(v.strip()) for v in params["ntreevals"].split(", ")]
+
+    res = optim_rf(
+      task_id,
+      phe_gt,
+      phe_corr,
+      mtryvals,
+      ntreevals)
+    optim_path = os.path.join(
+      tmp_dir,
+      f"{task_id}.rfopt")
+    with open(optim_path, "w") as optim_out:
+        json.dump([mtryvals, ntreevals, res], optim_out)
+
+###############################################################################
 ### Run association analysis and process output
 ###############################################################################
 
@@ -1238,6 +1385,7 @@ def run_assoc(genome, params, task_id):
                 by="Imp",
                 ascending=False)
               .head(5000)
+              .reset_index(drop=True)
               .to_feather(out_feather))
             mqplot_fig = mqplot(
               genome,

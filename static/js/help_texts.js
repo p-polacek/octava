@@ -67,7 +67,9 @@ var helpTexts = {
   "<tr><th>BLINK</th><td>Bayesian multi-locus model, via <a target='_blank' href='https://zzlab.net/blink/'>BLINK</a><br>Must correct for kinship, calculates kinship internally</td></tr>" +
   "<tr><th>Random forest</th><td>Calculates marker importance based on random forest regression<br>Averages the importances of <i>n</i> iterations<br>Corrects for spurious associations using a permutation approach</td></tr></table>",
  "rf-options":
-  "<table><tr><th>Test markers<br>Trees per forest</th><td>Different values can be tested via optimization<br>Look for minimum value that gives PVE equal to that of higher values</td></tr>" +
+  "<table><tr><th>Optimization</th><td>Input <i>mtry</i> and <i>ntree</i> values, comma and space (, ) separated<br>Look for minimum value that gives PVE equal to that of higher values</td></tr>" +
+  "<tr><th>Test markers</th><td><i>mtry</i>, number of markers to consider in each split</td></tr>" +
+  "<tr><th>Trees per forest</th><td><i>ntree</i>, number of trees in the forest</td></tr>" +
   "<tr><th>Iterations</th><td>Number of forests to aggregate for importance estimation</td></tr>" +
   "<tr><th>Permutations</th><td>Number of forests to aggregate for correcting spurious associations</td></tr></table>",
 
