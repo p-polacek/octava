@@ -387,7 +387,7 @@ button {
 }
 
 .default-label {
-	font-size: 0.9em;
+	font-size: 0.85em;
 	margin: 0px;
 	padding: 0px;
 }
@@ -472,7 +472,7 @@ button {
     background-color: #f4f4f4;
     border: 1px solid #ccc;
 	border-radius: 8px;
-	padding: 4px;
+	padding: 6px;
     margin-right: 20px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 	max-height: 700px;
@@ -531,6 +531,7 @@ button {
 	outline: none;
 }
 
+/*
 .aux-button {
 	border: 0px solid #999;
 	border-radius: 50%;
@@ -538,12 +539,18 @@ button {
 	margin-left: 8px;
 	color: #fff;
 	cursor: pointer;
-	/* font-family: Courier New, monospace;
-	font-size: 0.85em; */
 	font-size: 0.75em;
 	font-weight: bold;
 	height: 19px;
 	width: 19px;
+}
+*/
+
+.aux-button {
+	margin-left: 8px;
+	cursor: pointer;
+	height: 18px;
+	width: 18px;
 }
 
 .button-help {

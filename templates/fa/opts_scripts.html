@@ -1,4 +1,8 @@
 {% block input_scripts %}
+    helpTexts["fa-regions"] = "<table><tr><th>Gene ID format</th><td>Example: <i>{{ id_fmt }}</i></td></tr>" +
+                         "<tr><th>Coordinate format</th><td><i>chrom:start-end</i> or <i>chrom:position</i><br>May include comma as the thousands separator</td></tr>" +
+                         "<tr><th>Multiple entries</th><td>Separate with comma and space (, )</td></tr></table>";
+
     var genome = '{{ genome }}';
     var visibleDropdown = null;
     function toggleFormat() {
@@ -57,9 +61,6 @@
       document.querySelectorAll(".group-option").forEach(checkboxRow => {
         showGroupContents(checkboxRow);
       });
-      // Prevent hiding help popup when clicked within
-      const helpPopup = document.getElementById("help-popup");
-      popupClickedRetain(helpPopup);
       toggleFormat();
       toggleImpact();
     });

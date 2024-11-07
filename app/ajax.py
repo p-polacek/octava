@@ -521,7 +521,7 @@ def contextmenu():
 
     elif action == "pve":
         data = request.form
-        if data["model"] != "mlm":
+        if data["model"] != "MLM":
             return jsonify(
               [[["PVE calculation is only supported for MLM."]],
                []])

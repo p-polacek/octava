@@ -48,20 +48,15 @@
              onclick="toggleSection(this, 'vars-div'); showToggleVars();">
               Variants:
             </h1>
-            <button
-             type="button"
-             class="aux-button button-help"
-             title="Help"
-             onclick="showHelp(event, 'vars-table');">
-              &#63;
-            </button>
-            <button
-             type="button"
-             class="aux-button button-update"
-             title="Copy selection from Genes table"
-             onclick="genesToVars();">
-              &#8617;
-            </button>
+              <img
+                class="aux-button clickable"
+                src="{{ url_for('serve_button', button='help') }}"
+                onclick="showHelp(event, 'vars-table');" />
+              <img
+                class="aux-button clickable"
+                src="{{ url_for('serve_button', button='update') }}"
+                onclick="genesToVars();"
+                title="Copy selection from Genes table" />
           </div>
           <div class="relative">
             <button
@@ -115,20 +110,11 @@
               {% endfor %}
             <tr>
               <th class="header-left">
-                Chromosome
+                Chrom:position
               </th>
               {% for ann in anns %}
                 <td class="center-text wider-col">
-                  {{ ann[0] }}
-                </td>
-              {% endfor %}
-            <tr>
-              <th class="header-left">
-                Position
-              </th>
-              {% for ann in anns %}
-                <td class="center-text">
-                  {{ ann[1] }} {# {{ "{:,}".format(ann[1]) }} #}
+                  {{ ann[0] }}:{{ ann[1] }}
                 </td>
               {% endfor %}
             <tr>
@@ -295,13 +281,6 @@
         <h1 class="clickable" onclick="toggleSection(this, 'var-phe-div');">
           Variant-phenotype correlation:
         </h1>
-        <button
-         type="button"
-         class="aux-button button-help"
-         title="Help"
-         onclick="showHelp(event, 'var-phe');">
-          &#63;
-        </button>
       </div>
       <div
        id="var-phe-div"
@@ -390,20 +369,11 @@
          onclick="toggleSection(this, 'genes-div');">
           Genes:
         </h1>
-        <button
-         type="button"
-         class="aux-button button-help"
-         title="Help"
-         onclick="showHelp(event, 'genes-table');">
-          &#63;
-        </button>
-        <button
-         type="button"
-         class="aux-button button-update"
-         title="Copy selection from Genes table"
-         onclick="varsToGenes();">
-          &#8617;
-        </button>
+        <img
+          class="aux-button clickable"
+          src="{{ url_for('serve_button', button='update') }}"
+          onclick="varsToGenes();"
+          title="Copy selection from Variants table" />
       </div>
       <div
        id="genes-div"
@@ -421,13 +391,6 @@
            onclick="toggleSection(this, 'genexp-div');">
             Gene expression:
           </h1>
-          <button
-           type="button"
-           class="aux-button button-help"
-           title="Help"
-           onclick="showHelp(event, 'exp');">
-            &#63;
-          </button>
         </div>
         <div
          id="genexp-div"
@@ -466,14 +429,11 @@
                     0 selected
                   </span>
                 </button>
-                <button
-                 type="button"
-                 id="save-run-group"
-                 class="aux-button button-save"
-                 title="Save selection as group"
-                 onclick="makeGroup(event, 'expruns');">
-                  &#43;
-                </button>
+                <img
+                  class="aux-button clickable"
+                  src="{{ url_for('serve_button', button='save') }}"
+                  onclick="makeGroup(event, 'expruns');"
+                  title="Save selection as group" />
               </div>
               <div class="row-div padded-bottom">
                 <button
@@ -489,14 +449,11 @@
                     0 selected
                   </span>
                 </button>
-                <button
-                  type="button"
-                  id="delete-run-group"
-                  class="aux-button button-delete"
-                  title="Delete selected group(s)"
-                  onclick="deleteGroup(event, 'expruns');">
-                   &times;
-                </button>
+                <img
+                  class="aux-button clickable"
+                  src="{{ url_for('serve_button', button='delete') }}"
+                  onclick="deleteGroup(event, 'expruns');"
+                  title="Delete selected groups" />
                 <div
                  id="expruns_group-dropdown"
                  class="dropdown-menu collapsed">
@@ -632,13 +589,6 @@
            onclick="toggleSection(this, 'genenr-div');">
             Gene enrichment:
           </h1>
-          <button
-           type="button"
-           class="aux-button button-help"
-           title="Help"
-           onclick="showHelp(event, 'enr');">
-            &#63;
-          </button>
         </div>
         <div
          id="genenr-div"
@@ -725,13 +675,11 @@
           genesToIGV('all');">
           Gene view:
         </h1>
-        <button
-         type="button"
-         class="aux-button button-update"
-         title="Copy selection from Genes table"
-         onclick="genesToIGV();">
-          &#8617;
-        </button>
+        <img
+          class="aux-button clickable"
+          src="{{ url_for('serve_button', button='update') }}"
+          onclick="genesToIGV();"
+          title="Copy selction from Genes and Variants table" />
       </div>
       <div
        id="geneview-div"
@@ -769,12 +717,6 @@
           toggleSection(this, 'clusters-div');">
           Sample clusters:
         </h1>
-        <button
-         type="button"
-         class="aux-button button-help"
-         title="Help"onclick="showHelp(event, 'clusters');">
-          &#63;
-        </button>
       </div>
       <div
        id="clusters-div"
@@ -1566,7 +1508,7 @@
             var [id, chrom, start, end] = cellData.map(cell => {
               return cell.innerText;
             });
-            start = parseInt(start);
+            start = parseInt(start) - 1;
             end = parseInt(end);
             var offset = Math.floor((end - start) / 10);
             genesLoc += chrom + ":"
@@ -1589,7 +1531,7 @@
         for (let i = 0; i < vars.length; i++) {
           if (vars[i].checked) {
             var [chrom, pos] = vars[i].getAttribute("pos").split(":");
-            pos = parseInt(pos.replaceAll(",", ""));
+            pos = parseInt(pos.replaceAll(",", "")) - 1;
             var len = parseInt(vars[i].getAttribute("len"));
             const roi = {
               chr: chrom,
@@ -1767,10 +1709,7 @@
       }
     }
     window.addEventListener("resize", function() { resizePlots() });
-
     {% include "fa/opts_scripts.html" %}
-    helpTexts["genes"] = "Example format: {{ id_fmt }}"
-                       + "<br>Separate genes with comma and space (, )";
     </script>
 {% endblock %}
 

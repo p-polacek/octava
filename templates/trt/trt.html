@@ -38,13 +38,6 @@
       <h2 class="padded-left">
         View:
       </h2>
-      <button
-       type="button"
-       class="aux-button bold button-help"
-       title="Help"
-       onclick="showHelp(event, 'gwas_filt')">
-        &#63;
-      </button>
     </div>
     <div class="results-container padded-top">
       <div class="disp-flex">
@@ -64,27 +57,22 @@
                    id="trait_sgl-field",
                    onchange="sglPlot();") }}
                 </div>
-                <button
-                 type="button"
-                 id="delete-group"
-                 class="aux-button button-delete"
-                 title="Delete selected trait"
-                 onclick="deleteGroup(event, 'trait_sgl');">
-                  &times;
-                </button>
+                <img
+                  class="aux-button clickable clickable"
+                  src="{{ url_for('serve_button', button='delete') }}"
+                  onclick="deleteGroup(event, 'trait_sgl');"
+                  title="Delete trait" />
               </div>
 {# ================================================================ Samples #}
               <div class="row-div mini-padded-top padded-bottom">
                 <h2>
                   Filter by sample:
                 </h2>
-              <button
-               type="button"
-               class="aux-button button-update"
-               title="Copy phenotyped samples"
-               onclick="copyPheSamples();">
-                &#8617;
-              </button>
+                <img
+                  class="aux-button clickable"
+                  src="{{ url_for('serve_button', button='update') }}"
+                  onclick="copyPheSamples();"
+                  title="Copy phenotyped samples" />
               </div>
               <div class="row-div">
                 <button
@@ -98,14 +86,11 @@
                     0 selected
                   </span>
                 </button>
-                <button
-                 type="button"
-                 id="make-group"
-                 class="aux-button button-save"
-                 title="Save selection as group"
-                 onclick="makeGroup(event, 'samples');">
-                  &#43;
-                </button>
+                <img
+                  class="aux-button clickable"
+                  src="{{ url_for('serve_button', button='save') }}"
+                  onclick="makeGroup(event, 'samples');"
+                  title="Save selection as group" />
 {#
                                                                           <div
                                                                            id="samples-dropdown"
@@ -146,14 +131,11 @@
                     0 selected
                   </span>
                 </button>
-                <button
-                 type="button"
-                 id="delete-group"
-                 class="aux-button button-delete"
-                 title="Delete selected groups"
-                 onclick="deleteGroup(event, 'samples');">
-                  &times;
-                </button>
+                <img
+                  class="aux-button clickable"
+                  src="{{ url_for('serve_button', button='delete') }}"
+                  onclick="deleteGroup(event, 'samples');"
+                  title="Delete selected groups" />
                 <div
                  id="samples_group-dropdown"
                  class="dropdown-menu collapsed">
@@ -196,7 +178,7 @@
 {# ======================================================== Filter by value #}
               <div class="row-div mini-padded-top padded-bottom">
                 <h2>
-                  Filter by phenotype value:
+                  Filter by value:
                 </h2>
               </div>
               <div class="row-input-div justified small-padded-bottom">
@@ -231,19 +213,16 @@
                     </label>
                   </button>
                 </div>
-                <button
-                 type="button"
-                 class="aux-button bold button-help"
-                 title="Help"
-                 onclick="showHelp(event, 'save_filt')">
-                  &#63;
-                </button>
               </div>
 {# ============================================================ Correlation #}
               <div class="row-div small-padded-top padded-bottom">
                 <h2>
                   Compare traits:
                 </h2>
+                <img
+                  class="aux-button clickable"
+                  src="{{ url_for('serve_button', button='help') }}"
+                  onclick="showHelp(event, 'cmp-trt');" />
               </div>
               {% for field in [
                "traits",
@@ -263,21 +242,17 @@
                     </span>
                   </button>
                   {% if field == "traits" %}
-                    <button
-                     type="button"
-                     class="aux-button button-save"
-                     title="Save selection as group"
-                     onclick="makeGroup(event, 'traits');">
-                      &#43;
-                    </button>
+                <img
+                  class="aux-button clickable"
+                  src="{{ url_for('serve_button', button='save') }}"
+                  onclick="makeGroup(event, 'traits');"
+                  title="Save selection as group" />
                   {% elif field == "traits_group" %}
-                    <button
-                     type="button"
-                     class="aux-button button-delete"
-                     title="Delete selected groups"
-                     onclick="deleteGroup(event, 'traits');">
-                      &times;
-                    </button>
+                <img
+                  class="aux-button clickable"
+                  src="{{ url_for('serve_button', button='delete') }}"
+                  onclick="deleteGroup(event, 'traits');"
+                  title="Delete selected groups" />
                   {% endif %}
                   <div
                     class="dropdown-menu collapsed"
@@ -324,13 +299,10 @@
                 <h2>
                   Transform:
                 </h2>
-                <button
-                 type="button"
-                 class="aux-button button-help"
-                 title="Help"
-                 onclick="showHelp(event, 'phe-transform');">
-                  &#63;
-                </button>
+                <img
+                  class="aux-button clickable"
+                  src="{{ url_for('serve_button', button='help') }}"
+                  onclick="showHelp(event, 'transform');" />
               </div>
               <div
                class="row-div padded-top small-padded-bottom"
@@ -520,16 +492,22 @@
 
       var table = document.getElementById("samples-table");
       var rows = table.querySelector("tbody").getElementsByTagName("tr");
+      var toHighlight = false;
       for (let i = 0; i < rows.length; i++) {
         var row = rows[i];
         var sampleId = row.childNodes[0].textContent;
         if (pheData[sampleId][traitIdx] !== "") {
           row.classList.remove("collapsed");
+          document.getElementById("samples-table0" + sampleId).checked = "checked";
         } else {
           row.classList.add("collapsed");
+          document.getElementById("samples-table0" + sampleId).checked = "";
+          toHighlight = true;
         }
       }
       updateTableCount("samples-table");
+      var header = table.getElementsByTagName("th");
+      header[0].style.color = toHighlight ? "#ff9c78" : "";
     }
 {# ============================================ Fetch sample and trait data #}
     // Get list of selected traits from dropdown
@@ -1143,17 +1121,23 @@
       var traitIdx = pheCols[trait];
       var table = document.getElementById("samples-table");
       var rows = table.querySelector("tbody").getElementsByTagName("tr");
+      var toHighlight = false;
       for (let i = 0; i < rows.length; i++) {
         var row = rows[i];
         var sampleId = row.childNodes[0].textContent;
         var pheVal = parseFloat(pheData[sampleId][traitIdx]);
         if (!isNaN(pheVal) && pheVal >= filtFrom && pheVal <= filtTo) {
           row.classList.remove("collapsed");
+          document.getElementById("samples-table0" + sampleId).checked = "checked";
         } else {
           row.classList.add("collapsed");
+          document.getElementById("samples-table0" + sampleId).checked = "";
+          toHighlight = true;
         }
       }
       updateTableCount("samples-table");
+      var header = table.getElementsByTagName("th");
+      header[0].style.color = toHighlight ? "#ff9c78" : "";
       sglPlot();
     }
 {# ========================================================= Transform data #}
@@ -1417,14 +1401,20 @@
             xaxis: {
               title: "PC1",
               showgrid: false,
+              range: [Math.floor(Math.min(...PC1Vals) - 1), Math.ceil(Math.max(...PC1Vals) + 1)],
+              autorange: false,
             },
             yaxis: {
               title: "PC2",
               showgrid: false,
+              range: [Math.floor(Math.min(...PC2Vals) - 1), Math.ceil(Math.max(...PC2Vals) + 1)],
+              autorange: false,
              },
             zaxis: {
               title: "PC3",
               showgrid: false,
+              range: [Math.floor(Math.min(...PC3Vals) - 1), Math.ceil(Math.max(...PC3Vals) + 1)],
+              autorange: false,
             },
           },
           margin: {
@@ -1441,10 +1431,14 @@
           xaxis: {
             title: "PC1",
             showgrid: false,
+            range: [Math.floor(Math.min(...PC1Vals) - 1), Math.ceil(Math.max(...PC1Vals) + 1)],
+            autorange: false,
           },
           yaxis: {
             title: "PC2",
             showgrid: false,
+            range: [Math.floor(Math.min(...PC2Vals) - 1), Math.ceil(Math.max(...PC2Vals) + 1)],
+            autorange: false,
           },
           margin: plotMargins,
         }
@@ -1557,6 +1551,11 @@
       createTable({{ samp_info|tojson }}, table);
       table.classList.add("collapsed");
       updateTableCount("samples-table");
+
+      // Trigger Gene_ID dropdown to use for filtering
+      var geneHeader = table.querySelector("th");
+      var clickableHeader = geneHeader.firstChild.firstChild;
+      dropDown(event, clickableHeader);
 
       updateTracker(document.getElementById("transform-tracker-parent"));
       toggleTransform();

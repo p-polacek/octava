@@ -338,7 +338,7 @@ class AssocQCform(PlotForm):
       "-log10(P) HWE ≤",
       places  = None)
     prune = DecimalField(
-      "LD ≤",
+      "Threshold <",
       places  = None,
       default = 0.95)
     window = IntegerField(

@@ -283,7 +283,7 @@
       function extendScroll() {
         var empty = document.getElementById("empty");
         //empty.style.height = window.outerHeight / 2 + "px";
-        empty.style.height = "50px";
+        empty.style.height = "30px";
       }
 
       extendScroll();
@@ -298,6 +298,12 @@
         hideDropdown(visibleDropdown);
       }
       document.getElementById("help-popup").classList.add("collapsed");
+    });
+
+    // Prevent hiding help popup when clicked within
+    const helpPopup = document.getElementById("help-popup");
+    helpPopup.addEventListener("click", function(event) {
+      event.stopPropagation();
     });
     </script>
     {% block script %} {% endblock %}

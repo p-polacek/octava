@@ -2,6 +2,7 @@
 
 import os
 import re
+import pty
 import gzip
 import json
 import pysam
@@ -53,23 +54,40 @@ mdbin = 1000000
 ###############################################################################
 
 def popen(task_id, cmd):
+    master_fd, slave_fd = pty.openpty()
     pr = subprocess.Popen(
       cmd,
-      stdout=subprocess.PIPE,
-      stderr=subprocess.STDOUT)
+      stdout=slave_fd,
+      stderr=subprocess.STDOUT,
+      close_fds=True)
+    os.close(slave_fd)
 
     with master_lock:
         lock = get_lock("__task_status__")
     buffer = b""
-    while True:
-        char = pr.stdout.read(1)
-        if not char:
-            break
-        if char in (b"\r", b"\n", b"\x08"):
-            with lock:
-                task_status[task_id]["progress"] += buffer.decode("utf-8", errors="replace")
-            buffer = b""
-        buffer += char
+    with os.fdopen(master_fd, "rb") as master:
+        while True:
+            try:
+                char = master.read(1)
+            except OSError as e:
+                if e.errno == 5:
+                    break
+                else:
+                    raise
+            else:
+                if not char:
+                    break
+                if char in (b"\r", b"\n", b"\x08"):
+                    if char == b"\r":
+                        next_char = master.read(1)
+                        if next_char and next_char == b"\n":
+                            char = next_char
+                        else:
+                            char += next_char
+                    with lock:
+                        task_status[task_id]["progress"] += buffer.decode("utf-8", errors="replace")
+                    buffer = b""
+                buffer += char
     if buffer:
         with lock:
             task_status[task_id]["progress"] += buffer.decode("utf-8", errors="replace")

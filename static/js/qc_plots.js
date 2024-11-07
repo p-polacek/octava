@@ -569,10 +569,11 @@ function showPlot() {
         tickangle: -45,
       },
       margin: {
-        t: 10,
+        t: 30,
         pad: 0
       },
       plot_bgcolor: "rgb(150,150,150)",
+      title: "Random selection of 1,000 markers within chromosome",
       //plot_bgcolor: "rgb(0,0,0)",
     }
   } else if (plotChoice === "baf") {

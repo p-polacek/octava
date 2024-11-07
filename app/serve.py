@@ -47,6 +47,16 @@ def serve_icon(genome):
       icon_dir,
       fn)
 
+# Index page genome icon
+@app.route("/button/<button>")
+def serve_button(button):
+    icon_dir = os.path.join(
+      "static",
+      "icons")
+    return send_from_directory(
+      icon_dir,
+      f"{button}.svg")
+
 # General image, e.g. GWAS static plots
 @app.route("/image/<path:fn>")
 def serve_image(fn):

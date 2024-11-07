@@ -487,11 +487,13 @@ def ts(genome):
     with master_lock:
         lock = get_lock(samp_path)
     with lock:
-        samp_df = pd.read_csv(
+        samp_df = (pd
+          .read_csv(
             samp_path,
             sep="\t",
             header=0,
             index_col=[0])
+          .fillna(""))
     samp_info = [["ID"] + samp_df.columns.tolist()] + samp_df.to_records().tolist()
     samples = (samp_df[[samp_df.columns[0]]]
       .to_records()
