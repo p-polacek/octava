@@ -318,6 +318,28 @@
                   </div>
                   <div class="row-div padded-top">
                     <h3 class="bold">
+                      Optimize parameters:
+                    </h3>
+                  </div>
+                  {% for field in ("mtryvals", "ntreevals") %}
+                    <div class="row-input-div justified small-padded-top">
+                        {{ form[field].label(
+                         class="default-label bold") }}
+                        {{ form[field](class="small-num-input") }}
+                    </div>
+                  {% endfor %}
+                  <div class="row-input-div justified padded-top">
+                    <button
+                     class="submit-button"
+                     value="optim">
+                      <label
+                       class="default-label bold">
+                        Optimize
+                      </label>
+                    </button>
+                  </div>
+                  <div class="row-div padded-top">
+                    <h3 class="bold">
                       Number of:
                     </h3>
                   </div>
@@ -328,6 +350,7 @@
                         {{ form[field](class="small-num-input") }}
                     </div>
                   {% endfor %}
+                  {{ form.optimize(id="optimize", class="collapsed") }}
                </span>
                 <span id="pm-params" class="collapsed">
                   <div class="row-div padded-top">
@@ -995,11 +1018,14 @@
         document.getElementById("rf-params").classList.add("collapsed");        
       }
     }
+
 {# ============================================================ Submit loci #}
     // Process form submit to send to fine-mapping or allele viewer
     document.querySelectorAll(".submit-button").forEach(function(button) {
       button.addEventListener("click", function(event) {
         var form = document.querySelector("form");
+        document.getElementById("optimize").checked = "";
+        form.target = "";
 
         var lociDropdown = document.getElementById("loci-dropdown");
         var loci = [...lociDropdown.querySelectorAll(".dropdown-tag")];
@@ -1012,7 +1038,7 @@
         document.getElementById("coord-field").value = savedLoci.join(", ");
         document.getElementById("fmt-field").value = "coord";
 
-        if (button.value === "fm") {
+        if (["fm", "optim"].includes(button.value)) {
           var visibleTraces = [];
           document.getElementById("live-plot").data.forEach( function(trace) {
             if (
@@ -1024,7 +1050,7 @@
             }
           });
           if (visibleTraces.length !== 1) {
-            showHelp(event, null, "Select exactly one dataset to fine-map.");
+            showHelp(event, null, "Select exactly one dataset.");
             event.preventDefault();
             return;
           }
@@ -1039,6 +1065,11 @@
           document.getElementById("mrk-field").value = trace[0];
           document.getElementById("mod-field").value = trace[1];
           document.getElementById("trt-field").value = trace[2];
+
+          if (button.value === "optim") {
+            document.getElementById("optimize").checked = "checked";
+            form.target = "_blank";
+          }
 
           form.action = "{{ url_for('assoc_locus', genome=genome) }}";
 

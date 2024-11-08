@@ -71,7 +71,6 @@ from modules.assoc import (
   run_qc,
   filt_qc,
   run_assoc,
-  run_rf_optim,
   assoc_finemap)
 
 from modules.forms import (
@@ -991,29 +990,6 @@ def assoc_opts(genome):
 ###############################################################################
 
 @app.route(
-  "/<genome>/Optimize_RF",
-  methods=["POST"])
-def rf_optimize(genome):
-    form = AssocResForm(request.form)
-    task_id = str(uuid.uuid4())
-    task_spec = ("run_rf_optim", task_id)
-    task = (
-      run_rf_optim,
-      {"genome": genome,
-      "params": form.data,
-      "task_id": task_id})
-
-    task_queue.put((task_id, task_spec, task))
-    return render_template(
-      "loading.html",
-      genome    = genome,
-      task      = "run_rf_optim",
-      task_id   = task_id,
-      task_spec = task_spec,
-      form      = None,
-      warning   = "")
-
-@app.route(
   "/Optimize_RF/<task_id>",
   methods=["GET"])
 def rf_optim_view(task_id):
@@ -1047,6 +1023,7 @@ def assoc_res(genome):
     else:
         form = AssocResForm(request.form)
         data = form.data
+
         res_dir = os.path.join(
           data_dir,
           genome,
@@ -1117,7 +1094,7 @@ def assoc_res(genome):
                 return render_template(
                   "loading.html",
                   genome    = genome,
-                  task      = "assoc",
+                  task      = "assoc" if not data["optimize"] else "rf_optim",
                   task_id   = task_id,
                   task_spec = task_spec,
                   form      = None,
@@ -1269,7 +1246,7 @@ def assoc_locus(genome):
     return render_template(
       "loading.html",
       genome    = genome,
-      task      = "finemap",
+      task      = "finemap" if not form.data["optimize"] else "rf_optim",
       task_id   = task_id,
       task_spec = task_spec,
       form      = form.data)

@@ -305,6 +305,7 @@
                     {{ form[field](class="small-num-input") }}
                 </div>
               {% endfor %}
+              {{ form.optimize(id="optimize", class="collapsed") }}
            </span>
 {# ======================================================== Limit to region #}
 {#            <div class="row-div padded-top">
@@ -587,7 +588,7 @@
         rfParams.classList.add("collapsed");
       }
     }
-    function RFOptimize() {      var form = document.querySelector("form");      form.action = "{{ url_for('rf_optimize', genome=genome) }}"      form.target = "_blank";      form.submit();    }    function setAction() {      var form = document.querySelector("form");      form.action = "{{ url_for('assoc_res', genome=genome) }}"      form.target = "";      form.submit();    }
+    function RFOptimize() {      var form = document.querySelector("form");      document.getElementById("optimize").checked = "checked";      form.target = "_blank";      form.submit();    }    function setAction() {      var form = document.querySelector("form");      document.getElementById("optimize").checked = "";      form.target = "";      form.submit();    }
     document.addEventListener("DOMContentLoaded", function() {
       fetchChr();
       //if (allowPhe !== "") {

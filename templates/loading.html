@@ -79,7 +79,7 @@
       var redirectHref = "{{ url_for('assoc_opts', genome=genome) }}";
     } else if (task === "assoc") {
       var redirectHref = "{{ url_for('assoc_res', genome=genome) }}";
-    } else if (task === "run_rf_optim") {
+    } else if (task === "rf_optim") {
       var redirectHref = "{{ url_for('rf_optim_view', task_id=task_id) }}";
     }
 
@@ -167,7 +167,7 @@
     }
         
     document.addEventListener("DOMContentLoaded", function() {
-      if (form == null) {
+      if (form == null || task === "rf_optim") {
         document.getElementById("redirectLink").href = redirectHref;
       }
       checkStatus(taskId);

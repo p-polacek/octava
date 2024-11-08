@@ -401,6 +401,7 @@ class AssocResForm(RegionForm, PlotForm):
       "Test markers:")
     ntreevals = StringField(
       "Trees per forest:")
+    optimize = BooleanField()
     mtry = IntegerField(
       "Test markers:")
     ntree = IntegerField(
