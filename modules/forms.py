@@ -88,8 +88,17 @@ class AddForm(FlaskForm):
       choices=[])
     snpeff = BooleanField(
       "Variant effect:")
+    cds = SelectField(
+      "CDS:",
+      choices=[])
+    pep = SelectField(
+      "Proteins:",
+      choices=[])
     sev = BooleanField(
       "Variant severity:")
+    blastp = SelectField(
+      "Blast results:",
+      choices=[])
     concat = MultiCheckboxField(
       "Concatenate contigs:",
       choices=[])

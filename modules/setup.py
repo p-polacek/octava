@@ -17,6 +17,7 @@ from app.dirs import data_dir
 from app.task_worker import progress
 
 from modules.assoc import run_qc
+from modules.snpeff import snpeff_annotate
 
 def genome_setup(
   genome,
@@ -117,6 +118,31 @@ def genome_setup(
         if not os.path.exists(file_path + ".bai"):
             progress(task_id, "Indexing a bam file")
             pysam.index(file)
+
+###############################################################################
+### Annotate variants and setup severity prediction
+###############################################################################
+
+    """
+    if params["snpeff"]:
+        progress(task_id, "Annotating VCF file")
+        snpeff_annotate(
+          genome,
+          params["vcf"],
+          params["ann"],
+          params["seq"],
+          params["cds"],
+          params["pep"],
+          task_id)
+        params["vcf"] = f"ann.{params['vcf']}"
+    soufdil
+    if params["sev"]:
+        pass
+#        setup_sev(
+#          genome,
+#          params["blastp"],
+#          task_id)
+    """
 
 ###############################################################################
 ### Get genome and sample data
@@ -237,6 +263,10 @@ def genome_setup(
           data_dir,
           genome,
           params["samp"])
+        if os.path.islink(samp_path):
+            link_path = os.readlink(samp_path)
+            os.unlink(samp_path)
+            shutil.copy2(link_path, samp_path)
         samp_df = pd.read_csv(
           samp_path,
           sep="\t",

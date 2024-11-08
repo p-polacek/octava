@@ -1,4 +1,7 @@
 var helpTexts = {
+ "setup":
+   "Refer to the manual for more information.",
+
  "cmp-trt":
   "Double-click a subplot to zoom in/out.",
  "transform":

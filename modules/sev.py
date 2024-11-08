@@ -60,6 +60,116 @@ sev_helpstring = {
 def run_blastp():
     pass
 
+def setup_sev(
+  genome,
+  blastp_out,
+  task_id):
+    blastp_path = os.path.join(
+      data_dir,
+      genome,
+      blastp_out)
+    sev_dir = os.path.join(
+      data_dir,
+      genome,
+      "prot_db")
+    prev_data = None
+    with pd.read_csv(
+      blastp_path,
+      sep="\t",
+      header=None,
+      chunksize=100000) as blastp_reader:
+        for chunk in blastp_reader:
+            chunk = chunk.set_axis(
+              blastp_columns,
+              axis=1)
+            if prev_data != None:
+                chunk = pd.concat([prev_data, chunk])
+
+            for t_id, hits in chunk.groupby("qseqid", sort=False):
+                # Save only sequence IDs of hits, required by blastdbcmd
+                out_file = os.path.join(
+                  sev_dir,
+                  blastp_out_dir,
+                  f"{t_id}.blastp_out.txt")
+                (pd
+                  .Series(hits["sallseqid"].unique())
+                  .to_csv(
+                    out_file,
+                    index=False,
+                    header=False,
+                    sep="\t"))
+
+                # Save full information about hits
+                out_file = os.path.join(
+                  root_dir,
+                  blastp_out_pos_dir,
+                  f"{t_id}.blastp_out.txt")
+                (hits[
+                   "sallseqid",
+                   "qstart",
+                   "qend",
+                   "evalue"]
+                  .to_csv(
+                    out_file,
+                    index=False,
+                    header=False,
+                    sep="\t"))
+
+                clust_out = make_clusters(
+                  root_dir,
+                  args.blast_db,
+                  t_id)
+                if clust_out:
+                    print(clust_out)
+            prev_data = hits
+
+    blastp_out_file = f"{t_id}.blastp_out.txt"
+    hits_file = f"{t_id}.aligned_hits.fasta"
+    clusters_file = f"{t_id}.clusters"
+
+    blastp_file_path = os.path.join(
+      root_dir,
+      blastp_out_dir,
+      blastp_out_file)
+    hits_file_path = os.path.join(
+      root_dir,
+      aligned_hits_dir,
+      hits_file)
+    clusters_file_path = os.path.join(
+      root_dir,
+      clusters_dir,
+      clusters_file)
+
+    try:
+        p = subprocess.run(
+          [blastdbcmd_path,
+           "-db", blast_db,
+           "-entry_batch", blastp_file_path,
+           "-out", hits_file_path,
+           "-outfmt", "%f"],
+          check=True)
+    except subprocess.CalledProcessError as e:
+        return(
+          f"Blastdbcmd for {t_id} failed:",
+          e)
+
+    try:
+        p = subprocess.run(
+          [cdhit_path,
+          "-i", hits_file_path,
+          "-o", clusters_file_path,
+          "-c", seq_identity,
+          "-g", cluster_to_most_similar],
+         check=True,
+         stdout=subprocess.DEVNULL)
+    except subprocess.CalledProcessError as e:
+        return(
+          f"CD-HIT for {t_id} failed:",
+          e)
+
+
+
+
 def annotate_sev(genome, markers, task_id):
     progress(task_id, "Annotating variants")
     config = load_config(genome)

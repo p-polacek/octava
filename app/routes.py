@@ -217,11 +217,14 @@ def setup_new(genome):
     gdir = os.path.join(data_dir, genome)
     exts = {
       "vcf": (".vcf", ".vcf.gz", ".bcf", ".bcf.gz"),
-      "ann": (".gff", ".gtf", ".gff3", ".gff.gz", ".gtf.gz", ".gff3.gz"),
-      "seq": (".fa", ".fasta", ".fna", ".fa.gz", ".fasta.gz", ".fna.gz")}
+      "ann": (".gff", ".gtf", ".gff3", ".gff.gz", ".gtf.gz", ".gff3.gz")}
     exts.update(
       dict.fromkeys(
-        ["phe", "exp", "run", "proj", "samp", "info"],
+        ["seq", "cds", "pep"],
+        (".fa", ".fasta", ".fna", ".fa.gz", ".fasta.gz", ".fna.gz")))
+    exts.update(
+      dict.fromkeys(
+        ["phe", "exp", "run", "proj", "samp", "info", "blastp"],
         (".txt", ".tsv", ".txt.gz", ".tsv.gz")))
     for ftype, ext in exts.items():
         form[ftype].choices = [""] + [

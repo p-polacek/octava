@@ -36,6 +36,10 @@
       <h2>
         {% if edit %}Edit{% else %}Set up a new{% endif %} dataset:
       </h2>
+      <img
+        class="aux-button clickable"
+        src="{{ url_for('serve_button', button='help') }}"
+        onclick="showHelp(event, 'setup');" />
     </div>
     <div class="results-container">
       <div class="disp-flex">
@@ -68,13 +72,11 @@
                       onchange="renderIcon();") }}
                   </div>
                 </div>
-                <button
-                 type="button"
-                 class="aux-button clickable bold button-delete"
-                 title="Reset icon"
-                 onclick="resetIcon();">
-                  &times;
-                </button>
+                <img
+                  class="aux-button clickable"
+                  src="{{ url_for('serve_button', button='delete') }}"
+                  onclick="resetIcon();"
+                  title="Reset icon" />
               </div>
               <div class="wide-input-div" style="justify-content: flex-end;">
                 <img
@@ -103,13 +105,11 @@
                         accept=".txt,.tsv,.csv") }}
                     </div>
                   </div>
-                  <button
-                   type="button"
-                   class="aux-button clickable bold button-delete"
-                   title="Reset file"
-                   onclick="this.value = '';">
-                    &times;
-                  </button>
+                  <img
+                    class="aux-button clickable"
+                    src="{{ url_for('serve_button', button='delete') }}"
+                    onclick="this.value = '';"
+                    title="Reset file" />
                 </div>
               {% endfor %}
 {# ======================================================== New input files #}
@@ -209,7 +209,7 @@
                   </div>
                 </div>
 {# =============================================================== Annotate #}
-                <div class="row-div padded-top">
+{#                <div class="row-div padded-top">
                   <h2>
                     Annotate variants:
                   </h2>
@@ -218,16 +218,48 @@
                   <div class="wide-input-div justified">
                     {{ form.snpeff.label(
                      class="default-label bold") }}
-                    {{ form.snpeff }}
+                    {{ form.snpeff(id="snpeff", onclick="document.getElementById('snpeff-files-div').classList.toggle('collapsed', !this.checked);") }}
                   </div>
                 </div>
-                <div class="row-div small-padded-top small-padded-bottom">
+                <span id="snpeff-files-div" class="collapsed">
+                  <div class="row-div padded-top">
+                    <div class="wide-input-div justified">
+                      {{ form.cds.label(
+                       class="default-label bold") }}
+                      {{ form.cds(
+                         class="default-input",
+                         id="cds-field") }}
+                    </div>
+                  </div>
+                  <div class="row-div padded-top small-padded-bottom">
+                    <div class="wide-input-div justified">
+                      {{ form.pep.label(
+                       class="default-label bold") }}
+                      {{ form.pep(
+                         class="default-input",
+                         id="pep-field") }}
+                    </div>
+                  </div>                  
+                </span>
+                <div class="row-div small-padded-top">
                   <div class="wide-input-div justified">
                     {{ form.sev.label(
                      class="default-label bold") }}
-                    {{ form.sev }}
+                    {{ form.sev(id="sev", onclick="document.getElementById('sev-files-div').classList.toggle('collapsed', !this.checked);") }}
                   </div>
                 </div>
+                <span id="sev-files-div" class="collapsed">
+                  <div class="row-div padded-top small-padded-bottom">
+                    <div class="wide-input-div justified">
+                      {{ form.blastp.label(
+                       class="default-label bold") }}
+                      {{ form.blastp(
+                         class="default-input",
+                         id="blastp-field") }}
+                    </div>
+                  </div>                  
+                </span>
+#}
 {# ============================================================= Enrichment #}
                 <div class="row-div padded-top">
                   <h2>
@@ -492,6 +524,7 @@
 
     // Hide shown popup on click
     document.addEventListener("click", function(event) {
+
       if (visibleDropdown != null) {
         hideDropdown(visibleDropdown);
       }
