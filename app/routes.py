@@ -1043,7 +1043,7 @@ def assoc_res(genome):
 
             existing_traits = list()
             for trait in data["traits"][:]:
-                if not data["overwrite"]:
+                if not (data["overwrite"] or data["optimize"]):
                     # Skip existing runs
                     trait_out = os.path.join(
                       data_dir,

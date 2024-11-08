@@ -43,7 +43,9 @@ def optim_rf(
               max_features=mtry,
               oob_score=True,
               #max_depth=5,
-              n_jobs=-1)
+              #n_jobs=os.cpu_count()-1
+              n_jobs=-1
+              )
             rf.fit(
               gt,
               phe)
@@ -128,7 +130,9 @@ def run_rf(
           oob_error=True,
           importance="permutation",
           scale_permutation_importance=True,
-          seed=random.randint(0, 2**32 - 1))
+          seed=random.randint(0, 2**32 - 1),
+          #n_jobs=os.cpu_count()-1
+          )
         rf.fit(gt, phe)
         real_incmse[:, idx] = rf.feature_importances_
     progress(task_id, "")
@@ -189,7 +193,9 @@ def run_rf(
           oob_error=True,
           importance="permutation",
           scale_permutation_importance=True,
-          seed=random.randint(0, 2**32 - 1))
+          seed=random.randint(0, 2**32 - 1),
+          #n_jobs=os.cpu_count()-1
+          )
         perm_rf.fit(gt, shuffle(phe))
         perm_incmse[:, idx] = perm_rf.feature_importances_
     progress(task_id, "")

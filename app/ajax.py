@@ -44,6 +44,9 @@ from app.dirs import (
   tool_dir,
   plink2_path)
 
+from modules.forms import models as models_dict
+
+models_dict = dict([(v, k) for (k, v) in models_dict])
 
 # Fetch columns for possible enrichment and chromosomes to show/hide
 # for selected VCF/INFO files in new dataset setup
@@ -600,7 +603,7 @@ def contextmenu():
 
         elif action == "gwas_run":
             markers = request.form["markers"]
-            model   = request.form["model"]
+            model   = models_dict[request.form["model"]]
             trait   = request.form["trait"]
             fn = f"{model}.{trait}.params"
             params_json = os.path.join(

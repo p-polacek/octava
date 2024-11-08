@@ -1280,12 +1280,17 @@ def run_assoc(genome, params, task_id):
             os.remove(out_tsv)
             # Save parameters
             run_params = [
-              ["Markers", "Samples", "PCs", "Kinship", "K/Q source"],
+              ["Markers", "Samples", "PCs", "Kinship", "K/Q source",
+               "Test markers", "Trees", "Iterations", "Permutations"],
               [sum(1 for l in open(f"{in_root}.bim")),
                phe_samples.shape[0],
                params["q_num"] if params["q"] else 0,
                "Yes" if params["k"] else "No",
-               params["kq_from"] or markers]]
+               params["kq_from"] or markers,
+               params["mtry"],
+               params["ntree"],
+               params["niter"],
+               params["nperm"]]]
             with open(
               os.path.join(
                 out_dir,

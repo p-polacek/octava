@@ -125,7 +125,7 @@
         .then(([statusCode, data]) => {
           var statusText = document.getElementById("status");
           if (statusCode === 404) {
-            statusText.innerText = "Task not found, maybe it finished a while ago.";
+            statusText.innerText = "Task not found.";
           } else if (statusCode === 201) {
             statusText.innerText = "Task is queued.";
             setTimeout(() => checkStatus(taskId), 10000);
