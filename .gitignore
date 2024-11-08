@@ -3,6 +3,8 @@ data/
 dckr/
 output/
 __pycache__/
+gunicorn_conf.py
+test_colors.json
 app/__init__.py
 app/__pycache__/
 res/gffutils_db/
