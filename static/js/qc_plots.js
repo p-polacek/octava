@@ -27,18 +27,6 @@ var xLabels  = {
  "maf":   "Minor AF",
  "hwe":   "-log10(P) HWE"}
 
-// Helper functions
-function checkName(event) {
-  var setName = document.getElementById("name").value.trim();
-  if (setName == "") {
-    alert("Set name is required.");
-    event.preventDefault();
-  } else if (savedSets.includes(setName)) {
-    alert("Set with this name already exists.");
-    event.preventDefault();
-  }
-}
-
 function getMaxRows(plotChoice) {
   if ((plotChoice == "smiss") | (plotChoice == "shet")) {
     return sampNum;

@@ -292,7 +292,6 @@ def setup(genome):
           task      = "setup",
           task_id   = task_id,
           task_spec = task_spec,
-          form      = None,
           warning   = warning)
 
 @app.route(
@@ -582,13 +581,13 @@ def fa_opts(genome):
 
 @app.route(
   "/<genome>/Gene_variant_view/Results",
-  methods=["POST"])
+  methods=["GET", "POST"])
 def fa_res(genome):
     gdata = load_gdata(genome)
     config = load_config(genome)
     form = FuncAnalysisForm(request.form)
-    if not form.data["fmt"]:
-        form.process(data=session.get("sev_form", {}))
+    if request.method == "GET":
+        form.process(data=session.get(genome + "_sev_form", {}))
 
     form.chrom.choices = gdata["chr_names"]
     samp_path = os.path.join(
@@ -761,14 +760,13 @@ def ann_sev(genome):
 
     task_queue.put((task_id, task_spec, task))
     form.ann_sev.data = ""
-    session["sev_form"] = form.data
+    session[genome + "_sev_form"] = form.data
     return render_template(
       "loading.html",
       genome    = genome,
       task      = "sev",
       task_id   = task_id,
       task_spec = task_spec,
-      form      = form.data,
       warning   = "")
 
 ###############################################################################
@@ -803,6 +801,7 @@ def assoc(genome):
             "assoc_opts",
             genome=genome))
     else:
+        _ = session.pop(genome + "_assoc_res_form", None)
         return redirect(
           url_for(
             "assoc_res",
@@ -908,7 +907,6 @@ def assoc_filt(genome):
           task      = "filt",
           task_id   = task_id,
           task_spec = task_spec,
-          form      = None,
           warning   = "")
 
 ###############################################################################
@@ -1008,82 +1006,145 @@ def rf_optim_view(task_id):
       rf_data=rf_data)
 
 ###############################################################################
-### Association analysis results
+### Run association analysis
 ###############################################################################
 
 @app.route(
-  "/<genome>/Association_analysis/Results",
-  methods=["GET", "POST"])
-def assoc_res(genome):
+  "/<genome>/Association_analysis/Run",
+  methods=["POST"])
+def assoc_run(genome):
     gdata = load_gdata(genome)
     config = load_config(genome)
     errors = list()
-    if request.method == "GET":
-        form = AssocResForm()
-    else:
-        form = AssocResForm(request.form)
-        data = form.data
+    form = AssocResForm(request.form)
+    data = form.data
+    session[genome + "_assoc_res_form"] = data
 
-        res_dir = os.path.join(
-          data_dir,
-          genome,
-          "assoc",
-          data["markers_sgl"],
-          "res")
-        if not os.path.exists(res_dir):
-            os.makedirs(res_dir)
-        error = []
+    res_dir = os.path.join(
+      data_dir,
+      genome,
+      "assoc",
+      data["markers_sgl"],
+      "res")
+    if not os.path.exists(res_dir):
+        os.makedirs(res_dir)
+    error = []
 
-        if data["model_sgl"] != "mtmlm":
-            for group in data["traits_group"]:
-                group = json.loads(group)[0]
-                for trait in group:
-                    if trait not in data["traits"]:
-                        data["traits"].append(trait)
+    if data["model_sgl"] != "mtmlm":
+        for group in data["traits_group"]:
+            group = json.loads(group)[0]
+            for trait in group:
+                if trait not in data["traits"]:
+                    data["traits"].append(trait)
 
-            existing_traits = list()
-            for trait in data["traits"][:]:
-                if not (data["overwrite"] or data["optimize"]):
-                    # Skip existing runs
-                    trait_out = os.path.join(
-                      data_dir,
-                      genome,
-                      "assoc",
-                      data["markers_sgl"],
-                      "res",
-                      f"{data['model_sgl']}.{trait}.feather")
-                    if os.path.exists(trait_out):
+        existing_traits = list()
+        for trait in data["traits"][:]:
+            if not (data["overwrite"] or data["optimize"]):
+                # Skip existing runs
+                trait_out = os.path.join(
+                  data_dir,
+                  genome,
+                  "assoc",
+                  data["markers_sgl"],
+                  "res",
+                  f"{data['model_sgl']}.{trait}.feather")
+                if os.path.exists(trait_out):
+                    data["traits"].remove(trait)
+                    existing_traits.append(trait)
+            if existing_traits:
+                errors.append("Results already exist for:")
+                errors.append(", ".join(existing_traits))
+        # Skip queued runs
+        queued_traits = list()
+        for task_spec in task_status["specs"]:
+            if (
+              task_spec[0] == "run_assoc" and
+              task_spec[1] == genome and
+              task_spec[2] == data["markers_sgl"] and
+              task_spec[3] == data["model_sgl"]):
+                for trait in task_spec[4]:
+                    if trait in data["traits"]:
                         data["traits"].remove(trait)
-                        existing_traits.append(trait)
-                if existing_traits:
-                    errors.append("Results already exist for:")
-                    errors.append(", ".join(existing_traits))
+                        queued_traits.append(trait)
+        if queued_traits:
+            errors.append("Results are already being generated for:")
+            errors.append(", ".join(queued_traits))
+
+        if data["traits"]:
+            data["traits"] = sorted(data["traits"])
+
+            task_id = str(uuid.uuid4())
+            task_spec = (
+              "run_assoc",
+              genome,
+              data["markers_sgl"],
+              data["model_sgl"],
+              data["traits"])
+            task = (
+              run_assoc,
+              {"genome": genome,
+              "params": data,
+              "task_id": task_id})
+
+            task_queue.put((task_id, task_spec, task))
+            return render_template(
+              "loading.html",
+              genome    = genome,
+              task      = "assoc" if not data["optimize"] else "rf_optim",
+              task_id   = task_id,
+              task_spec = task_spec,
+              errors    = errors)
+
+        else:
+            errors = ["Results already exist for all selected traits."]
+    else:
+        if data["traits"]:
+            errors = ["To use multi-trait MLM, traits must be grouped."]
+        else:
+            data["traits_group"] = [
+              json.loads(g)
+              for g in data["traits_group"]]
+            existing_groups = list()
+            for group in data["traits_group"][:]:
+                group_name = group[1]
+                # Skip existing runs
+                trait_out = os.path.join(
+                  data_dir,
+                  genome,
+                  "assoc",
+                  data["markers_sgl"],
+                  "res",
+                  f"{data['model_sgl']}.{group_name}.feather")
+                if os.path.exists(trait_out):
+                    data["traits_group"].remove(group)
+                    existing_groups.append(group_name)
+            if existing_groups:
+                errors.append("Results already exist for:")
+                errors.append(", ".join(existing_groups))
             # Skip queued runs
-            queued_traits = list()
+            queued_groups = list()
             for task_spec in task_status["specs"]:
                 if (
                   task_spec[0] == "run_assoc" and
                   task_spec[1] == genome and
                   task_spec[2] == data["markers_sgl"] and
                   task_spec[3] == data["model_sgl"]):
-                    for trait in task_spec[4]:
-                        if trait in data["traits"]:
-                            data["traits"].remove(trait)
-                            queued_traits.append(trait)
-            if queued_traits:
+                    for group in task_spec[4]:
+                        if group[1] in data["traits_group"]:
+                            data["traits_group"].remove(group[1])
+                            queued_groups.append(group[1])
+            if queued_groups:
                 errors.append("Results are already being generated for:")
-                errors.append(", ".join(queued_traits))
+                errors.append(", ".join(queued_groups))
 
-            if data["traits"]:
-                data["traits"] = sorted(data["traits"])
-
+            if data["traits_group"]:
                 task_id = str(uuid.uuid4())
                 task_spec = (
                   "run_assoc",
                   genome,
                   data["markers_sgl"],
                   data["model_sgl"],
-                  data["traits"])
+                  data["traits_group"])
                 task = (
                   run_assoc,
                   {"genome": genome,
@@ -1094,79 +1155,32 @@ def assoc_res(genome):
                 return render_template(
                   "loading.html",
                   genome    = genome,
-                  task      = "assoc" if not data["optimize"] else "rf_optim",
+                  task      = "assoc",
                   task_id   = task_id,
                   task_spec = task_spec,
-                  form      = None,
                   errors    = errors)
-
             else:
-                errors = ["Results already exist for all selected traits."]
-        else:
-            if data["traits"]:
-                errors = ["To use multi-trait MLM, traits must be grouped."]
-            else:
-                data["traits_group"] = [
-                  json.loads(g)
-                  for g in data["traits_group"]]
-                existing_groups = list()
-                for group in data["traits_group"][:]:
-                    group_name = group[1]
-                    # Skip existing runs
-                    trait_out = os.path.join(
-                      data_dir,
-                      genome,
-                      "assoc",
-                      data["markers_sgl"],
-                      "res",
-                      f"{data['model_sgl']}.{group_name}.feather")
-                    if os.path.exists(trait_out):
-                        data["traits_group"].remove(group)
-                        existing_groups.append(group_name)
-                if existing_groups:
-                    errors.append("Results already exist for:")
-                    errors.append(", ".join(existing_groups))
-                # Skip queued runs
-                queued_groups = list()
-                for task_spec in task_status["specs"]:
-                    if (
-                      task_spec[0] == "run_assoc" and
-                      task_spec[1] == genome and
-                      task_spec[2] == data["markers_sgl"] and
-                      task_spec[3] == data["model_sgl"]):
-                        for group in task_spec[4]:
-                            if group[1] in data["traits_group"]:
-                                data["traits_group"].remove(group[1])
-                                queued_groups.append(group[1])
-                if queued_groups:
-                    errors.append("Results are already being generated for:")
-                    errors.append(", ".join(queued_groups))
+                errors = ["Results already exist for all selected groups."]
 
-                if data["traits_group"]:
-                    task_id = str(uuid.uuid4())
-                    task_spec = (
-                      "run_assoc",
-                      genome,
-                      data["markers_sgl"],
-                      data["model_sgl"],
-                      data["traits_group"])
-                    task = (
-                      run_assoc,
-                      {"genome": genome,
-                      "params": data,
-                      "task_id": task_id})
+###############################################################################
+### Association analysis results
+###############################################################################
 
-                    task_queue.put((task_id, task_spec, task))
-                    return render_template(
-                      "loading.html",
-                      genome    = genome,
-                      task      = "assoc",
-                      task_id   = task_id,
-                      task_spec = task_spec,
-                      form      = None,
-                      errors    = errors)
-                else:
-                    errors = ["Results already exist for all selected groups."]
+@app.route(
+  "/<genome>/Association_analysis/Results",
+  methods=["GET"])
+def assoc_res(genome):
+    gdata = load_gdata(genome)
+    config = load_config(genome)
+    errors = list()
+    form = AssocResForm(request.form)
+    saved_form = session.get(genome + "_assoc_res_form", {})
+    form.process(data=saved_form)
+    if saved_form and not form["markers"].data:
+        form["markers"].data = [form["markers_sgl"].data]
+        form["models"].data = [form["model_sgl"].data]
+        form["traits"].data = form["traits"].data
+        form["traits_group"].data = form["traits_group"].data
 
     markers_root = os.path.join(
       data_dir,
@@ -1176,7 +1190,6 @@ def assoc_res(genome):
     form.markers.choices = [
       d for d in os.listdir(markers_root)
       if os.path.isdir(os.path.join(markers_root, d))]
-    form.markers.data = [form.markers_sgl.data]
 
     analysed_traits = list()
     analysed_models = list()
@@ -1213,6 +1226,43 @@ def assoc_res(genome):
     offsets = gdata["chr_offsets"]
     concat  = json.loads(config["concat"])
 
+    fm_data = list()
+    if form["fm_ids"].data is not None:
+        for task_id in form["fm_ids"].data:
+            fm_path = os.path.join(
+              tmp_dir,
+              f"{task_id}.fm")
+            params_path = os.path.join(
+              tmp_dir,
+              f"{task_id}.params")
+            with open(params_path) as params_in:
+                params = json.load(params_in)
+            input_params = params[1][:3]
+            fm_data.append([
+              input_params,
+              task_id,
+              "",
+              pd
+                .read_feather(
+                  fm_path)
+                .values.tolist()])
+    saved_runs = list()
+    saved_runs_dir = os.path.join(
+      data_dir,
+      genome,
+      "fm")
+    for run_fn in os.listdir(saved_runs_dir):
+        if run_fn.endswith(".nm"):
+            run_path = os.path.join(
+              saved_runs_dir,
+              run_fn)
+            with open(os.path.join(saved_runs_dir, run_fn)) as name_in:
+                run_name = name_in.read().strip()
+            saved_runs.append((
+              os.path.splitext(run_fn)[0],
+              run_name))
+    form.fm_runs.choices = saved_runs
+
     return render_template(
       "assoc/res.html",
       genome  = genome,
@@ -1222,7 +1272,8 @@ def assoc_res(genome):
       sizes   = sizes,
       offsets = offsets,
       models  = models_dict,
-      concat  = concat)
+      concat  = concat,
+      fm_data = fm_data)
 
 ###############################################################################
 ### Association analysis locus fine-mapping
@@ -1233,6 +1284,7 @@ def assoc_res(genome):
   methods=["POST"])
 def assoc_locus(genome):
     form = AssocResForm(request.form)
+    
     task_id = str(uuid.uuid4())
     task_spec = ("finemap", genome)
     task = (
@@ -1242,14 +1294,17 @@ def assoc_locus(genome):
       "task_id": task_id})
 
     task_queue.put((task_id, task_spec, task))
-    session["fm_form"] = form.data
+    if not form.data["optimize"]:
+        if genome + "_assoc_res_form" in session.keys():
+            form["fm_ids"].data = session[genome + "_assoc_res_form"]["fm_ids"]
+        form["fm_ids"].data.append(task_id)
+        session[genome + "_assoc_res_form"] = form.data
     return render_template(
       "loading.html",
       genome    = genome,
       task      = "finemap" if not form.data["optimize"] else "rf_optim",
       task_id   = task_id,
-      task_spec = task_spec,
-      form      = form.data)
+      task_spec = task_spec)
 
 @app.route(
   "/<genome>/Association_analysis/Locus/<task_id>",
@@ -1258,7 +1313,7 @@ def finemap(
   genome,
   task_id):
     form = AssocResForm(request.form)
-    form.process(data=session.get("fm_form", {}))
+    form.process(data=session.get(genome + "_fm_form", {}))
 
     params = form.data
     config  = load_config(genome)

@@ -133,7 +133,7 @@
                justified">
                 {{ form.imp.label(
                  class="default-label bold") }}
-                {{ form.imp }}
+                {{ form.imp(id="imp-field", disabled="disabled") }}
               </div>
               <img
                class="aux-button clickable"
@@ -307,6 +307,18 @@
         bsizeDiv.classList.add("collapsed");
         bspanDiv.classList.remove("collapsed");
         bstepDiv.classList.remove("collapsed");
+      }
+    }
+
+    function checkName(event) {
+      document.getElementById("imp-field").disabled = "";
+      var setName = document.getElementById("name").value.trim();
+      if (setName == "") {
+        alert("Set name is required.");
+        event.preventDefault();
+      } else if (savedSets.includes(setName)) {
+        alert("Set with this name already exists.");
+        event.preventDefault();
       }
     }
 

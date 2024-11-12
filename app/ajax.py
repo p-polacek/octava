@@ -142,14 +142,17 @@ def fetch_chr_ld():
 def fetch_locus_ld():
     form = request.form
     genome = form["genome"]
+    markers = form["markers"]
     coord  = form["coord"]
     task_id = str(uuid.uuid4())
 
     gt_root = os.path.join(
       data_dir,
       genome,
-      "stats",
-      "gt")
+      "assoc",
+      markers,
+      "gt",
+      "gt.full")
     out_root = os.path.join(
       tmp_dir,
       task_id)
@@ -222,15 +225,13 @@ def fetch_chr_bdist():
 @app.route("/ld", methods=["POST"])
 def fetch_ld():
     form = request.form
-    marker_id = form["ch"] + ":" + form["pos"]
     task_id = str(uuid.uuid4())
+    marker_id = form["marker_id"].replace(",", "")
 
     in_root = os.path.join(
       data_dir,
       form["genome"],
-      "assoc",
-      form["markers"],
-      "gt",
+      "stats",
       "gt")
     out_root = os.path.join(
       tmp_dir,
@@ -244,19 +245,18 @@ def fetch_ld():
        "--ld-window-r2", "0",
        "--out", out_root],
       check=True)
-    (pd
+    ld = (pd
       .read_csv(
         f"{out_root}.vcor",
         sep="\t",
         header=0,
         index_col=None,
-        usecols=[3,4,6])
-      .to_csv(
-        f"{out_root}.r2",
-        sep="\t",
-        header=True,
-        index=False))
-    return jsonify(task_id)
+        usecols=[3,4,6],
+        dtype={"CHROM_B": "str"})
+      .values.tolist())
+    ch, pos = marker_id.split(":")
+    ld.append([ch, int(pos), 1])
+    return jsonify(ld)
 
 # Per-metric table data for GWAS QC filtering
 @app.route("/filt", methods=["POST"])
@@ -448,6 +448,61 @@ def fetch_bblplot():
         win_data.append(win_group)
     return jsonify(win_data)
 
+# FM results data
+@app.route("/fmplot", methods=["POST"])
+def fetch_fmplot():
+    form     = request.form
+    genome   = form["genome"]
+    task_id  = form["task_id"]
+
+    fm_dir = os.path.join(
+      data_dir,
+      genome,
+      "fm")
+    fm_path = os.path.join(fm_dir, f"{task_id}.fm")
+    if os.path.exists(fm_path):
+        params_path = os.path.join(fm_dir, f"{task_id}.params")
+        with open(params_path) as params_in:
+            params = json.load(params_in)
+        with open(os.path.join(fm_dir, f"{task_id}.nm")) as name_in:
+            run_name = name_in.read().strip()
+        input_params = params[1][:3]
+        output = [
+          input_params,
+          task_id,
+          run_name,
+          (pd
+            .read_feather(fm_path)
+#            .drop(["Effect"], axis=1)
+            .values.tolist())]
+        return jsonify(output)
+    return jsonify(success=True)
+
+@app.route("/genes", methods=["POST"])
+def fetch_genes():
+    form     = request.form
+    genome   = form["genome"]
+    ranges   = json.loads(form["ranges"])
+
+    config = load_config(genome)
+    ann_path = os.path.join(
+      data_dir,
+      genome,
+      config["ann"])
+    ann = pysam.TabixFile(ann_path)
+
+    gene_data = list()
+    for r in ranges:
+        for gene in ann.fetch(r[0], int(r[1]), int(r[2])):
+            entry = gene.split("\t")
+            if entry[2] == "gene":
+                gene_data.append(
+                  [entry[8].split("ID=")[1].split(";")[0],
+                   entry[0],
+                   int(entry[3]),
+                   int(entry[4])])
+    return jsonify(gene_data)
+
 # Various types of data on mouse right-click
 @app.route("/contextmenu", methods=["POST"])
 def contextmenu():
@@ -613,6 +668,13 @@ def contextmenu():
               markers,
               "res",
               fn)
+        elif action == "fm_run":
+            task_id = request.form["task_id"]
+            print(task_id)
+            fn = f"{task_id}.params"
+            params_json = os.path.join(
+              tmp_dir,
+              fn)
         try:
             with open(params_json, "r") as params_in:
                 params = json.load(params_in)
@@ -700,3 +762,22 @@ def rm_markers():
         shutil.rmtree(markers_dir)
 
     return "", 204
+
+@app.route("/save_fm", methods=["POST"])
+def save_fm():
+    data = json.loads(request.get_data())
+    genome = data["genome"]
+    task_id = data["run"]
+    name = data["name"]
+    fm_dir = os.path.join(data_dir, genome, "fm")
+
+    try:
+        for ext in ("fm", "params"):
+            shutil.copy(
+              os.path.join(tmp_dir, f"{task_id}.{ext}"),
+              fm_dir)
+        with open(os.path.join(fm_dir, f"{task_id}.nm"), "w") as name_out:
+            _ = name_out.write(name)
+        return "", 204
+    except:
+        return "Could not save analysis.", 500

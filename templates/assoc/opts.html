@@ -41,7 +41,7 @@
       <div class="disp-flex">
         <form
          method="POST"
-         action="{{ url_for('assoc_res', genome=genome) }}"
+         action="{{ url_for('assoc_run', genome=genome) }}"
          onkeydown="if(event.keyCode === 13) { event.target.blur(); }">
           {{ form.hidden_tag() }}
         <div class="scrollable results-subcontainer flex">

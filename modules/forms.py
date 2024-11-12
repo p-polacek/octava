@@ -5,6 +5,7 @@ from flask_wtf import FlaskForm
 from wtforms import (
   widgets,
   FileField,
+  FloatField,
   RadioField,
   HiddenField,
   SelectField,
@@ -420,9 +421,9 @@ class AssocResForm(RegionForm, PlotForm):
       "Sampling steps:")
     pm_num = IntegerField(
       "Thinning:")
-    pm_hmin = IntegerField(
+    pm_hmin = FloatField(
       "Min heritability:")
-    pm_hmax = IntegerField(
+    pm_hmax = FloatField(
       "Max heritability:")
     pm_pmin = IntegerField(
       "Min causal SNPs:")
@@ -434,6 +435,13 @@ class AssocResForm(RegionForm, PlotForm):
       "Model min SNPs:")
     pm_smax = IntegerField(
       "Model max SNPs:")
+
+    fm_ids = MultiCheckboxField(
+     "",
+     choices=[])
+    fm_runs = MultiCheckboxField(
+     "Saved analyses:",
+     choices=[])
 
     k = BooleanField(
       "Kinship (K) correction",

@@ -55,16 +55,6 @@
        <h3 id="time-help" class="bold">Keep this window open to see progress.</h3>
     </div>
   </div>
-  {% if form %}
-    <form
-     {% if task == "finemap" %}
-       action="{{ url_for('finemap', genome=genome, task_id=task_id) }}"
-     {% elif task == "sev" %}
-       action="{{ url_for('fa_res', genome=genome) }}"
-     {% endif %}
-     method="POST">
-    </form>
-  {% endif %}
 {% endblock %}
 
 {% block script %}
@@ -72,15 +62,19 @@
     var genome  = '{{ genome }}';
     var taskId  = '{{ task_id }}';
     var task    = '{{ task }}';
-    var form    = {{ form|tojson }};
+    var redirectHref;
     if (task === "setup") {
-      var redirectHref = "{{ url_for('assoc_qc', genome=genome) }}";
+      redirectHref = "{{ url_for('assoc_qc', genome=genome) }}";
     } else if (task === "filt") {
-      var redirectHref = "{{ url_for('assoc_opts', genome=genome) }}";
+      redirectHref = "{{ url_for('assoc_opts', genome=genome) }}";
     } else if (task === "assoc") {
-      var redirectHref = "{{ url_for('assoc_res', genome=genome) }}";
+      redirectHref = "{{ url_for('assoc_res', genome=genome) }}";
     } else if (task === "rf_optim") {
-      var redirectHref = "{{ url_for('rf_optim_view', task_id=task_id) }}";
+      redirectHref = "{{ url_for('rf_optim_view', task_id=task_id) }}";
+    } else if (task === "finemap") {
+       redirectHref = "{{ url_for('assoc_res', genome=genome) }}";
+    } else if (task === "sev") {
+       redirectHref = "{{ url_for('fa_res', genome=genome) }}";
     }
 
     var error = document.getElementById("error");
@@ -167,9 +161,7 @@
     }
         
     document.addEventListener("DOMContentLoaded", function() {
-      if (form == null || task === "rf_optim") {
-        document.getElementById("redirectLink").href = redirectHref;
-      }
+      document.getElementById("redirectLink").href = redirectHref;
       checkStatus(taskId);
     });
   </script>

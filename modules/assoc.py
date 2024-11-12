@@ -560,21 +560,17 @@ def filt_qc(
       data_dir,
       genome,
       "stats")
-
     assoc_dir = os.path.join(
       data_dir,
       genome,
       "assoc",
       markers)
-
     filt_dir = os.path.join(
       assoc_dir,
       "gt")
-
     plink_in = os.path.join(
       stats_dir,
       "gt")
-
     plink_out = os.path.join(
       filt_dir,
       "gt")
@@ -586,15 +582,19 @@ def filt_qc(
 
     # Filter based on missingness
     if data["smiss"] or data["vmiss"]:
+        plink_intmd = plink_out + ".miss"
         cmd = [plink2_path, "--vcf", f"{plink_in}.vcf.gz"]
         cmd = cmd + ["--mind", str(data["smiss"])] if data["smiss"] else cmd
         cmd = cmd + ["--geno", str(data["vmiss"])] if data["vmiss"] else cmd
         cmd = cmd + [
           "--allow-extra-chr",
           "--export", "vcf", "bgz", "id-paste=iid",
-          "--out", plink_out + ".miss"]
+          "--out", plink_intmd]
         progress(task_id, "Applying missingnes filters")
         popen(task_id, cmd)
+    else:
+        progress(task_id, "Skipping missingness filtering", bold=False)
+        plink_intmd = plink_in
 
     # Prepare heterozygosity filters
     if data["shet"]:
@@ -628,7 +628,8 @@ def filt_qc(
 
     # Filter based on remaining thresholds
     if any(data[f] for f in ("shet", "vhet", "maf", "hwe")):
-        cmd = [plink2_path, "--vcf", f"{plink_out}.miss.vcf.gz"]
+        plink_filt = plink_out + ".filt"
+        cmd = [plink2_path, "--vcf", f"{plink_intmd}.vcf.gz"]
         cmd = cmd + ["--remove", shet_exc] if data["shet"] else cmd
         cmd = cmd + ["--exclude", vhet_exc] if data["vhet"] else cmd
         cmd = cmd + ["--maf", str(data["maf"])] if data["maf"] else cmd
@@ -636,22 +637,28 @@ def filt_qc(
         cmd = cmd + [
           "--allow-extra-chr",
           "--export", "vcf", "bgz", "id-paste=iid",
-          "--out", plink_out + ".filt"]
+          "--out", plink_filt]
         progress(task_id, "Applying remaining filters")
         popen(task_id, cmd)
+    else:
+        progress(task_id, "Skipping additional filtering", bold=False)
+        if data["smiss"] or data["vmiss"]:
+            plink_filt = plink_intmd
+        else:
+            plink_filt = plink_in
 
     # Impute missing genotypes
     beagle_path = os.path.join(
       tool_dir,
       "beagle.jar")
 
-    vcf_in = plink_out + ".filt.vcf.gz"
+    vcf_in = plink_filt + ".vcf.gz"
     full_root = os.path.join(
       filt_dir,
       "gt.full")
     full_vcf = f"{full_root}.vcf.gz"
 
-    if data["imp"] or 1:
+    if data["imp"]:
         progress(task_id, "Imputing missing genotypes")
         popen(
           task_id,
@@ -868,7 +875,7 @@ def filt_qc(
            "Samples retained/original",
            "Markers retained/original",
            "Is a haplotype set"],
-          ["Threshold",
+          ["Value",
            float(data["shet"]) if data["shet"] else "-",
            float(data["smiss"]) if data["smiss"] else "-",
            float(data["vhet"]) if data["vhet"] else "-",
@@ -1509,14 +1516,9 @@ def assoc_finemap(
   task_id):
     config  = load_config(genome)
     markers = params["mrk"]
-    model   = params["mod"]
     trait   = params["trt"]
-    pval    = params["pval"]
     coord   = params["coord"]
     n_loci  = len(coord.split(", "))
-
-    if not params["fm_method"] or params["fm_method"] == "":
-        return
 
     out_root = os.path.join(
       tmp_dir,
@@ -1588,6 +1590,7 @@ def assoc_finemap(
             sep="\t",
             header=0,
             index_col=None))
+
         gt = (gt_df
           .drop(
             ["CHR", "SNP", "(C)M", "POS", "COUNTED", "ALT"],
@@ -1633,11 +1636,33 @@ def assoc_finemap(
         gt_map = gt_df[["CHR", "POS"]]
         res["Chr"]  = gt_map["CHR"]
         res["Pos"] = gt_map["POS"]
-        res = res.loc[:, ["Chr", "Pos", "Imp"]]
-        res.to_csv(
-          imp_out,
-          sep="\t",
-          index=False)
+        res["Imp"] = res["Imp"] / res["Imp"].max()
+        (res
+          .loc[:, ["Chr", "Pos", "Imp"]]
+          .set_axis(
+            ["chr", "pos", "val"],
+            axis=1)
+          .sort_values(
+            by="val",
+            ascending=False)
+          .head(5000)
+          .to_feather(
+            imp_out))
+
+        # Save parameters
+        run_params = [
+          ["Marker set", "Method", "Trait", "Loci",
+           "Markers", "Samples", "Test markers",
+           "Trees per forest", "Iterations", "Permutations"],
+          [markers, "Random forest", trait, 
+           "<br>".join(coord.split(", ")), len(gt.columns), phe_df.size,
+           params["mtry"], params["ntree"], params["niter"], params["nperm"]]]
+        with open(
+          os.path.join(
+            tmp_dir,
+            f"{task_id}.params"),
+          "w") as params_out:
+            json.dump(run_params, params_out)
 
     elif params["fm_method"] == "pm":
         (phe_df
@@ -1648,6 +1673,10 @@ def assoc_finemap(
             sep="\t",
             header=False,
             index=False))
+        num_samples = (phe_df
+          .loc[samples, trait]
+          .dropna()
+          .size)
 
         # Create a BIMBAM-format genotype file
         gt = (pd
@@ -1710,13 +1739,45 @@ def assoc_finemap(
           .read_csv(
             pip_in,
             sep="\s+",
-            header=[0],
-            index_col=None)
+            header=0,
+            index_col=0,
+            usecols=[0,4])
           .assign(
-            chr=lambda df: df["rs"].str.split(":").str[0],
-            pos=lambda df: df["rs"].str.split(":").str[1])
+            chr=lambda df: df.index.str.split(":").str[0],
+            pos=lambda df: df.index.str.split(":").str[1])
+          [["chr", "pos", "postrb"]]
+          .set_axis(
+            ["chr", "pos", "val"],
+            axis=1)
+          .sort_values(
+            by="val",
+            ascending=False)
+          .head(5000)
           .to_csv(
-            pip_out,
-            sep="\t",
-            header=True,
-            index=False))
+            pip_out))
+
+        # Save parameters
+        run_params = [
+          ["Marker set", "Method", "Trait", "Loci", "Markers", "Samples", 
+           "Burn-in steps", "Sampling steps", "Thinning", "Min heritability",
+           "Max heritability", "Min causal SNPs", "Max causal SNPs", 
+           "Init causal SNPs", "Model min SNPs", "Model max SNPs"],
+          [markers, "PiMASS", trait,
+           "<br>".join(coord.split(", ")), gt.shape[0], num_samples,
+           params["pm_w"] or marker_cnt,
+           params["pm_s"] or marker_cnt * 10,
+           params["pm_num"] or 10,
+           float(params["pm_hmin"] or 0.3),
+           float(params["pm_hmax"] or 0.8),
+           params["pm_pmin"] or n_loci // 3,
+           params["pm_pmax"] or n_loci * 3,
+           params["pm_nstart"] or n_loci,
+           params["pm_smin"] or marker_cnt // 10,
+           params["pm_smax"] or marker_cnt // 2,
+           ]]
+        with open(
+          os.path.join(
+            tmp_dir,
+            f"{task_id}.params"),
+          "w") as params_out:
+            json.dump(run_params, params_out)

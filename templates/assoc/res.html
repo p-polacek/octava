@@ -113,6 +113,7 @@
                  class="small-num-input"
                  id="thresh"
                  min="0"
+                 step="any"
                  value="8" />
               </div>
               <div class="
@@ -268,9 +269,58 @@
                   Fine-mapping:
                 </label>
                 <img                  class="aux-button clickable"                  src="{{ url_for('serve_button', button='help') }}"                  onclick="showHelp(event, 'finemap');" />              </div>
+              <div class="row-div padded-top small-padded-bottom">
+                <button
+                 type="button"
+                 class="dropdown-button"
+                 onclick="showDropdown(event, this);">
+                  {{ form.fm_runs.label(class="default-label bold") }}
+                  <span
+                   class="default-label counter"
+                   id="fm_runs-count">
+                    0 selected
+                  </span>
+                </button>
+                <div
+                 class="dropdown-menu collapsed"
+                 id="fm_runs-dropdown">
+                  <div class="sticky non-transparent small-padding">
+                    <input
+                     type="text"
+                     class="search-bar"
+                     placeholder="Search..."
+                     onkeyup="filterDropdown(visibleDropdown);">
+                    <button
+                     type="button"
+                     onclick="toggleAll(visibleDropdown);">
+                      Select all
+                    </button>
+                  </div>
+                  {% for choice in form.fm_runs %}
+                    <div
+                     class="checkbox-row group-option"
+                     oncontextmenu="contextMenu(
+                      event,
+                       {'action': 'fm_run',
+                        'task_id': '{{ choice.data }}' });">
+                      {{ choice(
+                       class="fm_runs-checkbox",
+                       onchange="updateCount(
+                        this.parentElement.parentElement);") }}
+                      {{ choice.label(class="checkbox-label") }}
+                    </div>
+                  {% endfor %}
+                </div>
+                <img
+                  class="aux-button clickable"
+                  id="save-fm"
+                  src="{{ url_for('serve_button', button='save') }}"
+                  onclick="saveFM(event);"
+                  title="Save current fine-mapping analysis" />
+              </div>
               <div
                 id="fm-method-div"
-                class="row-div padded-top small-padded-bottom">
+                class="row-div small-padded-bottom">
                 <button
                  type="button"
                  class="dropdown-button"
@@ -306,70 +356,70 @@
                   {% endfor %}
                 </div>
               </div>
-                <span id="rf-params" class="collapsed">
-                  <div class="row-div padded-top">
-                    <h2>
-                      Random forest options:
-                    </h2>
-                    <img
-                      class="aux-button clickable"
-                      src="{{ url_for('serve_button', button='help') }}"
-                      onclick="showHelp(event, 'rf-options');" />
+              <span id="rf-params" class="collapsed">
+                <div class="row-div padded-top">
+                  <h2>
+                    Random forest options:
+                  </h2>
+                  <img
+                    class="aux-button clickable"
+                    src="{{ url_for('serve_button', button='help') }}"
+                    onclick="showHelp(event, 'rf-options');" />
+                </div>
+                <div class="row-div padded-top">
+                  <h3 class="bold">
+                    Optimize parameters:
+                  </h3>
+                </div>
+                {% for field in ("mtryvals", "ntreevals") %}
+                  <div class="row-input-div justified small-padded-top">
+                      {{ form[field].label(
+                       class="default-label bold") }}
+                      {{ form[field](class="small-num-input") }}
                   </div>
-                  <div class="row-div padded-top">
-                    <h3 class="bold">
-                      Optimize parameters:
-                    </h3>
+                {% endfor %}
+                <div class="row-input-div justified padded-top">
+                  <button
+                   class="submit-button"
+                   value="optim">
+                    <label
+                     class="default-label bold">
+                      Optimize
+                    </label>
+                  </button>
+                </div>
+                <div class="row-div padded-top">
+                  <h3 class="bold">
+                    Number of:
+                  </h3>
+                </div>
+                {% for field in ("mtry", "ntree", "niter", "nperm") %}
+                  <div class="row-input-div justified small-padded-top">
+                      {{ form[field].label(
+                       class="default-label bold") }}
+                      {{ form[field](class="small-num-input") }}
                   </div>
-                  {% for field in ("mtryvals", "ntreevals") %}
-                    <div class="row-input-div justified small-padded-top">
-                        {{ form[field].label(
-                         class="default-label bold") }}
-                        {{ form[field](class="small-num-input") }}
-                    </div>
-                  {% endfor %}
-                  <div class="row-input-div justified padded-top">
-                    <button
-                     class="submit-button"
-                     value="optim">
-                      <label
-                       class="default-label bold">
-                        Optimize
-                      </label>
-                    </button>
+                {% endfor %}
+                {{ form.optimize(id="optimize", class="collapsed") }}
+              </span>
+              <span id="pm-params" class="collapsed">
+                <div class="row-div padded-top">
+                  <h2>
+                    PiMASS options:
+                  </h2>
+                  <img
+                    class="aux-button clickable"
+                    src="{{ url_for('serve_button', button='help') }}"
+                    onclick="showHelp(event, 'pimass-options');" />
+                </div>
+                {% for field in ("pm_w", "pm_s", "pm_num", "pm_hmin", "pm_hmax", "pm_pmin", "pm_pmax", "pm_nstart", "pm_smin", "pm_smax") %}
+                  <div class="row-input-div justified small-padded-top">
+                      {{ form[field].label(
+                       class="default-label bold") }}
+                      {{ form[field](class="small-num-input") }}
                   </div>
-                  <div class="row-div padded-top">
-                    <h3 class="bold">
-                      Number of:
-                    </h3>
-                  </div>
-                  {% for field in ("mtry", "ntree", "niter", "nperm") %}
-                    <div class="row-input-div justified small-padded-top">
-                        {{ form[field].label(
-                         class="default-label bold") }}
-                        {{ form[field](class="small-num-input") }}
-                    </div>
-                  {% endfor %}
-                  {{ form.optimize(id="optimize", class="collapsed") }}
-               </span>
-                <span id="pm-params" class="collapsed">
-                  <div class="row-div padded-top">
-                    <h2>
-                      PiMASS options:
-                    </h2>
-                    <img
-                      class="aux-button clickable"
-                      src="{{ url_for('serve_button', button='help') }}"
-                      onclick="showHelp(event, 'pimass-options');" />
-                  </div>
-                  {% for field in ("pm_w", "pm_s", "pm_num", "pm_hmin", "pm_hmax", "pm_pmin", "pm_pmax", "pm_nstart", "pm_smin", "pm_smax") %}
-                    <div class="row-input-div justified small-padded-top">
-                        {{ form[field].label(
-                         class="default-label bold") }}
-                        {{ form[field](class="small-num-input") }}
-                    </div>
-                  {% endfor %}
-               </span>
+                {% endfor %}
+              </span>
               <div class="collapsed">
                 {% for field in [
                  "pval",
@@ -377,11 +427,19 @@
                  "fmt",
                  "mrk",
                  "mod",
-                 "trt"] %}
+                 "trt",
+                 "fm_ids"] %}
                   {{ form[field](id=field + "-field") }}
                 {% endfor %}
               </div>
               <div class="row-input-div justified small-padded-top">
+                <button
+                 type="button"
+                 onclick="showPlot();">
+                  <label class="default-label bold">
+                    Update plot
+                  </label>
+                </button>
                 <button
                  type="button"
                  class="submit-button"
@@ -405,8 +463,10 @@
           </div>
           <div
            id="live-plot"
-           class="results-subcontainer">
-          </div>
+           class="results-subcontainer"></div>
+          <div
+           id="ld-plot"
+           class="results-subcontainer collapsed"></div>
         </div>
       </div>
     </div>
@@ -428,7 +488,7 @@
    src="https://code.jquery.com/jquery-3.6.4.min.js">
   </script>
   <script
-   src="https://cdn.plot.ly/plotly-latest.min.js">
+   src="https://cdn.plot.ly/plotly-2.35.2.min.js">
   </script>
 
   <script>
@@ -437,6 +497,7 @@
     const chrSizes = {{ sizes|tojson }};
     const chrOffsets = {{ offsets|tojson }};
     const modelsDict = {{ models|tojson }};
+    const FMData = {{ fm_data|tojson }};
 
     var chrTicks = [];
     for (let i = 0; i < chrNames.length; i++) {
@@ -474,6 +535,8 @@
     function toggleStatic() {
       var liveDiv = document.getElementById("live-plot");
       var staticDiv = document.getElementById("static-plot");
+      var LdDiv = document.getElementById("ld-plot");
+      LdDiv.classList.add("collapsed");
 
       if (liveDiv.classList.contains("collapsed")) {
         staticDiv.classList.add("collapsed");
@@ -488,7 +551,7 @@
           }
         });
         if (visibleTraces.length !== 1 || visibleTraces[0].Id == null) {
-          showHelp(event, null, "Select exactly one dataset to plot.");
+          showHelp(event, null, "Select exactly one dataset.");
           event.preventDefault();
         } else {
           var [m, l, t] = visibleTraces[0].Id;
@@ -515,6 +578,7 @@
 {# =================================================================== Plot #}
     function showPlot() {
       document.getElementById("static-plot").classList.add("collapsed");
+      document.getElementById("ld-plot").classList.add("collapsed");
       document.getElementById("live-plot").classList.remove("collapsed");
 
       var asGroup = document.getElementById("as-group").checked;
@@ -634,6 +698,7 @@
                   hovertemplate: "log10(p): %{y}<br>%{text}",
                     hoverlabel: {
                       namelength: 0,
+                      bgcolor: "white",
                     },
                 };
                 traces.push(trace);
@@ -691,6 +756,34 @@
           }
         })(dataKey);
       });
+{# ========================================================== Fetch FM data #}
+      var FMtoPlot = FMData.slice();
+      var selectedRuns = [];
+      document.querySelectorAll(".fm_runs-checkbox").forEach(function(run) {
+        if (run.checked) {
+          selectedRuns.push(run.value);
+        }
+      });
+      if (selectedRuns.length > 0) {
+        selectedRuns.forEach( function(selectedRun) {
+          (function(run) {
+            var request = $.ajax({
+              url: "{{ url_for('fetch_fmplot') }}",
+              method: "POST",
+              data: {
+                genome: genome,
+                task_id: run,
+              },
+              success: function(data) {
+                if (typeof data == "object") {
+                  FMtoPlot.push(data);
+                }
+              }
+            });
+            requests.push(request);
+          })(selectedRun);
+        });
+      }
 {# ========================================================== Assemble plot #}
       $.when.apply($, requests).done(function() {
         var lastChrom = chrNames[chrNames.length - 1];
@@ -705,31 +798,66 @@
             var traceName = key;
             traceName[1] = modelsDict[traceName[1]];
             const trace = {
-                    name: traceName.join(", "),
-                    Id: key,
-                    mode: "markers",
-                    type: "scatter",
-                    x: data.map(i => i[1] + offsetDict[i[0]]),
-                    y: data.map(i => i[2]),
-                    text: data.map(i => {
-                     return `${i[0]}:${i[1]
-                      .toString()
-                      .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
-                    }),
-                    hoverinfo: "text+y",
-                    hovertemplate: "%{text}<br>log10(p): %{y}",
-                    hoverlabel: {
-                      namelength: 0,
-                      bgcolor: "white",
-                    },
-                    marker: {
-                      size: 6,
-                      opacity: 1,
-                    },
-                  };
+              name: traceName.join(", "),
+              Id: key,
+              mode: "markers",
+              type: "scatter",
+              yaxis: "y2",
+              x: data.map(i => i[1] + offsetDict[i[0]]),
+              y: data.map(i => i[2]),
+              text: data.map(i => {
+               return `${i[0]}:${i[1]
+                .toString()
+                .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+              }),
+              hoverinfo: "text+y",
+              hovertemplate: "%{text}<br>log10(p): %{y}",
+              hoverlabel: {
+                namelength: 0,
+                bgcolor: "white",
+              },
+              marker: {
+                size: 6,
+                opacity: 1,
+              },
+            };
             traces.push(trace);
           }
         });
+
+        if (FMtoPlot.length > 0) {
+          var yPipMax = 0;
+          for (let i = 0; i < FMtoPlot.length; i++) {
+            var[FMParams, taskId, name, FMRes] = FMtoPlot[i];
+            if (name === "") {
+              name = "PIP" + (i + 1)
+            }
+            var FMVals = FMRes.map(i => i[2]);
+            yPipMax = Math.max(yPipMax, ...FMVals);
+            traces.push({
+              x: FMRes.map(i => i[1] + offsetDict[i[0]]),
+              y: FMVals,
+              Id: FMParams,
+              taskId: taskId,
+              traceType: "__fm__",
+              type: "scatter",
+              mode: "markers",
+              name: name,
+              yaxis: "y4",
+              text: FMRes.map(i => {
+               return `${i[0]}:${i[1]
+                .toString()
+                .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+              }),
+              hoverinfo: "text+y",
+              hovertemplate: "%{text}<br>Value: %{y}",
+              hoverlabel: {
+                namelength: 0,
+                bgcolor: "white",
+              },
+            });
+          }
+        }
 
         // Break long legend titles by newlines
         for (i = 0; i < traces.length; i++) {
@@ -765,21 +893,51 @@
           var plotOffsets = chrOffsets;
           var plotSizes   = chrSizes;
         }
-        
+
         var layout = {
+          grid: {
+            rows: 2,
+            columns: 1,
+          },
           xaxis: {
             title: "Chromosome",
             tickvals: plotTicks,
             ticktext: plotNames,
             tickangle: 20,
             range: [0, xMax],
+            showgrid: false,
+            minallowed: 0,
+            maxallowed: chrOffsets[chrOffsets.length - 1] + chrSizes[chrSizes.length - 1],
           },
           yaxis: {
+            title: "Genes",
+            domain: [0.95, 1],
+            range: [0, 1],
+            zeroline: false,
+            showgrid: false,
+            showticklabels: false,
+            minallowed: 0,
+            maxallowed: 1,
+          },
+          yaxis2: {
             title: "-log10(p-value)",
             //rangemode: "tozero",
             range: [0, Math.ceil(yMax + 1)],
             autorange: false,
             ticklen: 5,
+            domain: [0, 0.95],
+            minallowed: 0,
+            maxallowed: Math.ceil(yMax + 1),
+          },
+          yaxis3: {
+            range: [0, 1.1],
+            autorange: false,
+            showticklabels: false,
+            domain: [0, 0.95],
+            minallowed: 0,
+            maxallowed: 1.1,
+            visible: false,
+            overlaying: "y2",
           },
           margin: {
 //            l: 100,
@@ -791,6 +949,16 @@
           hovermode: "closest",
           showlegend: true,
         };
+        if (FMtoPlot.length > 0) {
+          layout.yaxis4 = {
+            title: "PIP / importance",
+            overlaying: "y2",
+            side: "right",
+            range: [0, 1.1], //yPipMax + 1],
+            minallowed: 0,
+            maxallowed: 1.1, //Math.ceil(yPipMax + 1),
+          };
+        }
 {# ======================================================= Chromosome spans #}
         var spanShapes = [];
         for (i = 0; i < plotNames.length; i+= 2) {
@@ -820,7 +988,9 @@
             x1: 1,
             y0: thresh,
             y1: thresh,
+            yaxis: "y2",
             xref: "paper",
+            yref: "y2",
             line: {
               color: "red",
               width: 2,
@@ -828,63 +998,230 @@
           });
         }
 
-        Plotly.newPlot("live-plot", traces, layout);
+        if (traces.length > 0) {
+          Plotly.newPlot("live-plot", traces, layout);
 {# ======================================================== Event listeners #}
-        var traceLabels = document.querySelectorAll(".legendtoggle");
-        traceLabels.forEach( function(label) {
-          label.addEventListener("contextmenu", function(event) {
-            event.preventDefault();
-            //event.stopPropagation();
+          var traceLabels = document.querySelectorAll(".legendtoggle");
+          traceLabels.forEach( function(label) {
+            label.addEventListener("contextmenu", function(event) {
+              event.preventDefault();
+              //event.stopPropagation();
+            });
           });
-        });
-
-        var plotDiv = document.getElementById("live-plot");
-        var pval = plotDiv.layout.yaxis.range[1];
-        document.getElementById("pval-field").value  = pval;
-
-        plotDiv.on("plotly_legendclick", function(data) {
-          if (data.event.button === 2) {
-            var traces = plotDiv.data;
-            var traceId = traces[data.curveNumber].Id;
-            if (traceId != null) {
-              var [markers, model, trait] = traceId;
-              contextMenu(event, 
-                {action: "gwas_run",
-                 markers: markers,
-                 model:   model,
-                 trait:   trait});
-              return false;
+  
+          var plotDiv = document.getElementById("live-plot");
+          var pval = plotDiv.layout.yaxis2.range[1];
+          document.getElementById("pval-field").value  = pval;
+  
+          plotDiv.on("plotly_legendclick", function(data) {
+            if (data.event.button === 2) {
+              var traces = plotDiv.data;
+              var traceId = traces[data.curveNumber].Id;
+              if (traceId != null) {
+                var taskId = traces[data.curveNumber].taskId;
+                if (taskId != null) {
+                  var [markers, model, trait] = traceId;
+                  contextMenu(event, 
+                    {action: "fm_run",
+                     task_id: taskId});
+                } else {
+                  var [markers, model, trait] = traceId;
+                  contextMenu(event, 
+                    {action: "gwas_run",
+                     markers: markers,
+                     model:   model,
+                     trait:   trait});
+                }
+                return false;
+              }
             }
-          }
-        });
+          });
+  
+          plotDiv.on("plotly_click", function(data) {
+            var marker = data.points[0];
+            var markerId = marker.text.split("<br>")[0];
+            var markers = marker.data.Id[0];
+            if (data.event.button === 0) {
+              addLocus(markerId);
+            } else if (data.event.button === 1) {
+            var request = $.ajax({
+              url: "{{ url_for('fetch_ld') }}",
+              method: "POST",
+              data: {
+                genome: genome,
+                marker_id: markerId,
+              },
+              success: function(ldData) {
+                var ldVals = ldData.map(i => i[2]);
+                var traces = [];
+                const trace = {
+                  name: "LD to " + markerId,
+                  Id: [markers],
+                  traceType: "__ld__",
+                  mode: "markers",
+                  type: "scatter",
+                  yaxis: "y3",
+                  x: ldData.map(i => i[1] + offsetDict[i[0]]),
+                  y: ldVals,
+                  text: ldData.map(i => {
+                   return `${i[0]}:${i[1]
+                    .toString()
+                    .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+                  }),
+                  hoverinfo: "text+y",
+                  hovertemplate: "%{text}<br>LD: %{y}",
+                  hoverlabel: {
+                    namelength: 0,
+                    bgcolor: "white",
+                  },
+                  marker: {
+                    size: 6,
+                    opacity: 1,
+                    color: ldVals,
+                  },
+                  colorscale: [
+                   [0, "rgb(208,208,208)"],
+                   [1, "rgb(208,0,0)"]],
+                };
+                traces.push(trace);
 
-        plotDiv.on("plotly_click", function(data) {
-          var markerPos = data.points[0].text.split("<br>")[0];
-          if (data.event.button === 0) {
-            addLocus(markerPos);
-          } else if (data.event.button === 2) {
-            var traces = plotDiv.data;
-            var traceId = traces[data.points[0].curveNumber].Id;
-            if (traceId != null) {
-              var [markers, model, trait] = traceId;
-              contextMenu(
-                event,
-                {action: "pve",
-                 markers: markers,
-                 model: model,
-                 trait: trait,
-                 pos: markerPos});
-              return false;
-            } else {
-              showHelp(event, null, "PVE calculation is only supported for single traits.");
+                var currTraces = document.getElementById("live-plot").data;
+                var ldTrace = currTraces
+                  .map((trace, idx) => ({ trace, idx }))
+                  .filter(v => v.trace.traceType === "__ld__");
+                if (ldTrace.length !== 0) {
+                  console.log(ldTrace);
+                  Plotly.deleteTraces("live-plot", ldTrace[0].idx);
+                }
+                Plotly.addTraces("live-plot", traces);
+              }
+            });
+
+
+
+            } else if (data.event.button === 2) {
+              var traces = plotDiv.data;
+              var traceId = traces[data.points[0].curveNumber].Id;
+              if (traceId != null) {
+                var [markers, model, trait] = traceId;
+                contextMenu(
+                  event,
+                  {action: "pve",
+                   markers: markers,
+                   model: model,
+                   trait: trait,
+                   pos: markerId});
+                return false;
+              } else {
+                showHelp(event, null, "PVE calculation is only supported for single traits.");
+              }
             }
-          }
-        });
+          });
+  
+          plotDiv.on("plotly_relayout", function(event) {
+            var viewStart = Math.max(0, Math.floor(event["xaxis.range[0]"]));
+            var viewEnd = Math.min(Math.ceil(event["xaxis.range[1]"], chrSizes.reduce((a, b) => a + b, 0)));
+            var numShapes = Math.ceil(chrNames.length / 2);
+            var thresh = document.getElementById("thresh").value;
+            if (thresh != null) {
+              numShapes ++;
+            }
+            var shapes = layout.shapes.slice(0, numShapes) || [];
 
-        plotDiv.oncontextmenu = (event => {
-          event.preventDefault();
-          event.stopPropagation();
-        });
+            if (isNaN(viewStart) && isNaN(event["yaxis.autorange"])) {
+              return;
+            }
+
+            if (!isNaN(event["yaxis.autorange"]) || viewEnd - viewStart > 1000000) {
+              var currTraces = document.getElementById("live-plot").data;
+              var genesTrace = currTraces
+                .map((trace, idx) => ({ trace, idx }))
+                .filter(v => v.trace.traceType === "__genes__");
+              if (genesTrace.length !== 0) {
+                Plotly.deleteTraces("live-plot", genesTrace[0].idx);
+              }
+              Plotly.update("live-plot", {}, {shapes: shapes});
+              return;
+            }
+            var ranges = [];
+            function getRanges(ch, start, end) {
+              for (let i = ch; i < chrNames.length; i++) {
+                if (start <= chrSizes[i] + chrOffsets[i]) {
+                  if (end <= chrSizes[i] + chrOffsets[i]) {
+                    ranges.push([
+                      chrNames[i],
+                      start - chrOffsets[i],
+                      end - chrOffsets[i]]);
+                    break;
+                  } else {
+                    ranges.push([
+                      chrNames[i],
+                      start - chrOffsets[i],
+                      chrSizes[i]]);
+                    getRanges(i+1, chrOffsets[i+1], end);
+                    break;
+                  }
+                }
+              }
+            }
+            getRanges(0, viewStart, viewEnd);
+  
+            var request = $.ajax({
+              url: "{{ url_for('fetch_genes') }}",
+              method: "POST",
+              data: {
+                genome: genome,
+                ranges: JSON.stringify(ranges),
+              },
+              success: function(geneData) {
+                geneData.forEach(gene => {
+                  shapes.push({
+                    type: "rect",
+                    xref: "x",
+                    yref: "y",
+                    yaxis: "y",
+                    x0: offsetDict[gene[1]] + gene[2],
+                    y0: 0,
+                    x1: offsetDict[gene[1]] + gene[3],
+                    y1: 1,
+                    fillcolor: "#0f667a",
+                    line: { width: 0 },
+                  });
+                });
+                var trace = {
+                  x: geneData.map(v => offsetDict[v[1]] + v[3] - (v[3] - v[2]) / 2),
+                  y: geneData.map(v => 0.5),
+                  traceType: "__genes__",
+                  mode: "markers",
+                  yaxis: "y",
+                  text: geneData.map(v => v[0]),
+                  hoverinfo: "text",
+                  hoverlabel: {
+                    namelength: 0,
+                    bgcolor: "white",
+                  },
+                  marker: { opacity: 0 },
+                  showlegend: false,
+                };
+  
+                var currTraces = document.getElementById("live-plot").data;
+                var genesTrace = currTraces
+                  .map((trace, idx) => ({ trace, idx }))
+                  .filter(v => v.trace.traceType === "__genes__");
+                if (genesTrace.length !== 0) {
+                  Plotly.deleteTraces("live-plot", genesTrace[0].idx);
+                }
+                Plotly.update("live-plot", {}, {shapes: shapes});
+                Plotly.addTraces("live-plot", [trace]);
+              }
+            });
+          });
+  
+          plotDiv.oncontextmenu = (event => {
+            event.preventDefault();
+            event.stopPropagation();
+          });
+        }
 
       }).fail(function() {
         alert("Something went wrong, please try again.");
@@ -1019,6 +1356,76 @@
       }
     }
 
+    function saveFM(event) {
+      var currTraces = document.getElementById("live-plot").data;
+      var FMTraces = currTraces
+        .map((trace, idx) => ({ trace, idx }))
+        .filter(v => v.trace.traceType === "__fm__" && (!v.trace.hasOwnProperty("visible") || v.trace.visible !== "legendonly"));
+      if (FMTraces.length !== 1) {
+        showHelp(event, null, "Select exactly one fine-mapping analysis.");
+      } else {
+        var taskId = FMTraces[0].trace.taskId;
+        var runName = "";
+        while (runName === "") {
+          var runName = window.prompt("Analysis name:");
+        }
+        if (runName !== null) {
+          
+          var data = JSON.stringify({
+           genome: genome,
+           run: taskId,
+           name: runName});
+          var request = new XMLHttpRequest();
+          request.open("POST", "{{ url_for('save_fm') }}", true);
+          request.send(data);
+
+          request.onreadystatechange = function() {
+            if (request.readyState === XMLHttpRequest.DONE) {
+              if (request.status === 204) {
+                var dropdownId = "fm_runs-dropdown";
+                var dropdown = document.getElementById(dropdownId);
+                var checkboxRow = document.createElement("div");
+                checkboxRow.classList.add("checkbox-row");
+                checkboxRow.classList.add("group-option");
+                var checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.checked = "checked";
+                checkbox.classList.add("fm_runs-checkbox");
+                checkbox.id = "fm_runs-dropdown" + runName;
+                checkbox.value = taskId;
+
+                checkbox.addEventListener("change", function(event) {
+                  updateCount(this.parentElement.parentElement);
+                });
+
+                var label = document.createElement("label");
+                label.classList.add("checkbox-label")
+                label.htmlFor = checkbox.id;
+                label.appendChild(document.createTextNode(runName));
+
+                checkboxRow.addEventListener("contextmenu", function(event) {
+                  contextMenu(event,
+                    {"action": "fm_run",
+                     "task_id": taskId});
+                });
+
+                checkboxRow.appendChild(checkbox);
+                checkboxRow.appendChild(document.createTextNode(" "));
+                checkboxRow.appendChild(label);
+                dropdown.appendChild(checkboxRow);
+                updateCount(dropdown);
+
+                // Rename current trait
+                Plotly.restyle("live-plot", "name", [runName], FMTraces[0].idx);
+
+              } else {
+                alert(request.responseText);
+              }
+            }
+          };
+        }
+      }
+    }
 {# ============================================================ Submit loci #}
     // Process form submit to send to fine-mapping or allele viewer
     document.querySelectorAll(".submit-button").forEach(function(button) {
@@ -1044,7 +1451,7 @@
             if (
              !trace.hasOwnProperty("visible") ||
              trace.visible !== "legendonly") {
-              if (trace.Id != null) {
+              if (trace.Id != null && trace.taskId == null) {
                 visibleTraces.push(trace.Id);
               }
             }
@@ -1056,7 +1463,7 @@
           }
           var trace = visibleTraces[0];
           var method = document.querySelector("input[name='fm_method']:checked");
-          if (method == null) {
+          if (method == null || method.value === "") {
             showHelp(event, null, "Choose a fine-mapping method.");
             event.preventDefault();
             return;
@@ -1076,11 +1483,37 @@
         } else if (button.value === "av") {
           form.action = "{{ url_for('fa_opts', genome=genome) }}";
         } else if (button.value === "ld") {
+          var LdPlot = document.getElementById("ld-plot");
+          var livePlot = document.getElementById("live-plot");
+          if (LdPlot.innerHTML.length > 0 && ![...LdPlot.classList].includes("collapsed")) {
+            LdPlot.classList.add("collapsed");
+            livePlot.classList.remove("collapsed");
+            return;
+          }
+
+          var visibleTraces = [];
+          document.getElementById("live-plot").data.forEach( function(trace) {
+            if (
+             !trace.hasOwnProperty("visible") ||
+             trace.visible !== "legendonly") {
+              if (trace.Id != null && trace.taskId == null) {
+                visibleTraces.push(trace.Id);
+              }
+            }
+          });
+          if (visibleTraces.length !== 1) {
+            showHelp(event, null, "Select exactly one dataset.");
+            event.preventDefault();
+            return;
+          }
+          var trace = visibleTraces[0];
+
           $.ajax({
             url: "{{ url_for('fetch_locus_ld') }}",
             method: "POST",
             data: {
              genome: genome,
+             markers: trace[0],
              coord: savedLoci.join(", "),
             },
             success: function (results) {
@@ -1120,7 +1553,11 @@
                 plot_bgcolor: "rgb(150,150,150)",
                 //plot_bgcolor: "rgb(0,0,0)",
               }
-              Plotly.newPlot("live-plot", [trace], layout);
+
+              LdPlot.classList.remove("collapsed");
+              livePlot.classList.add("collapsed");
+              Plotly.newPlot("ld-plot", [trace], layout);
+
             }, error: function () {
               alert("Something went wrong.");
             }
@@ -1140,6 +1577,7 @@
     });
 
     document.addEventListener("DOMContentLoaded", function() {
+      document.querySelector("input[name='fm_method']").checked = "checked";
       updateTracker(document.getElementById("fm-method-div"));
       toggleRF();
       var notAsGroup = !document.getElementById("as-group").checked;
@@ -1159,6 +1597,10 @@
       plotDiv = document.getElementById("live-plot");
       if (plotDiv.innerHTML && !plotDiv.classList.contains("collapsed")) {
         Plotly.Plots.resize("live-plot");
+      }
+      plotDiv = document.getElementById("ld-plot");
+      if (plotDiv.innerHTML && !plotDiv.classList.contains("collapsed")) {
+        Plotly.Plots.resize("ld-plot");
       }
     }
     window.addEventListener("resize", function() { resizePlot() });

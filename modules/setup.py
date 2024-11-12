@@ -326,6 +326,12 @@ def genome_setup(
       "assoc")
     if not os.path.exists(assoc_dir):
         os.mkdir(assoc_dir)
+    fm_dir = os.path.join(
+      data_dir,
+      genome,
+      "fm")
+    if not os.path.exists(fm_dir):
+        os.mkdir(fm_dir)
 
     init_path = os.path.join(
       data_dir,
