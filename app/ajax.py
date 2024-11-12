@@ -149,10 +149,8 @@ def fetch_locus_ld():
     gt_root = os.path.join(
       data_dir,
       genome,
-      "assoc",
-      markers,
-      "gt",
-      "gt.full")
+      "stats",
+      "gt")
     out_root = os.path.join(
       tmp_dir,
       task_id)
