@@ -26,6 +26,10 @@
       <h2 class="padded-left">
         Results:
       </h2>
+      <img
+        class="aux-button clickable"
+        src="{{ url_for('serve_button', button='help') }}"
+        onclick="showHelp(event, 'assoc-res');" />
     </div>
     <div class="results-container padded-top">
       <div class="disp-flex">
@@ -953,6 +957,8 @@
           layout.yaxis4 = {
             title: "PIP / importance",
             overlaying: "y2",
+            //showgrid: false,
+            //gridcolor: "blue",
             side: "right",
             range: [0, 1.1], //yPipMax + 1],
             minallowed: 0,
