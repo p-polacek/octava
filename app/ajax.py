@@ -158,12 +158,14 @@ def fetch_locus_ld():
       task_id)
 
     # Extract genotype data at QTLs
+    span = 0
     with open(f"{out_root}.bed1", "w") as coord_out:
         for locus in coord.split(", "):
             chrom, start = locus.split(":")
             start = start.replace(",", "")
             if "-" in start:
                 start, end = start.split("-")
+                span += int(end) - int(start) + 1
             else:
                 end = start
             _ = coord_out.write("\t".join((chrom, start, end)) + "\n")
@@ -171,7 +173,8 @@ def fetch_locus_ld():
       [plink2_path,
        "--bfile", gt_root,
        "--extract", "bed1", f"{out_root}.bed1",
-       "--thin-count", "1000",
+       #"--thin-count", "1000",
+       "--bp-space", str(span // 2000),
        "--r2-unphased", "square0",
        "--out", out_root],
       check=True,
@@ -179,11 +182,12 @@ def fetch_locus_ld():
       stdout=subprocess.PIPE)
     output = pr.stdout
     try:
-        num_loaded = int(re.search("(\d+) variants loaded", output).group(1))
-        num_removed = int(re.search("\-\-extract bed1\: (\d+)", output).group(1))
-        num_markers = num_loaded - num_removed
+        total, final = re.search(
+          "\-\-bp\-space\: (\d+) variants removed \((\d+) remaining\)\.",
+          output).groups()
+        num_markers = f"LD of {final} of {total} markers in region"
     except:
-        num_markers = None
+        num_markers = "(Could not determine marker number)"
 
     r2_vals = pd.read_csv(
       f"{out_root}.unphased.vcor2",

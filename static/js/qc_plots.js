@@ -561,7 +561,7 @@ function showPlot() {
         pad: 0
       },
       plot_bgcolor: "rgb(150,150,150)",
-      title: "Random selection of 1,000 markers within chromosome",
+      //title: "Random selection of 1,000 markers within chromosome",
       //plot_bgcolor: "rgb(0,0,0)",
     }
   } else if (plotChoice === "baf") {

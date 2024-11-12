@@ -1502,7 +1502,7 @@
             if (
              !trace.hasOwnProperty("visible") ||
              trace.visible !== "legendonly") {
-              if (trace.Id != null && trace.taskId == null) {
+              if (trace.Id != null && trace.traceType == null) {
                 visibleTraces.push(trace.Id);
               }
             }
@@ -1538,14 +1538,8 @@
                   title: "LD",
                 },
               };
-              if (results[2]) {
-                var title = "LD of " + results[2] + " markers";
-                if (parseInt(results[2]) > 1000) {
-                  title += ", thinned down to 1000";
-                }
-              }
               var layout = {
-                title: title,
+                title: results[2],
                 xaxis: {
                   tickangle: -45,
                 },

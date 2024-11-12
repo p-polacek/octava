@@ -510,7 +510,7 @@ def calc_chr_ld(
           "gt")
 
     concat = json.loads(config["concat"])
-    for ch in gdata["chr_names"]:
+    for ch, span in zip(gdata["chr_names"], gdata["chr_sizes"]):
         if ch in concat:
             continue
         popen(
@@ -518,7 +518,8 @@ def calc_chr_ld(
           [plink2_path,
            "--bfile", gt_out,
            "--chr", str(ch),
-           "--thin-count", "1000",
+           #"--thin-count", "1000",
+           "--bp-space", str(span // 2000),
            "--r2-unphased", "square0",
            "--out", stats_out])
 
