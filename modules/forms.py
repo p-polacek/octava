@@ -324,6 +324,11 @@ class PlotForm(FlaskForm):
       choices=[])
 
 class AssocQCform(PlotForm):
+    filt_ext = BooleanField(
+      "Apply from existing:")
+    filt_from = RadioField(
+      "Markers:",
+      choices=[])
     smiss = DecimalField(
       "sample ≤",
       places  = None,

@@ -850,29 +850,43 @@ def assoc_qc(genome):
       data_dir,
       genome,
       "assoc")
-    saved_sets = [
-      d.casefold() for d in os.listdir(markers_root)
-      if os.path.isdir(os.path.join(markers_root, d)) and
-      os.path.exists(
-        os.path.join(
+    saved_sets = list()
+    saved_params = dict()
+    for d in os.listdir(markers_root):
+        init_path = os.path.join(
           markers_root,
           d,
-          "init"))]
+          "init")
+        if os.path.exists(init_path):
+            form.filt_from.choices.append(d)
+            saved_sets.append(d.casefold())
+            params_path = os.path.join(
+              markers_root,
+              d,
+              "stats",
+              "params")
+            with open(params_path) as params_in:
+                params = json.load(params_in)
+            saved_params[d] = [
+              val if val != "—" else ""
+              for val in params[1][1:7]]
+
     form.chr.choices = gdata["chr_names"]
 
     return render_template(
       "assoc/qc.html",
-      genome      = genome,
-      form        = form,
-      hist_data   = hist_data,
-      samp_num    = samp_num,
-      var_num     = var_num,
-      mdbin       = mdbin,
-      chr_names   = gdata["chr_names"],
-      chr_sizes   = gdata["chr_sizes"],
-      chr_offsets = gdata["chr_offsets"],
-      concat      = json.loads(config["concat"]),
-      saved_sets  = saved_sets)
+      genome       = genome,
+      form         = form,
+      hist_data    = hist_data,
+      samp_num     = samp_num,
+      var_num      = var_num,
+      mdbin        = mdbin,
+      chr_names    = gdata["chr_names"],
+      chr_sizes    = gdata["chr_sizes"],
+      chr_offsets  = gdata["chr_offsets"],
+      concat       = json.loads(config["concat"]),
+      saved_sets   = saved_sets,
+      saved_params = saved_params)
 
 ###############################################################################
 ### Apply filters to create new marker set, redirect

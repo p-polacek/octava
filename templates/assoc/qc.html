@@ -44,15 +44,73 @@
               </div>
             </div>
             <div id="pca-sample-div"></div>
+{# =========================================================== Filters from #}
+            <div class="row-div padded-top small-padded-bottom">
+              <div class="
+               row-input-div
+               justified">
+                {{ form.filt_ext.label(
+                 class="default-label bold") }}
+                {{ form.filt_ext(id="filt_ext-field", onchange="toggleFiltFrom();") }}
+              </div>
+              <img
+               class="aux-button clickable"
+               src="{{ url_for('serve_button', button='help') }}"
+               onclick="showHelp(event, 'filt-ext');" />
+            </div>
+            <span id="filt-from-div" class="collapsed">
+              <div class="row-div small-padded-bottom">
+                <button
+                 type="button"
+                 class="dropdown-button"
+                 onclick="showDropdown(event, this);">
+                  {{ form.filt_from.label(
+                   class="default-label bold") }}
+                  <span
+                   class="default-label tracker">
+                  </span>
+                </button>
+                <div id="filt_from-tracker" class="dropdown-menu collapsed">
+                  <div class="sticky non-transparent small-padding">
+                    <input
+                     type="text"
+                     class="search-bar"
+                     placeholder="Search..."
+                     onkeyup="filterDropdown(visibleDropdown);">
+                    <button
+                     type="button"
+                     disabled>
+                      Select all
+                    </button>
+                  </div>
+                  {% for choice in form.filt_from %}
+                    <div
+                     class="checkbox-row"
+                     oncontextmenu="contextMenu(
+                      event,
+                      {'action': 'markers',
+                       'markers': this.querySelector('label').textContent});">
+                      {{ choice(
+                       onchange="
+                        toggleFiltFrom();
+                        updateTracker(this.parentElement.parentElement);")}}
+                      {{ choice.label(
+                       class="checkbox-label") }}
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+            </span>
 {# ============================================================ Missingness #}
             <h2 class="padded-top">
               Missingness per:
             </h2>
             {% for thr_input in ("smiss", "vmiss") %}
               <div class="row-input-div justified small-padded-top">
-                {{ form[thr_input].label(
-                 class="default-label bold") }}
                 {% set input_id = thr_input + "-thresh" %}
+                {{ form[thr_input].label(
+                 for=input_id,
+                 class="default-label bold") }}
                 {{ form[thr_input](
                  class="small-num-input",
                  id=input_id,
@@ -65,9 +123,10 @@
             </h2>
             {% for thr_input in ("shet", "vhet") %}
               <div class="row-input-div justified small-padded-top">
-                {{ form[thr_input].label(
-                 class="default-label bold") }}
                 {% set input_id = thr_input + "-thresh" %}
+                {{ form[thr_input].label(
+                 for=input_id,
+                 class="default-label bold") }}
                 {{ form[thr_input](
                 class="small-num-input",
                 id=input_id,
@@ -80,6 +139,7 @@
             </h2>
             <div class="row-input-div justified small-padded-top">
               {{ form.maf.label(
+               for="maf-thresh",
                class="default-label bold") }}
               {{ form.maf(
                class="small-num-input",
@@ -92,6 +152,7 @@
             </h2>
             <div class="row-input-div justified small-padded-top">
               {{ form.hwe.label(
+               for="hwe-thresh",
                class="default-label bold") }}
               {{ form.hwe(
                class="small-num-input",
@@ -275,6 +336,7 @@
     var sizes       = {{ chr_sizes|tojson }};
     var histData    = {{ hist_data|tojson }};
 	var savedSets   = {{ saved_sets|tojson }};
+    var savedParams = {{ saved_params|tojson }};
     var offsets     = {{ chr_offsets|tojson }};
     var concatNames = {{ concat|tojson }};
 
@@ -288,6 +350,34 @@
       } else {
         bOptDiv.classList.add("collapsed");
         bParams(null);
+      }
+    }
+
+    function toggleFiltFrom() {
+      var filtExt = document.getElementById("filt_ext-field").checked;
+      var filtFields = ["smiss", "vmiss", "shet", "vhet", "maf", "hwe"];
+      if (filtExt) {
+        document.getElementById("filt-from-div").classList.remove("collapsed");
+        var filtFrom = document.querySelector("input[name='filt_from']:checked");
+        if (filtFrom != null) {
+          for (let i = 0; i < filtFields.length; i++) {
+            var savedThresh = savedParams[filtFrom.value][i];
+            var threshField = document.getElementById(filtFields[i] + "-thresh");
+            threshField.value = savedThresh;
+            threshField.disabled = "disabled";
+            threshField.style.backgroundColor = "#eee";
+            //document.querySelector(`label[for="${threshField.id}"]`).style.color = "#aaa";
+          }
+        }
+      } else {
+        document.getElementById("filt-from-div").classList.add("collapsed");        
+        for (let i = 0; i < filtFields.length; i++) {
+          var threshField = document.getElementById(filtFields[i] + "-thresh");
+          threshField.value = threshField.defaultValue;
+          threshField.disabled = "";
+          threshField.style.backgroundColor = "";
+          //document.querySelector(`label[for="${threshField.id}"]`).style.color = "";
+        }
       }
     }
 
@@ -326,7 +416,8 @@
       document.getElementById("choice-field").selectedIndex = 0;
       showPlot();
       bMethod();
-      
+      toggleFiltFrom();
+      updateTracker(document.getElementById("filt_from-tracker"));
     });
     window.addEventListener("resize", function() { resizePlot() });
 

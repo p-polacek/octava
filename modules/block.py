@@ -196,6 +196,7 @@ def block_genotype(
 
     progress(task_id, f"\rProgress: 100%", bold=False)
     progress(task_id, "", bold=False)
+    progress(task_id, "Saving genotyped blocks")
 
     in_b.close()
     # Filtered data

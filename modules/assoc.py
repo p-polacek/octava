@@ -581,100 +581,121 @@ def filt_qc(
     if not os.path.exists(stats_dir):
         os.makedirs(stats_dir)
 
-    # Filter based on missingness
-    if data["smiss"] or data["vmiss"]:
-        plink_intmd = plink_out + ".miss"
-        cmd = [plink2_path, "--vcf", f"{plink_in}.vcf.gz"]
-        cmd = cmd + ["--mind", str(data["smiss"])] if data["smiss"] else cmd
-        cmd = cmd + ["--geno", str(data["vmiss"])] if data["vmiss"] else cmd
-        cmd = cmd + [
-          "--allow-extra-chr",
-          "--export", "vcf", "bgz", "id-paste=iid",
-          "--out", plink_intmd]
-        progress(task_id, "Applying missingnes filters")
-        popen(task_id, cmd)
-    else:
-        progress(task_id, "Skipping missingness filtering", bold=False)
-        plink_intmd = plink_in
+    if data["filt_ext"] and data["filt_from"]:
+        full_root = os.path.join(
+          data_dir,
+          genome,
+          "assoc",
+          data["filt_from"],
+          "gt",
+          "gt.full")
+        for ext in (".bed", ".bim", ".fam", ".vcf.gz"):
+            if not os.path.exists(plink_out + ext):
+                os.link(
+                  os.path.abspath(full_root + ext),
+                  plink_out + ".full" + ext)
 
-    # Prepare heterozygosity filters
-    if data["shet"]:
-        shet_exc = os.path.join(
+        vcf_in = full_root + ".vcf.gz"
+        full_root = os.path.join(
           filt_dir,
-          "shet_exclude.txt")
-        df = pd.read_hdf(
-          os.path.join(stats_dir, "shet.h5"),
-          chunksize=100000)
-        for chk in df:
-            chk.columns = pd.RangeIndex(chk.columns.size)
-            chk[chk[1] > float(data["shet"])][0].to_csv(
-              shet_exc,
-              mode="a",
-              index=False,
-              header=False)
-    if data["vhet"]:
-        vhet_exc = os.path.join(
-          filt_dir,
-          "vhet_exclude.txt")
-        df = pd.read_hdf(
-          os.path.join(stats_dir, "vhet.h5"),
-          chunksize=100000)
-        for chk in df:
-            chk.columns = pd.RangeIndex(chk.columns.size)
-            chk[chk[1] > float(data["vhet"])][0].to_csv(
-              vhet_exc,
-              mode="a",
-              index=False,
-              header=False)
+          "gt.full")
+        full_vcf = f"{full_root}.vcf.gz"
 
-    # Filter based on remaining thresholds
-    if any(data[f] for f in ("shet", "vhet", "maf", "hwe")):
-        plink_filt = plink_out + ".filt"
-        cmd = [plink2_path, "--vcf", f"{plink_intmd}.vcf.gz"]
-        cmd = cmd + ["--remove", shet_exc] if data["shet"] else cmd
-        cmd = cmd + ["--exclude", vhet_exc] if data["vhet"] else cmd
-        cmd = cmd + ["--maf", str(data["maf"])] if data["maf"] else cmd
-        cmd = cmd + ["--hwe", str(10**(-data["hwe"]))] if data["hwe"] else cmd
-        cmd = cmd + [
-          "--allow-extra-chr",
-          "--export", "vcf", "bgz", "id-paste=iid",
-          "--out", plink_filt]
-        progress(task_id, "Applying remaining filters")
-        popen(task_id, cmd)
     else:
-        progress(task_id, "Skipping additional filtering", bold=False)
+        # Filter based on missingness
         if data["smiss"] or data["vmiss"]:
-            plink_filt = plink_intmd
+            plink_intmd = plink_out + ".miss"
+            cmd = [plink2_path, "--vcf", f"{plink_in}.vcf.gz"]
+            cmd = cmd + ["--mind", str(data["smiss"])] if data["smiss"] else cmd
+            cmd = cmd + ["--geno", str(data["vmiss"])] if data["vmiss"] else cmd
+            cmd = cmd + [
+              "--allow-extra-chr",
+              "--export", "vcf", "bgz", "id-paste=iid",
+              "--out", plink_intmd]
+            progress(task_id, "Applying missingnes filters")
+            popen(task_id, cmd)
         else:
-            plink_filt = plink_in
+            progress(task_id, "Skipping missingness filtering", bold=False)
+            plink_intmd = plink_in
 
-    # Impute missing genotypes
-    beagle_path = os.path.join(
-      tool_dir,
-      "beagle.jar")
+        # Prepare heterozygosity filters
+        if data["shet"]:
+            shet_exc = os.path.join(
+              filt_dir,
+              "shet_exclude.txt")
+            df = pd.read_hdf(
+              os.path.join(stats_dir, "shet.h5"),
+              chunksize=100000)
+            for chk in df:
+                chk.columns = pd.RangeIndex(chk.columns.size)
+                chk[chk[1] > float(data["shet"])][0].to_csv(
+                  shet_exc,
+                  mode="a",
+                  index=False,
+                  header=False)
+        if data["vhet"]:
+            vhet_exc = os.path.join(
+              filt_dir,
+              "vhet_exclude.txt")
+            df = pd.read_hdf(
+              os.path.join(stats_dir, "vhet.h5"),
+              chunksize=100000)
+            for chk in df:
+                chk.columns = pd.RangeIndex(chk.columns.size)
+                chk[chk[1] > float(data["vhet"])][0].to_csv(
+                  vhet_exc,
+                  mode="a",
+                  index=False,
+                  header=False)
 
-    vcf_in = plink_filt + ".vcf.gz"
-    full_root = os.path.join(
-      filt_dir,
-      "gt.full")
-    full_vcf = f"{full_root}.vcf.gz"
+        # Filter based on remaining thresholds
+        if any(data[f] for f in ("shet", "vhet", "maf", "hwe")):
+            plink_filt = plink_out + ".filt"
+            cmd = [plink2_path, "--vcf", f"{plink_intmd}.vcf.gz"]
+            cmd = cmd + ["--remove", shet_exc] if data["shet"] else cmd
+            cmd = cmd + ["--exclude", vhet_exc] if data["vhet"] else cmd
+            cmd = cmd + ["--maf", str(data["maf"])] if data["maf"] else cmd
+            cmd = cmd + ["--hwe", str(10**(-data["hwe"]))] if data["hwe"] else cmd
+            cmd = cmd + [
+              "--allow-extra-chr",
+              "--export", "vcf", "bgz", "id-paste=iid",
+              "--out", plink_filt]
+            progress(task_id, "Applying remaining filters")
+            popen(task_id, cmd)
+        else:
+            progress(task_id, "Skipping additional filtering", bold=False)
+            if data["smiss"] or data["vmiss"]:
+                plink_filt = plink_intmd
+            else:
+                plink_filt = plink_in
 
-    if data["imp"]:
-        progress(task_id, "Imputing missing genotypes")
-        popen(
-          task_id,
-          ["java",
-           "-jar",
-           beagle_path,
-           f"gt={vcf_in}",
-           f"out={full_root}"])
-        popen(
-          task_id,
-          [plink2_path,
-           "--vcf", full_vcf,
-           "--make-bed",
-           "--allow-extra-chr",
-           "--out", full_root])
+        # Impute missing genotypes
+        beagle_path = os.path.join(
+          tool_dir,
+          "beagle.jar")
+
+        vcf_in = plink_filt + ".vcf.gz"
+        full_root = os.path.join(
+          filt_dir,
+          "gt.full")
+        full_vcf = f"{full_root}.vcf.gz"
+
+        if data["imp"]:
+            progress(task_id, "Imputing missing genotypes")
+            popen(
+              task_id,
+              ["java",
+               "-jar",
+               beagle_path,
+               f"gt={vcf_in}",
+               f"out={full_root}"])
+            popen(
+              task_id,
+              [plink2_path,
+               "--vcf", full_vcf,
+               "--make-bed",
+               "--allow-extra-chr",
+               "--out", full_root])
 
     # Prune by LD
     if data["prune"]:
@@ -747,9 +768,6 @@ def filt_qc(
           min_haps,
           task_id)
 
-        for ext in (".bed", ".bim", ".fam"):
-            os.symlink(plink_out + ext, full_root + ext)
-
         progress(task_id, "Making haplotype VCF")
         popen(
           task_id,
@@ -757,8 +775,26 @@ def filt_qc(
            "--bfile", plink_out,
            "--export", "vcf", "bgz",
            "--allow-extra-chr",
+           #"--memory", "10000",
            "--out", full_root])
         kin_in =  plink_out + ".allhaps"
+        # Remove sequence length information from .bim file
+        os.rename(plink_out + ".bim", plink_out + ".lengths.bim")
+        (pd
+          .read_csv(
+            plink_out + ".lengths.bim",
+            sep="\t",
+            header=None,
+            index_col=None,
+            usecols=[0,1,2,3])
+          .assign(A1 = "A")
+          .assign(A2 = "T")
+          .to_csv(
+            plink_out + ".bim",
+            sep="\t",
+            header=False,
+            index=False))
+
     else:
         progress(task_id, "Processing filtered data")
         # Make necessary genotype format files
@@ -862,32 +898,58 @@ def filt_qc(
     bed = bed_reader.open_bed(f"{plink_out}.bed")
     samp_filt, var_filt = bed.iid_count, bed.sid_count
     # Save parameters and counts in a file
+    if data["filt_ext"] and data["filt_from"]:
+        params_path = os.path.join(
+          data_dir,
+          genome,
+          "assoc",
+          data["filt_from"],
+          "stats",
+          "params")
+        with open(params_path) as params_in:
+            saved_params = json.load(params_in)[1][1:7]
+        for idx, filt in enumerate(("smiss", "vmiss", "shet", "vhet", "maf", "hwe")):
+            data[filt] = saved_params[idx] if saved_params[idx] != "—" else ""
+    
     with open(params_fn, "w") as params_out:
         params = [
           ["",
-           "Sample heterozygosity",
            "Sample missingness",
-           "Variant heterozygosity",
-           "LD window",
-           "Variant LD",
            "Variant missingness",
-           "Variant -log10(HWE)",
+           "Sample heterozygosity",
+           "Variant heterozygosity",
            "Variant MAF",
+           "Variant -log10(HWE)",
+           "Variant LD",
+           "LD window",
            "Samples retained/original",
            "Markers retained/original",
            "Is a haplotype set"],
           ["Value",
-           float(data["shet"]) if data["shet"] else "-",
-           float(data["smiss"]) if data["smiss"] else "-",
-           float(data["vhet"]) if data["vhet"] else "-",
-           data["window"] if data["window"] else "-",
-           float(data["prune"]) if data["prune"] else "-",
-           float(data["vmiss"]) if data["vmiss"] else "-",
-           float(data["hwe"]) if data["hwe"] else "-",
-           float(data["maf"]) if data["maf"] else "-",
+           float(data["smiss"]) if data["smiss"] else "—",
+           float(data["vmiss"]) if data["vmiss"] else "—",
+           float(data["shet"]) if data["shet"] else "—",
+           float(data["vhet"]) if data["vhet"] else "—",
+           float(data["maf"]) if data["maf"] else "—",
+           float(data["hwe"]) if data["hwe"] else "—",
+           float(data["prune"]) if data["prune"] else "—",
+           data["window"] if data["window"] else "—",
            f"{samp_filt}/{samp_all}",
            f"{var_filt}/{var_all}",
            "Yes" if data["hap"] else "No"]]
+        if data["hap"]:
+            params[0].append("Block type")
+            if data["btype"] == "ld":
+                params[0].append("Max size (kb)")
+                params[1].append("LD-based")
+                params[1].append(data["bsize"])
+            else:
+                params[0].append("Block span")
+                params[0].append("Block step")
+                params[1].append("SNP number window" if data["btype"] == "snpwin" else "Base-pair window")
+                params[1].append(data["bspan"])
+                params[1].append(data["bstep"])
+            
         json.dump(params, params_out)
 
     # Clean up
@@ -910,7 +972,8 @@ def filt_qc(
       "gt.filt.log",
       "gt.filt.vcf.gz",
       "gt.full.log",
-      "gt.full.vcf.gz",
+      #"gt.full.vcf.gz",
+      "gt.lengths.bim",
       "gt.log",
       "gt.miss.log",
       "gt.miss.mindrem.id",

@@ -54,10 +54,12 @@ var helpTexts = {
    "<td style='width:45px; background-color: rgba(0, 204, 0, 0.65);'>0.5</td></tr></table>" +
   "</td></tr></table>",
 
+ "filt-ext":
+  "Re-apply filtering and imputation from existing marker set",
  "ld-prune":
-  "For each marker, removes all markers within <i>Window</i> with r-squared above <i>Threshold</i>.",
+  "For each marker, removes all markers within <i>Window</i> with r-squared above <i>Threshold</i>",
  "impute":
-  "Imputation and phasing carried out by <a target='_blank' href='http://faculty.washington.edu/browning/beagle/beagle.html'>BEAGLE</a>.",
+  "Imputation and phasing carried out by <a target='_blank' href='http://faculty.washington.edu/browning/beagle/beagle.html'>BEAGLE</a>",
  "haps":
   "<table><tr><th>LD-based</th><td>Constructed using the <a target='_blank' href='https://doi.org/10.1126/science.1069424'>Gabriel 2002</a> method<br>Blocks larger than <i>Max size</i> will be split.</td></tr>" +
   "<tr><th>SNP number window</th><td>Blocks of <i>span</i> markers, moving by <i>step</i> each time</td></tr>" +
