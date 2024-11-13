@@ -1046,80 +1046,94 @@
           plotDiv.on("plotly_click", function(data) {
             var marker = data.points[0];
             var markerId = marker.text.split("<br>")[0];
-            var markers = marker.data.Id[0];
-            if (data.event.button === 0) {
-              addLocus(markerId);
-            } else if (data.event.button === 1) {
-            var request = $.ajax({
-              url: "{{ url_for('fetch_ld') }}",
-              method: "POST",
-              data: {
-                genome: genome,
-                marker_id: markerId,
-              },
-              success: function(ldData) {
-                var ldVals = ldData.map(i => i[2]);
-                var traces = [];
-                const trace = {
-                  name: "LD to " + markerId,
-                  Id: [markers],
-                  traceType: "__ld__",
-                  mode: "markers",
-                  type: "scatter",
-                  yaxis: "y3",
-                  x: ldData.map(i => i[1] + offsetDict[i[0]]),
-                  y: ldVals,
-                  text: ldData.map(i => {
-                   return `${i[0]}:${i[1]
-                    .toString()
-                    .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
-                  }),
-                  hoverinfo: "text+y",
-                  hovertemplate: "%{text}<br>LD: %{y}",
-                  hoverlabel: {
-                    namelength: 0,
-                    bgcolor: "white",
-                  },
-                  marker: {
-                    size: 6,
-                    opacity: 1,
-                    color: ldVals,
-                  },
-                  colorscale: [
-                   [0, "rgb(208,208,208)"],
-                   [1, "rgb(208,0,0)"]],
-                };
-                traces.push(trace);
-
-                var currTraces = document.getElementById("live-plot").data;
-                var ldTrace = currTraces
-                  .map((trace, idx) => ({ trace, idx }))
-                  .filter(v => v.trace.traceType === "__ld__");
-                if (ldTrace.length !== 0) {
-                  console.log(ldTrace);
-                  Plotly.deleteTraces("live-plot", ldTrace[0].idx);
+            if (marker.data.traceType === "__genes__") {
+              var shapes = layout.shapes.slice();
+              var numShapes = shapes.length;
+              for (let i = 0; i < numShapes ; i++) {
+                if (shapes[i].geneId === markerId) {
+                  if (shapes[i].fillcolor === "#0f667a") {
+                    shapes[i].fillcolor = "#de3416";
+                  } else {
+                    shapes[i].fillcolor = "#0f667a";
+                  }
+                  break;
                 }
-                Plotly.addTraces("live-plot", traces);
               }
-            });
-
-
-
-            } else if (data.event.button === 2) {
-              var traces = plotDiv.data;
-              var traceId = traces[data.points[0].curveNumber].Id;
-              if (traceId != null) {
-                var [markers, model, trait] = traceId;
-                contextMenu(
-                  event,
-                  {action: "pve",
-                   markers: markers,
-                   model: model,
-                   trait: trait,
-                   pos: markerId});
-                return false;
-              } else {
-                showHelp(event, null, "PVE calculation is only supported for single traits.");
+              Plotly.update("live-plot", {}, {shapes: shapes});
+            } else {
+              var markers = marker.data.Id[0];
+              if (data.event.button === 0) {
+                addLocus(markerId);
+              } else if (data.event.button === 1) {
+              var request = $.ajax({
+                url: "{{ url_for('fetch_ld') }}",
+                method: "POST",
+                data: {
+                  genome: genome,
+                  marker_id: markerId,
+                },
+                success: function(ldData) {
+                  var ldVals = ldData.map(i => i[2]);
+                  var traces = [];
+                  const trace = {
+                    name: "LD to " + markerId,
+                    Id: [markers],
+                    traceType: "__ld__",
+                    mode: "markers",
+                    type: "scatter",
+                    yaxis: "y3",
+                    x: ldData.map(i => i[1] + offsetDict[i[0]]),
+                    y: ldVals,
+                    text: ldData.map(i => {
+                     return `${i[0]}:${i[1]
+                      .toString()
+                      .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+                    }),
+                    hoverinfo: "text+y",
+                    hovertemplate: "%{text}<br>LD: %{y}",
+                    hoverlabel: {
+                      namelength: 0,
+                      bgcolor: "white",
+                    },
+                    marker: {
+                      size: 6,
+                      opacity: 1,
+                      color: ldVals,
+                    },
+                    colorscale: [
+                     [0, "rgb(208,208,208)"],
+                     [1, "rgb(208,0,0)"]],
+                  };
+                  traces.push(trace);
+  
+                  var currTraces = document.getElementById("live-plot").data;
+                  var ldTrace = currTraces
+                    .map((trace, idx) => ({ trace, idx }))
+                    .filter(v => v.trace.traceType === "__ld__");
+                  if (ldTrace.length !== 0) {
+                    console.log(ldTrace);
+                    Plotly.deleteTraces("live-plot", ldTrace[0].idx);
+                  }
+                  Plotly.addTraces("live-plot", traces);
+                }
+              });
+  
+              } else if (data.event.button === 2) {
+                var traces = plotDiv.data;
+                var traceId = traces[data.points[0].curveNumber].Id;
+                if (traceId != null) {
+                  var [markers, model, trait] = traceId;
+                  contextMenu(
+                    event,
+                    {action: "pve",
+                     markers: markers,
+                     model: model,
+                     trait: trait,
+                     pos: markerId});
+                  return false;
+                } else {
+                  showHelp(event, null, "PVE calculation is only supported for single traits.");
+                }
               }
             }
           });
@@ -1186,6 +1200,7 @@
                     xref: "x",
                     yref: "y",
                     yaxis: "y",
+                    geneId: gene[0],
                     x0: offsetDict[gene[1]] + gene[2],
                     y0: 0,
                     x1: offsetDict[gene[1]] + gene[3],

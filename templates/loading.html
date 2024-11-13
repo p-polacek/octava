@@ -62,6 +62,7 @@
     var genome  = '{{ genome }}';
     var taskId  = '{{ task_id }}';
     var task    = '{{ task }}';
+    var form    = {{ form|tojson }};
     var redirectHref;
     if (task === "setup") {
       redirectHref = "{{ url_for('assoc_qc', genome=genome) }}";
@@ -161,7 +162,20 @@
     }
         
     document.addEventListener("DOMContentLoaded", function() {
-      document.getElementById("redirectLink").href = redirectHref;
+      if (form !== "") {
+        var formElem = document.createElement("form");
+        formElem.method = "POST";
+        formElem.action = redirectHref;
+        var input = document.createElement("input");
+        input.type = "hidden";
+        input.name = "data";
+        input.value = JSON.stringify(form);
+        formElem.appendChild(input);
+        document.body.appendChild(formElem);
+      } else {
+        document.getElementById("redirectLink").href = redirectHref;
+      }
+
       checkStatus(taskId);
     });
   </script>

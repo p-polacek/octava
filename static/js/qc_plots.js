@@ -44,7 +44,6 @@ function fetchChr() {
   }
   var chrDiv = document.getElementById("chr-div");
   var pcaSampDiv = document.getElementById("pca-sample-div");
-  console.log(pcaSampDiv);
   if (plotChoice === "ld") {
     chrDiv.classList.remove("collapsed");
     pcaSampDiv.classList.add("collapsed");
@@ -521,7 +520,6 @@ function showPlot() {
       width: chrData.map(v => v[1] - v[0]),
       opacity: 0.7,
     };
-    console.log(trace);
     traces.push(trace);
     var layout = {
       margin: {

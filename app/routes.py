@@ -292,7 +292,8 @@ def setup(genome):
           task      = "setup",
           task_id   = task_id,
           task_spec = task_spec,
-          warning   = warning)
+          warning   = warning,
+          form      = "")
 
 @app.route(
   "/<genome>/Edit",
@@ -586,6 +587,10 @@ def fa_res(genome):
     gdata = load_gdata(genome)
     config = load_config(genome)
     form = FuncAnalysisForm(request.form)
+    if form["fmt"].data is None:
+        saved_form = json.loads(request.form["data"])
+        form.process(data=saved_form)
+
     if request.method == "GET":
         form.process(data=session.get(genome + "_sev_form", {}))
 
@@ -760,14 +765,14 @@ def ann_sev(genome):
 
     task_queue.put((task_id, task_spec, task))
     form.ann_sev.data = ""
-    session[genome + "_sev_form"] = form.data
     return render_template(
       "loading.html",
       genome    = genome,
       task      = "sev",
       task_id   = task_id,
       task_spec = task_spec,
-      warning   = "")
+      warning   = "",
+      form      = form.data)
 
 ###############################################################################
 ### Association analysis redirect
@@ -907,7 +912,8 @@ def assoc_filt(genome):
           task      = "filt",
           task_id   = task_id,
           task_spec = task_spec,
-          warning   = "")
+          warning   = "",
+          form      = "")
 
 ###############################################################################
 ### Choose parameters for association analysis
@@ -1018,7 +1024,6 @@ def assoc_run(genome):
     errors = list()
     form = AssocResForm(request.form)
     data = form.data
-    session[genome + "_assoc_res_form"] = data
 
     res_dir = os.path.join(
       data_dir,
@@ -1093,7 +1098,8 @@ def assoc_run(genome):
               task      = "assoc" if not data["optimize"] else "rf_optim",
               task_id   = task_id,
               task_spec = task_spec,
-              errors    = errors)
+              errors    = errors,
+              form      = data)
 
         else:
             errors = ["Results already exist for all selected traits."]
@@ -1158,7 +1164,8 @@ def assoc_run(genome):
                   task      = "assoc",
                   task_id   = task_id,
                   task_spec = task_spec,
-                  errors    = errors)
+                  errors    = errors,
+                  form      = data)
             else:
                 errors = ["Results already exist for all selected groups."]
 
@@ -1168,14 +1175,16 @@ def assoc_run(genome):
 
 @app.route(
   "/<genome>/Association_analysis/Results",
-  methods=["GET"])
+  methods=["GET", "POST"])
 def assoc_res(genome):
     gdata = load_gdata(genome)
     config = load_config(genome)
     errors = list()
-    form = AssocResForm(request.form)
-    saved_form = session.get(genome + "_assoc_res_form", {})
-    form.process(data=saved_form)
+    form = AssocResForm()
+    saved_form = None
+    if request.method == "POST":
+        saved_form = json.loads(request.form["data"])
+        form.process(data=saved_form)
     if saved_form and not form["markers"].data:
         form["markers"].data = [form["markers_sgl"].data]
         form["models"].data = [form["model_sgl"].data]
@@ -1227,6 +1236,7 @@ def assoc_res(genome):
     concat  = json.loads(config["concat"])
 
     fm_data = list()
+    form["fm_ids"].choices = form["fm_ids"].data
     if form["fm_ids"].data is not None:
         for task_id in form["fm_ids"].data:
             fm_path = os.path.join(
@@ -1284,7 +1294,7 @@ def assoc_res(genome):
   methods=["POST"])
 def assoc_locus(genome):
     form = AssocResForm(request.form)
-    
+
     task_id = str(uuid.uuid4())
     task_spec = ("finemap", genome)
     task = (
@@ -1295,17 +1305,16 @@ def assoc_locus(genome):
 
     task_queue.put((task_id, task_spec, task))
     if not form.data["optimize"]:
-        if genome + "_assoc_res_form" in session.keys():
-            form["fm_ids"].data = session[genome + "_assoc_res_form"]["fm_ids"]
         form["fm_ids"].data.append(task_id)
-        session[genome + "_assoc_res_form"] = form.data
     return render_template(
       "loading.html",
       genome    = genome,
       task      = "finemap" if not form.data["optimize"] else "rf_optim",
       task_id   = task_id,
-      task_spec = task_spec)
+      task_spec = task_spec,
+      form      = form.data)
 
+"""
 @app.route(
   "/<genome>/Association_analysis/Locus/<task_id>",
   methods=["POST"])
@@ -1360,3 +1369,4 @@ def finemap(
       vis_win  = config["igv_vis"],
       height   = config["igv_h"],
       opt_hash = task_id)
+"""
