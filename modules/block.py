@@ -93,7 +93,7 @@ def block_genotype(
     smiss, shet = {s: 0 for s in samples}, {s: 0 for s in samples}
     vmiss, vhet = list(), list()
     spans, mcnts, hcnts, fhcnts, afs =  list(), list(), list(), list(), dict()
-    blocks, chrs, ps, ids = list(), list(), list(), list()
+    blocks, chrs, ps, ids, ends, idxs = list(), list(), list(), list(), list(), list()
     # Load files
     in_b = open(f"{gt_root}.blocks")
     total = sum(1 for _ in open(f'{gt_root}.blocks'))
@@ -176,6 +176,8 @@ def block_genotype(
             chrs.append(ch)
             ps.append(first_pos)
             ids.append(f"{m1}-{last_pos}_{idx+1}")
+            ends.append(last_pos)
+            idxs.append(idx+1)
 
         # Determine misingness and heterozygosity
         block_gts = np.stack(out_gt[-filt_haps.shape[0]:]).transpose()
@@ -207,6 +209,14 @@ def block_genotype(
             alleles_1.append("A" * span)
             alleles_2.append("T" * span)
 
+    (pd
+      .DataFrame(
+        {"end": ends,
+         "idx": idxs})
+      .to_csv(
+        gt_root + ".endmap",
+        sep="\t",
+        index=False))
     bed_reader.to_bed(
       out_bed,
       np.stack(out_gt, axis=0).transpose(),

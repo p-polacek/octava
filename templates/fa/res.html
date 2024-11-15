@@ -157,26 +157,30 @@
                   <div>
                     <span style="display: inline-block;">{{ ann[6] }}</span>
                     <span style="background-color: rgba(
-                    {{ [255, ann[6] * 510]|min *0.8 }},
-                    {{ (255 - [0, (ann[6] * 510) - 255]|max) *0.8 }},
-                    0,
-                    0.65); position: absolute; right: 0; width: 13px; height: 13px; margin-right: 5px; border-radius: 50%;"></span>
+                     {{ [255, ann[6] * 510]|min *0.8 }},
+                     {{ (255 - [0, (ann[6] * 510) - 255]|max) *0.8 }},
+                     0,
+                     0.65); position: absolute; right: 0; width: 13px; height: 13px; margin-right: 5px; border-radius: 50%;"></span>
                   </div>
                   <div>
                     <span style="display: inline-block;">{{ ann[7] }}</span>
-                    <span style="background-color: rgba(
-                     {{ [255, ann[7] * 510]|min *0.8 }},
-                     {{ (255 - [0, (ann[7] * 510) - 255]|max) *0.8 }},
-                     0,
-                     0.65); position: absolute; right: 0; width: 13px; height: 13px; margin-right: 5px; border-radius: 50%;"></span>
+                    {% if ann[7] != "—" %}
+                      <span style="background-color: rgba(
+                       {{ [255, ann[7] * 510]|min *0.8 }},
+                       {{ (255 - [0, (ann[7] * 510) - 255]|max) *0.8 }},
+                       0,
+                       0.65); position: absolute; right: 0; width: 13px; height: 13px; margin-right: 5px; border-radius: 50%;"></span>
+                    {% endif %}
                   </div>
                   <div>
                     <span style="display: inline-block;">{{ ann[8] }}</span>
-                    <span style="background-color: rgba(
-                     {{ (255 - [0, ((ann[8] * 510) - 255) *2]|max) *0.8 }},
-                     {{ [255, (ann[8] * 510) *2]|min *0.8 }},
-                     0,
-                     0.65); position: absolute; right: 0; width: 13px; height: 13px; margin-right: 5px; border-radius: 50%;"></span>
+                    {% if ann[8] != "—" %}
+                      <span style="background-color: rgba(
+                       {{ (255 - [0, ((ann[8] * 510) - 255) *2]|max) *0.8 }},
+                       {{ [255, (ann[8] * 510) *2]|min *0.8 }},
+                       0,
+                       0.65); position: absolute; right: 0; width: 13px; height: 13px; margin-right: 5px; border-radius: 50%;"></span>
+                    {% endif %}
                   </div>
                 </td>
               {% endfor %}
@@ -1022,17 +1026,12 @@
         return;
       }
 
-      var positions = table.querySelectorAll("tr")[2].querySelectorAll("td");
-      var chroms = table.querySelectorAll("tr")[1].querySelectorAll("td");
+      var positions = table.querySelectorAll("tr")[1].querySelectorAll("td");
       positions = selectedVars.map( i => positions[i]);
-      chroms = selectedVars.map( i => chroms[i]);
 
-      var varsArr = chroms.map((v, i) => {
-        return [
-          v.textContent.trim(),
-          positions[i].textContent.trim()].join(":");
-      });
+      var varsArr = positions.map(v => v.textContent.trim());
       var varNum = varsArr.length;
+      console.log(varsArr);
 
       // Separate genotype data by genotype trace, get phenotype data
       var traceData = {};
@@ -1074,7 +1073,7 @@
 
       gts.forEach( key => {
         if (Object.keys(traceData).includes(key)) {
-          var [positions, values, samples] = traceData[key]
+          var [positions, values, samples] = traceData[key];
           var trace = {
             x: positions,
             y: values,

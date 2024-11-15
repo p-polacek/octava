@@ -806,7 +806,6 @@ def assoc(genome):
             "assoc_opts",
             genome=genome))
     else:
-        _ = session.pop(genome + "_assoc_res_form", None)
         return redirect(
           url_for(
             "assoc_res",
@@ -858,7 +857,6 @@ def assoc_qc(genome):
           d,
           "init")
         if os.path.exists(init_path):
-            form.filt_from.choices.append(d)
             saved_sets.append(d.casefold())
             params_path = os.path.join(
               markers_root,
@@ -867,9 +865,11 @@ def assoc_qc(genome):
               "params")
             with open(params_path) as params_in:
                 params = json.load(params_in)
-            saved_params[d] = [
-              val if val != "—" else ""
-              for val in params[1][1:7]]
+            if params[1][11] == "No":
+                form.filt_from.choices.append(d)
+                saved_params[d] = [
+                  val if val != "—" else ""
+                  for val in params[1][1:7]]
 
     form.chr.choices = gdata["chr_names"]
 

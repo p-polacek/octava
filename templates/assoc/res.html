@@ -497,6 +497,18 @@
 
   <script>
 {# ======================================================= Static variables #}
+    const colorCycle = [
+      "#1f77b4",  // muted blue
+      "#ff7f0e",  // safety orange
+      "#2ca02c",  // cooked asparagus green
+      "#d62728",  // brick red
+      "#9467bd",  // muted purple
+      "#8c564b",  // chestnut brown
+      "#e377c2",  // raspberry yogurt pink
+      "#7f7f7f",  // middle gray
+      "#bcbd22",  // curry yellow-green
+      "#17becf"   // blue-teal
+    ];
     const chrNames = {{ chroms|tojson }};
     const chrSizes = {{ sizes|tojson }};
     const chrOffsets = {{ offsets|tojson }};
@@ -798,21 +810,41 @@
           if (mplotData[stringKey] != null) {
             var data = mplotData[stringKey];
             yMax = Math.max(yMax, data[0][2]);
+            console.log(data);
+            var isHap = false;
+            if (data.length > 0 && data[0].length === 5) {
+              isHap = true;
+            }
 
             var traceName = key;
             traceName[1] = modelsDict[traceName[1]];
             const trace = {
               name: traceName.join(", "),
+              legendgroup: traceName.join(", "),
               Id: key,
               mode: "markers",
               type: "scatter",
               yaxis: "y2",
-              x: data.map(i => i[1] + offsetDict[i[0]]),
+              x: data.map(i => {
+                if (isHap) {
+                  return i[1] + (i[3] - i[1]) / 2 + offsetDict[i[0]];
+                } else {
+                  return i[1] + offsetDict[i[0]];
+                }
+              }),
               y: data.map(i => i[2]),
               text: data.map(i => {
-               return `${i[0]}:${i[1]
-                .toString()
-                .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+                if (isHap) {
+                  return `${i[0]}:${i[1]
+                   .toString()
+                   .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}-${i[3]
+                   .toString()
+                   .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}_${i[4]}`;
+                } else {
+                  return `${i[0]}:${i[1]
+                   .toString()
+                   .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+                 }
               }),
               hoverinfo: "text+y",
               hovertemplate: "%{text}<br>log10(p): %{y}",
@@ -826,6 +858,28 @@
               },
             };
             traces.push(trace);
+            if (isHap) {
+              var xLines = [];
+              var yLines = [];
+              data.forEach(point => {
+                xLines.push(point[1] + offsetDict[point[0]], point[3] + offsetDict[point[0]], null);
+                yLines.push(point[2], point[2], null);
+              });
+              traces.push({
+                x: xLines,
+                y: yLines,
+                type: "scatter",
+                mode: "lines",
+                yaxis: "y2",
+                legendgroup: traceName.join(", "),
+                line: {
+                  width: 6,
+                  color: colorCycle[traces.length - 1],
+                },
+                hoverinfo: "skip",
+                showlegend: false,
+              });
+            }
           }
         });
 
@@ -848,6 +902,10 @@
               mode: "markers",
               name: name,
               yaxis: "y4",
+              marker: {
+                symbol: "triangle-up",
+                size: 8,
+              },
               text: FMRes.map(i => {
                return `${i[0]}:${i[1]
                 .toString()
@@ -865,7 +923,9 @@
 
         // Break long legend titles by newlines
         for (i = 0; i < traces.length; i++) {
-          traces[i].name = traces[i].name.replace(/(.{10,}?)[\s\_]/g, "$1<br>");
+          if (traces[i].name != null) {
+            traces[i].name = traces[i].name.replace(/(.{10,}?)[\s\_\-]/g, "$1<br>");
+          }
         }
 {# =========================================== Construct x-axis tick labels #}
         // Don't show scaffold labels and spans
@@ -1070,25 +1130,63 @@
                 method: "POST",
                 data: {
                   genome: genome,
+                  markers: markers,
                   marker_id: markerId,
                 },
                 success: function(ldData) {
+                  var isHap = false;
+                  if (ldData.length > 0 && ldData[0].length === 5) {
+                    isHap = true;
+                  }
+                  ldData = ldData.slice(0, -1);
                   var ldVals = ldData.map(i => i[2]);
                   var traces = [];
                   const trace = {
                     name: "LD to " + markerId,
+                    legendgroup: "LD to " + markerId,
                     Id: [markers],
                     traceType: "__ld__",
-                    mode: "markers",
+                    mode: "lines",
                     type: "scatter",
                     yaxis: "y3",
-                    x: ldData.map(i => i[1] + offsetDict[i[0]]),
-                    y: ldVals,
+                    fill: "tozeroy",
+                    fillgradient: {
+                      type: "vertical",
+                      colorscale: [[0,"rgba(208,208,208,0.5)"], [1,"rgba(208,0,0,0.5)"]],
+                      start: 0,
+                      stop: 1,
+                    },
+                    line: {
+                      width: 0,
+                    },
+                    x: ldData.map(i => {
+                      if (isHap) {
+                        return [i[1] + offsetDict[i[0]], i[3] + offsetDict[i[0]]];
+                      } else {
+                        return i[1] + offsetDict[i[0]];
+                      }
+                    }).flat(),
+                    y: ldVals.map(i => {
+                      if (isHap) {
+                        return [i, i];
+                      } else {
+                        return i;
+                      }
+                    }).flat(),
                     text: ldData.map(i => {
-                     return `${i[0]}:${i[1]
-                      .toString()
-                      .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
-                    }),
+                      if (isHap) {
+                        var txt = `${i[0]}:${i[1]
+                         .toString()
+                         .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}-${i[3]
+                         .toString()
+                         .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}_${i[4]}`;
+                        return [txt, txt];
+                      } else {
+                        return `${i[0]}:${i[1]
+                         .toString()
+                         .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+                       }
+                    }).flat(),
                     hoverinfo: "text+y",
                     hovertemplate: "%{text}<br>LD: %{y}",
                     hoverlabel: {
@@ -1115,6 +1213,7 @@
                     Plotly.deleteTraces("live-plot", ldTrace[0].idx);
                   }
                   Plotly.addTraces("live-plot", traces);
+                  
                 }
               });
   
@@ -1503,6 +1602,7 @@
 
         } else if (button.value === "av") {
           form.action = "{{ url_for('fa_opts', genome=genome) }}";
+          form.target = "_blank";
         } else if (button.value === "ld") {
           var LdPlot = document.getElementById("ld-plot");
           var livePlot = document.getElementById("live-plot");

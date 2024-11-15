@@ -168,7 +168,7 @@ def am_pipeline(genome, form):
           .to_dict())
 
     for group in query["samples_group"]:
-        query["samples"] += group.split(",")
+        query["samples"] += json.loads(group)
 
     # Get attribute names of additional information for genes
     if gconfig["info"]:
@@ -375,6 +375,7 @@ def am_pipeline(genome, form):
         samples = vcf_reader.header.samples
 
     # Initiate sample entries beforehand
+    print(query["samples"])
     for sample in samples:
         gts.append([])
 

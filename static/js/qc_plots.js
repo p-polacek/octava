@@ -261,12 +261,20 @@ function showPlot() {
       x: data[1],
       y: data[0],
       text: data[2],
+      textposition: "none",
       hoverinfo: "text+y",
-      hovertemplate: "%{text}",
+      hovertemplate: "%{text}<br>Count: %{y}",
+      hoverlabel: {
+        namelength: 0,
+        bgcolor: "white",
+      },
       marker: { color: "#47b023" },
     };
     traces.push(trace);
 
+    var lastChrIdx = chrNames.length - 1;
+    var xMax = sizes.reduce((s, a) => s + a, 0);
+    var yMax = Math.max(...data[0]) * 1.05;
     var layout = {
       title: {
         text: pTitles[plotChoice],
@@ -277,11 +285,18 @@ function showPlot() {
       xaxis: {
         tickvals: chrTicks,
         ticktext: chrNames,
-        gridcolor: "rgba(0,0,0,0.1)",
+        showgrid: false,
+        range: [0, xMax],
+        minallowed: 0,
+        maxallowed: xMax,
+        //gridcolor: "rgba(0,0,0,0.1)",
       },
       yaxis: {
         title: "Count",
         gridcolor: "rgba(0,0,0,0.1)",
+        range: [0, yMax],
+        minallowed: 0,
+        maxallowed: yMax,
       },
       margin: {
         l: 80,
@@ -517,6 +532,7 @@ function showPlot() {
       type: "bar",
       x: chrData.map(v => (v[0] + v[1]) / 2),
       y: chrData.map(v => v[2]),
+      textposition: "none",
       width: chrData.map(v => v[1] - v[0]),
       opacity: 0.7,
     };
@@ -571,6 +587,7 @@ function showPlot() {
         x: bins,
         y: hgts[i],
         opacity: 0.4,
+        textposition: "none",
       }
       traces.push(trace);
     };
@@ -590,6 +607,7 @@ function showPlot() {
       x: data[1],
       y: data[0],
       text: txt,
+      textposition: "none",
       hovertemplate: "%{text}<br>Count: %{y}",
       hoverlabel: {
         namelength: 0,
@@ -627,7 +645,7 @@ function showPlot() {
       },
       bargap: 0,
     };
-  
+
     var thresh = document.getElementById(plotChoice + "-thresh");
     if (thresh != null) {
       thresh = thresh.value;

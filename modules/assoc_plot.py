@@ -20,7 +20,8 @@ def mqplot(
   pos_col="Pos",
   pval_col="P.value",
   thresh=True,
-  qqplot=True):
+  qqplot=True,
+  end_col=None):
     gdata   = load_gdata(genome)
     chroms  = gdata["chr_names"]
     sizes   = {ch: size for ch, size in zip(chroms, gdata["chr_sizes"])}
@@ -28,6 +29,12 @@ def mqplot(
 
     in_df[ch_col] = in_df[ch_col].astype(str)
     in_df[pos_col] = in_df[pos_col] + in_df[ch_col].map(offsets)
+    if end_col:
+        start_col = "__start__"
+        in_df[start_col] = in_df.loc[:, pos_col]
+        in_df[end_col] = in_df[end_col] + in_df[ch_col].map(offsets)
+        in_df[pos_col] = in_df[start_col] + (in_df[end_col] - in_df[start_col]) / 2 
+        in_df["span"] = in_df[end_col] - in_df[start_col]
     if concat:
         in_df[ch_col] = in_df[ch_col].apply(
           lambda ch: (
@@ -53,6 +60,13 @@ def mqplot(
           label  = ch,
           s      = 4,
           zorder = 10)
+        if end_col:
+            ax1.hlines(
+              y     = data[pval_col],
+              xmin  = data[start_col],
+              xmax  = data[end_col],
+              color = color,
+              linewidth = 0.5)
 
     if thresh:
         ax1.axhline(

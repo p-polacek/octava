@@ -6,6 +6,7 @@ import pty
 import gzip
 import json
 import pysam
+import shutil
 import bed_reader
 import subprocess
 import numpy as np
@@ -582,6 +583,7 @@ def filt_qc(
         os.makedirs(stats_dir)
 
     if data["filt_ext"] and data["filt_from"]:
+        progress(task_id, f"Copying filters from {data['filt_from']}")
         full_root = os.path.join(
           data_dir,
           genome,
@@ -590,16 +592,13 @@ def filt_qc(
           "gt",
           "gt.full")
         for ext in (".bed", ".bim", ".fam", ".vcf.gz"):
-            if not os.path.exists(plink_out + ext):
+            if not os.path.exists(plink_out + ".full" + ext):
                 os.link(
                   os.path.abspath(full_root + ext),
                   plink_out + ".full" + ext)
 
-        vcf_in = full_root + ".vcf.gz"
-        full_root = os.path.join(
-          filt_dir,
-          "gt.full")
-        full_vcf = f"{full_root}.vcf.gz"
+        full_root = plink_out + ".full"
+        full_vcf = full_root + ".vcf.gz"
 
     else:
         # Filter based on missingness
@@ -703,7 +702,6 @@ def filt_qc(
         data["window"] = (
           str(data["window"]) + "kb"
           if str(data["window"]) else "200kb")
-
         popen(task_id,
           [plink2_path,
           "--vcf", full_vcf,
@@ -721,6 +719,10 @@ def filt_qc(
           "--out", plink_out]
         progress(task_id, "Pruning markers by LD")
         popen(task_id, cmd)
+    else:
+        os.link(
+          full_vcf,
+          plink_out + ".vcf.gz")
 
     gt_stats_dir = os.path.join(
       data_dir,
@@ -768,15 +770,52 @@ def filt_qc(
           min_haps,
           task_id)
 
-        progress(task_id, "Making haplotype VCF")
-        popen(
-          task_id,
-          [plink2_path,
-           "--bfile", plink_out,
-           "--export", "vcf", "bgz",
-           "--allow-extra-chr",
-           #"--memory", "10000",
-           "--out", full_root])
+        progress(task_id, "Making haplotype VCFs")
+        concat = json.loads(config["concat"])
+        for ch in gdata["chr_names"]:
+            if ch in concat:
+                continue
+            popen(
+              task_id,
+              [plink2_path,
+               "--bfile", plink_out,
+               "--chr", ch,
+               "--export", "vcf", "bgz",
+               "--allow-extra-chr",
+               "--out", plink_out + ch])
+        if concat:
+            popen(
+              task_id,
+              [plink2_path,
+               "--bfile", plink_out,
+               "--chr", *concat,
+               "--export", "vcf", "bgz",
+               "--allow-extra-chr",
+               "--out", plink_out + "other"])
+
+        progress(task_id, "Merging haplotype VCFs")
+        with pysam.BGZFile(plink_out + ".vcf.gz", "w") as vcf_out:
+            header_written = False
+            for ch in gdata["chr_names"]:
+                if ch in concat:
+                    continue
+                with gzip.open(plink_out + ch + ".vcf.gz", "rt") as vcf_in:
+                    for line in vcf_in:
+                        if line.startswith("#"):
+                            if not header_written:
+                                _ = vcf_out.write(line.encode())
+                        else:
+                            _ = vcf_out.write(line.encode())
+                header_written = True
+            if concat:
+                with gzip.open(plink_out + "other.vcf.gz", "rt") as vcf_in:
+                    for line in vcf_in:
+                        if not line.startswith("#"):
+                            _ = vcf_out.write(line.encode())
+        #pysam.tabix_index(
+        #  output_file,
+        #  preset="vcf")
+
         kin_in =  plink_out + ".allhaps"
         # Remove sequence length information from .bim file
         os.rename(plink_out + ".bim", plink_out + ".lengths.bim")
@@ -991,6 +1030,30 @@ def filt_qc(
             os.remove(fn_path)
 
     if data["hap"]:
+        for ch in gdata["chr_names"]:
+            if ch in concat:
+                continue
+            os.remove(plink_out + ch + ".vcf.gz")
+            os.remove(plink_out + ch + ".log")
+        if concat:
+            os.remove(plink_out + "other.vcf.gz")
+            os.remove(plink_out + "other.log")
+
+    if data["hap"]:
+        for ext in (
+          ".bed",
+          ".bim",
+          ".fam",
+          ".vcf.gz"):
+            fn_path = os.path.join(
+              filt_dir,
+              "gt.full" + ext)
+            if os.path.exists(fn_path):
+                os.remove(fn_path)
+            shutil.copy(
+              os.path.join(filt_dir, "gt" + ext),
+              fn_path)
+
         calc_chr_ld(
           genome,
           task_id,
@@ -1139,6 +1202,7 @@ def run_assoc(genome, params, task_id):
         for trait in params["traits"]:
             assoc_process(
               genome,
+              assoc_dir,
               f"BLINK_{trait}_GWAS_result.txt",
               f"{model}.{trait}",
               out_dir,
@@ -1330,13 +1394,35 @@ def run_assoc(genome, params, task_id):
               end_col=1,
               line_skip=1, force=True)
 
-            (res
-              .sort_values(
-                by="Imp",
-                ascending=False)
-              .head(5000)
-              .reset_index(drop=True)
-              .to_feather(out_feather))
+            with open(os.path.join(assoc_dir, "stats", "params")) as params_in:
+                is_hap = json.load(params_in)[1][11] == "Yes"
+            if is_hap:
+                endmap = (pd
+                  .read_csv(
+                    os.path.join(assoc_dir, "gt", "gt.endmap"),
+                    sep="\t",
+                    header=0,
+                    index_col=None))
+                res = (pd
+                  .concat(
+                    [res, endmap],
+                    axis=1))
+                (res
+                  .sort_values(
+                    by="Imp",
+                    ascending=False)
+                  .head(5000)
+                  .reset_index(drop=True)
+                  .to_feather(out_feather))
+            else:
+                (res
+                  .sort_values(
+                    by="Imp",
+                    ascending=False)
+                  .head(5000)
+                  .reset_index(drop=True)
+                  .to_feather(out_feather))
+
             mqplot_fig = mqplot(
               genome,
               res,
@@ -1346,7 +1432,8 @@ def run_assoc(genome, params, task_id):
               pos_col="Pos",
               pval_col="Imp",
               thresh=False,
-              qqplot=False)
+              qqplot=False,
+              end_col="end" if is_hap else None)
 
             os.remove(out_tsv)
             # Save parameters
@@ -1471,6 +1558,7 @@ def run_assoc(genome, params, task_id):
 
             assoc_process(
               genome,
+              assoc_dir,
               f"{model}.{trait_name}.assoc.txt",
               f"{model}.{trait_name}",
               out_dir,
@@ -1502,6 +1590,7 @@ def run_assoc(genome, params, task_id):
 
 def assoc_process(
   genome,
+  assoc_dir,
   assoc_fn,
   out_root,
   out_dir,
@@ -1516,7 +1605,7 @@ def assoc_process(
       out_dir,
       assoc_fn)
     processed_out = os.path.join(out_dir, out_root)
-    columns = [c for c in (ch_col, pos_col, pval_col, eff_col, se_col) if c]
+    columns = [c for c in (ch_col, pos_col, pval_col)]#, eff_col, se_col) if c]
 
     # Output files
     mqplot_fn   = f"{processed_out}.mqplot.png"
@@ -1536,8 +1625,8 @@ def assoc_process(
         .loc[:, columns]
         .assign(**{ch_col: lambda x: x[ch_col].map(chr_rename)}))
     #res = res[~pd.isna(res[ch_col])]
-    if eff_col:
-        res[eff_col] = res[eff_col].abs()
+    #if eff_col:
+    #    res[eff_col] = res[eff_col].abs()
     res.to_csv(
       out_tsv,
       sep="\t",
@@ -1553,15 +1642,36 @@ def assoc_process(
       end_col=1,
       line_skip=1, force=True)
 
-    # Save results for MP visualisation
     res[pval_col] = -np.log10(res[pval_col])
-    (res
-      .sort_values(
-        by=pval_col,
-        ascending=False)
-      .head(5000)
-      .reset_index(drop=True)
-      .to_feather(out_feather))
+    # Save results for MP visualisation
+    with open(os.path.join(assoc_dir, "stats", "params")) as params_in:
+        is_hap = json.load(params_in)[1][11] == "Yes"
+    if is_hap:
+        endmap = (pd
+          .read_csv(
+            os.path.join(assoc_dir, "gt", "gt.endmap"),
+            sep="\t",
+            header=0,
+            index_col=None))
+        res = (pd
+          .concat(
+            [res, endmap],
+            axis=1))
+        (res
+          .sort_values(
+            by=pval_col,
+            ascending=False)
+          .head(5000)
+          .reset_index(drop=True)
+          .to_feather(out_feather))
+    else:
+        (res
+          .sort_values(
+            by=pval_col,
+            ascending=False)
+          .head(5000)
+          .reset_index(drop=True)
+          .to_feather(out_feather))
     mqplot(
       genome,
       res,
@@ -1569,7 +1679,8 @@ def assoc_process(
       json.loads(config["concat"]),
       ch_col=ch_col,
       pos_col=pos_col,
-      pval_col=pval_col)
+      pval_col=pval_col,
+      end_col="end" if is_hap else None)
 
     os.remove(out_tsv)
     os.remove(assoc_out)

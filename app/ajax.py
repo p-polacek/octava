@@ -149,8 +149,11 @@ def fetch_locus_ld():
     gt_root = os.path.join(
       data_dir,
       genome,
-      "stats",
-      "gt")
+      #"stats",
+      "assoc",
+      markers,
+      "gt",
+      "gt.full")
     out_root = os.path.join(
       tmp_dir,
       task_id)
@@ -167,6 +170,13 @@ def fetch_locus_ld():
             else:
                 end = start
             _ = coord_out.write("\t".join((chrom, start, end)) + "\n")
+    print(repr(" ".join([plink2_path,
+       "--bfile", gt_root,
+       "--extract", "bed1", f"{out_root}.bed1",
+       #"--thin-count", "1000",
+       "--bp-space", str(span // 2000),
+       "--r2-unphased", "square0",
+       "--out", out_root])))
     pr = subprocess.run(
       [plink2_path,
        "--bfile", gt_root,
@@ -227,14 +237,25 @@ def fetch_chr_bdist():
 @app.route("/ld", methods=["POST"])
 def fetch_ld():
     form = request.form
-    task_id = str(uuid.uuid4())
+    markers = form["markers"]
     marker_id = form["marker_id"].replace(",", "")
-
-    in_root = os.path.join(
-      data_dir,
-      form["genome"],
-      "stats",
-      "gt")
+    task_id = str(uuid.uuid4())
+    is_hap = False
+    if "-" in marker_id and "_" in marker_id:
+        is_hap = True
+        in_root = os.path.join(
+          data_dir,
+          form["genome"],
+          "assoc",
+          markers,
+          "gt",
+          "gt")        
+    else:
+        in_root = os.path.join(
+          data_dir,
+          form["genome"],
+          "stats",
+          "gt")
     out_root = os.path.join(
       tmp_dir,
       task_id)
@@ -247,17 +268,43 @@ def fetch_ld():
        "--ld-window-r2", "0",
        "--out", out_root],
       check=True)
-    ld = (pd
-      .read_csv(
-        f"{out_root}.vcor",
-        sep="\t",
-        header=0,
-        index_col=None,
-        usecols=[3,4,6],
-        dtype={"CHROM_B": "str"})
-      .values.tolist())
-    ch, pos = marker_id.split(":")
-    ld.append([ch, int(pos), 1])
+    if is_hap:
+        ld = (pd
+          .read_csv(
+            f"{out_root}.vcor",
+            sep="\t",
+            header=0,
+            index_col=None,
+            usecols=[5,6])
+          .set_axis(
+            ["id", "val"],
+            axis=1))
+        ld[["chr", "start", "end", "idx"]] = ld["id"].str.split("[\:\-\_]", expand=True)
+        ld["start"] = ld["start"].astype(int)
+        ld["end"] = ld["end"].astype(int)
+
+        ch, start, end, idx = re.split("[\:\-\_]", marker_id)
+        ld.loc[len(ld)] = [marker_id, 1, ch, int(start), int(end), idx]
+        ld = ld.sort_values(by="start").groupby("start", as_index=False).apply(lambda x: x.loc[x["val"].idxmax()])
+        print(ld)
+        ld = (ld
+          [["chr", "start", "val", "end", "idx"]]
+          .values.tolist())
+        ld = sorted(ld, key=lambda x: x[1])
+        
+    else:
+        ld = (pd
+          .read_csv(
+            f"{out_root}.vcor",
+            sep="\t",
+            header=0,
+            index_col=None,
+            usecols=[3,4,6],
+            dtype={"CHROM_B": "str"})
+          .values.tolist())
+        ch, pos = marker_id.split(":")
+        ld.append([ch, int(pos), 1])
+        ld = sorted(ld, key=lambda x: x[1])
     return jsonify(ld)
 
 # Per-metric table data for GWAS QC filtering
