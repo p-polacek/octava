@@ -81,8 +81,8 @@ var helpTexts = {
  "assoc-res":
   "<table><tr><th>View run parameters</th><td>Right-click legend dataset or <i>Saved analyses</i> entry</td></tr>" +
   "<tr><th>View per-marker<br>percentage of variance explained</th><td>Right-click marker</td></tr>" +
-  "<tr><th>Add <i>Loci of interest</i></th><td>Left-click marker or zoom into a plot region and click (+)</td></tr>" +
-  "<tr><th>View per-marker LD</th><td>Middle-click marker (mouse wheel click)</td></tr></table>",
+  "<tr><th>Add <i>Loci of interest</i></th><td>Middle-click (mouse wheel click) marker or zoom into a plot region and click (+)</td></tr>" +
+  "<tr><th>View per-marker LD</th><td>Left-click marker</td></tr></table>",
  "as-group":
   "<table><tr><th>Plot as groups</th><td>Groups results per <i>Window</i> (moving with a step of half the <i>Window</i> size)<br>Plots as a single marker, with the size representing the number of runs with<br>significant association within the window (at or above <i>Threshold</i>)<br>Traits must be saved as a <i>Trait group</i> to plot as groups</td></tr>" +
   "<tr><th>Plot averages</th><td>Plot the average significance and average position of peak markers<br>(by default, plots the position and significance of the most significant peak marker)</td></tr>" +

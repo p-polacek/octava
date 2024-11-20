@@ -799,7 +799,7 @@
 //        name: traitA + " - " + traitB,
         name: "<i>All samples</i>",
         Id: [traitB, traitA],
-        type: "scatter",
+        type: "scattergl",
         mode: "markers",
         xaxis: xaxis,
         yaxis: yaxis,
@@ -838,7 +838,7 @@
 //          name: traitA + " - " + traitB,
           name: "<i>Selected samples</i>",
           Id: [traitB, traitA],
-          type: "scatter",
+          type: "scattergl",
           mode: "markers",
           xaxis: xaxis,
           yaxis: yaxis,
@@ -883,7 +883,7 @@
 //          name: traitA + " - " + traitB,
           name: groupName,
           Id: [traitB, traitA],
-          type: "scatter",
+          type: "scattergl",
           mode: "markers",
           xaxis: xaxis,
           yaxis: yaxis,
@@ -1495,7 +1495,7 @@
       } else {
         var transformName = "";
         while (transformName === "") {
-          var transformName = window.prompt("Trait name:");
+          var transformName = prompt("Trait name:");
         }
       }
       if (transformName != null) {

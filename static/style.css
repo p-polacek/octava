@@ -584,6 +584,12 @@ button {
 	white-space: nowrap;
 }
 
+.tracker {
+    max-width: 100px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;}
+
 /* Hide increment arrows for number input field */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {

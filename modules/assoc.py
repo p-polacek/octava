@@ -1919,7 +1919,7 @@ def assoc_finemap(
             usecols=[0,4])
           .assign(
             chr=lambda df: df.index.str.split(":").str[0],
-            pos=lambda df: df.index.str.split(":").str[1])
+            pos=lambda df: df.index.str.split(":").str[1].astype(int))
           [["chr", "pos", "postrb"]]
           .set_axis(
             ["chr", "pos", "val"],
@@ -1928,7 +1928,7 @@ def assoc_finemap(
             by="val",
             ascending=False)
           .head(5000)
-          .to_csv(
+          .to_feather(
             pip_out))
 
         # Save parameters

@@ -1009,7 +1009,7 @@ def assoc_opts(genome):
 
 @app.route(
   "/Optimize_RF/<task_id>",
-  methods=["GET"])
+  methods=["GET", "POST"])
 def rf_optim_view(task_id):
     optim_path = os.path.join(
       tmp_dir,

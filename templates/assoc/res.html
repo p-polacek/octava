@@ -514,6 +514,7 @@
     const chrOffsets = {{ offsets|tojson }};
     const modelsDict = {{ models|tojson }};
     const FMData = {{ fm_data|tojson }};
+    var highlightedGenes = [];
 
     var chrTicks = [];
     for (let i = 0; i < chrNames.length; i++) {
@@ -563,10 +564,12 @@
           if (
            !trace.hasOwnProperty("visible")
            || trace.visible !== "legendonly") {
-            visibleTraces.push(trace);
+             if (trace.Id != null) {
+              visibleTraces.push(trace);
+            }
           }
         });
-        if (visibleTraces.length !== 1 || visibleTraces[0].Id == null) {
+        if (visibleTraces.length !== 1) {
           showHelp(event, null, "Select exactly one dataset.");
           event.preventDefault();
         } else {
@@ -698,14 +701,12 @@
                 const trace = {
                   name: groupNames[i],
                   mode: "markers",
-                  type: "scatter",
-
+                  type: "scattergl",
                   x: traceData.map(i => i[0]),
                   y: yVals,
-
+                  yaxis: "y2",
                   marker: {
                     size: traceData.map(i => i[2] * 4 + 2),
-    //                opacity: 0.3,
                   },
                   text: traceData.map(i => {
                    return `${i[3]}<br><br>${i[4].join("<br>")}`;
@@ -810,7 +811,6 @@
           if (mplotData[stringKey] != null) {
             var data = mplotData[stringKey];
             yMax = Math.max(yMax, data[0][2]);
-            console.log(data);
             var isHap = false;
             if (data.length > 0 && data[0].length === 5) {
               isHap = true;
@@ -823,7 +823,7 @@
               legendgroup: traceName.join(", "),
               Id: key,
               mode: "markers",
-              type: "scatter",
+              type: "scattergl",
               yaxis: "y2",
               x: data.map(i => {
                 if (isHap) {
@@ -868,7 +868,7 @@
               traces.push({
                 x: xLines,
                 y: yLines,
-                type: "scatter",
+                type: "scattergl",
                 mode: "lines",
                 yaxis: "y2",
                 legendgroup: traceName.join(", "),
@@ -890,15 +890,15 @@
             if (name === "") {
               name = "PIP" + (i + 1)
             }
-            var FMVals = FMRes.map(i => i[2]);
+            var FMVals = FMRes.map(v => v[2]);
             yPipMax = Math.max(yPipMax, ...FMVals);
             traces.push({
-              x: FMRes.map(i => i[1] + offsetDict[i[0]]),
+              x: FMRes.map(v => v[1] + offsetDict[v[0]]),
               y: FMVals,
               Id: FMParams,
               taskId: taskId,
               traceType: "__fm__",
-              type: "scatter",
+              type: "scattergl",
               mode: "markers",
               name: name,
               yaxis: "y4",
@@ -906,8 +906,8 @@
                 symbol: "triangle-up",
                 size: 8,
               },
-              text: FMRes.map(i => {
-               return `${i[0]}:${i[1]
+              text: FMRes.map(v => {
+               return `${v[0]}:${v[1]
                 .toString()
                 .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
               }),
@@ -959,6 +959,9 @@
         }
 
         var layout = {
+          legend: {
+            x: 1.05,
+          },
           grid: {
             rows: 2,
             columns: 1,
@@ -1019,6 +1022,7 @@
             overlaying: "y2",
             //showgrid: false,
             //gridcolor: "blue",
+            griddash: "dash",
             side: "right",
             range: [0, 1.1], //yPipMax + 1],
             minallowed: 0,
@@ -1064,8 +1068,98 @@
           });
         }
 
+        var config = {
+          //editable: true,
+          modeBarButtonsToAdd: [
+            {
+              name: "Toggle legend",
+              icon: {
+                "width": 100,
+                "height": 100,
+                "path": "M 12.879834 14.90245 A 10.460726 10.460726 0 0 0 2.4189738 25.362793 A 10.460726 10.460726 0 0 0 12.879834 35.823653 A 10.460726 10.460726 0 0 0 23.340694 25.362793 A 10.460726 10.460726 0 0 0 12.879834 14.90245 z M 39.734526 20.261812 C 36.908574 20.261812 34.633545 22.536843 34.633545 25.362793 C 34.633545 28.188744 36.908574 30.463774 39.734526 30.463774 L 93.538477 30.463774 C 96.364428 30.463774 98.639457 28.188744 98.639457 25.362793 C 98.639457 22.536843 96.364428 20.261812 93.538477 20.261812 L 39.734526 20.261812 z M 12.879834 45.889189 A 10.460726 10.460726 0 0 0 2.4189738 56.350049 A 10.460726 10.460726 0 0 0 12.879834 66.810909 A 10.460726 10.460726 0 0 0 23.340694 56.350049 A 10.460726 10.460726 0 0 0 12.879834 45.889189 z M 39.734526 51.249068 C 36.908574 51.249068 34.633545 53.524098 34.633545 56.350049 C 34.633545 59.176 36.908574 61.451029 39.734526 61.451029 L 93.538477 61.451029 C 96.364428 61.451029 98.639457 59.176 98.639457 56.350049 C 98.639457 53.524098 96.364428 51.249068 93.538477 51.249068 L 39.734526 51.249068 z M 12.879834 76.876444 A 10.460726 10.460726 0 0 0 2.4189738 87.336788 A 10.460726 10.460726 0 0 0 12.879834 97.797648 A 10.460726 10.460726 0 0 0 23.340694 87.336788 A 10.460726 10.460726 0 0 0 12.879834 76.876444 z M 39.734526 82.235807 C 36.908574 82.235807 34.633545 84.510838 34.633545 87.336788 C 34.633545 90.162739 36.908574 92.438285 39.734526 92.438285 L 93.538477 92.438285 C 96.364428 92.438285 98.639457 90.162739 98.639457 87.336788 C 98.639457 84.510838 96.364428 82.235807 93.538477 82.235807 L 39.734526 82.235807 z ",
+              },
+              click: function(gd) {
+                Plotly.relayout(gd, { showlegend: !gd.layout.showlegend });
+              }
+            },
+            {
+              name: "Recolor traces",
+              icon: {
+                "width": 100,
+                "height": 100,
+                "path": "m 11.510409,11.366231 c -3.1216375,0 -5.6347986,2.513162 -5.6347986,5.634801 v 19.699573 c 0,3.121638 2.5131611,5.634282 5.6347986,5.634282 H 68.73844 c 3.121636,0 5.634798,-2.512644 5.634798,-5.634282 v -5.432227 h 7.968506 V 48.946369 L 41.662056,62.930528 c -1.784525,0.613529 -2.982544,2.292543 -2.982246,4.17959 v 25.453227 c 3.93e-4,2.439731 1.978087,4.417425 4.417818,4.417818 2.439731,-3.93e-4 4.417425,-1.978087 4.417818,-4.417818 V 70.262381 l 40.681755,-13.98416 c 1.784525,-0.613529 2.982544,-2.292543 2.982246,-4.17959 V 26.85056 C 91.17881,24.41093 89.201259,22.433379 86.761629,22.432742 H 74.373238 v -5.43171 c 0,-3.121639 -2.513162,-5.634801 -5.634798,-5.634801 z",
+              },
+              click: function(gd) {
+                var t;
+                var color;
+                var colors = colorCycle.slice();
+                var traceIdxs = [];
+                var traceColors = [];
+                var legendGroups = [];
+
+                for (let i = 0; i < gd.data.length; i++) {
+                  t = gd.data[i];
+                  if (t.traceType === "__fm__" || t.traceType == null) {
+                    if (t.legendgroup == null || !legendGroups.includes(t.legendgroup)) {
+                      if (colors.length === 0) {
+                        colors = colorCycle.slice();
+                      }
+                      color = colors.splice(Math.floor(Math.random() * colors.length), 1)[0];
+                      //var [r,g,b] = Array(3).fill().map(() => Math.floor(Math.random() * 208));
+                      //color = `rgb(${r}, ${g}, ${b})`;
+                      traceIdxs.push(i);
+                      traceColors.push(color);
+                      if (t.legendgroup != null) {
+                        legendGroups.push(t.legendgroup);
+                      }
+                    } else {
+                      traceIdxs.push(i);
+                      traceColors.push(traceColors[legendGroups.indexOf(t.legendgroup)]);
+                    }
+                  }
+                }
+                Plotly.restyle(
+                  "live-plot",
+                  {"line.color": traceColors,
+                   "marker.color": traceColors},
+                  traceIdxs);
+              }
+            },
+            {
+              name: "Rename trace",
+              icon: Plotly.Icons.pencil,
+              click: function(gd) {
+                var visibleTraces = [];
+                var visibleIdx = 0;
+                gd.data.forEach( function(trace, idx) {
+                  if (
+                   trace.showlegend !== false &&
+                   (!trace.hasOwnProperty("visible") ||
+                    trace.visible !== "legendonly")) {
+                    visibleTraces.push(trace.Id);
+                    visibleIdx = idx;
+                  }
+                });
+                if (visibleTraces.length !== 1) {
+                  showHelp(event, null, "Select exacly one trace to rename.");
+                } else {
+                  var traceName = "";
+                  while (traceName === "") {
+                    var traceName = prompt("Trace name:");
+                  }
+                }
+                if (traceName != null) {
+                  Plotly.restyle("live-plot", { name: traceName }, [visibleIdx])
+                }
+              }
+            },
+          ],
+          modeBarButtonsToRemove: [],
+        };
+
+
         if (traces.length > 0) {
-          Plotly.newPlot("live-plot", traces, layout);
+          Plotly.newPlot("live-plot", traces, layout, config);
 {# ======================================================== Event listeners #}
           var traceLabels = document.querySelectorAll(".legendtoggle");
           traceLabels.forEach( function(label) {
@@ -1107,24 +1201,24 @@
             var marker = data.points[0];
             var markerId = marker.text.split("<br>")[0];
             if (marker.data.traceType === "__genes__") {
-              var shapes = layout.shapes.slice();
-              var numShapes = shapes.length;
-              for (let i = 0; i < numShapes ; i++) {
-                if (shapes[i].geneId === markerId) {
-                  if (shapes[i].fillcolor === "#0f667a") {
-                    shapes[i].fillcolor = "#de3416";
-                  } else {
-                    shapes[i].fillcolor = "#0f667a";
+              if (highlightedGenes.includes(markerId)) {
+                highlightedGenes = highlightedGenes.filter(g => g !== markerId);
+                var numShapes = layout.shapes.length;
+                for (let i = 0; i < numShapes ; i++) {
+                  if (layout.shapes[i].geneId === markerId) {
+                    layout.shapes[i].fillcolor = "#0f667a";
+                    break;
                   }
-                  break;
                 }
+              } else {
+                highlightedGenes.push(markerId);
               }
-              Plotly.update("live-plot", {}, {shapes: shapes});
+              highlightGenes(layout);
             } else {
               var markers = marker.data.Id[0];
-              if (data.event.button === 0) {
+              if (data.event.button === 1) {
                 addLocus(markerId);
-              } else if (data.event.button === 1) {
+              } else if (data.event.button === 0) {
               var request = $.ajax({
                 url: "{{ url_for('fetch_ld') }}",
                 method: "POST",
@@ -1209,7 +1303,6 @@
                     .map((trace, idx) => ({ trace, idx }))
                     .filter(v => v.trace.traceType === "__ld__");
                   if (ldTrace.length !== 0) {
-                    console.log(ldTrace);
                     Plotly.deleteTraces("live-plot", ldTrace[0].idx);
                   }
                   Plotly.addTraces("live-plot", traces);
@@ -1332,6 +1425,7 @@
                   Plotly.deleteTraces("live-plot", genesTrace[0].idx);
                 }
                 Plotly.update("live-plot", {}, {shapes: shapes});
+                highlightGenes(layout);
                 Plotly.addTraces("live-plot", [trace]);
               }
             });
@@ -1346,6 +1440,17 @@
       }).fail(function() {
         alert("Something went wrong, please try again.");
       });
+    }
+
+    function highlightGenes(layout) {
+      var shapes = layout.shapes.slice();
+      var numShapes = shapes.length;
+      for (let i = 0; i < numShapes ; i++) {
+        if (highlightedGenes.includes(shapes[i].geneId)) {
+          shapes[i].fillcolor = "#de3416";
+        }
+      }
+      Plotly.update("live-plot", {}, {shapes: shapes});
     }
 {# ============================================================= Save locus #}
     function addLocus(locus) {

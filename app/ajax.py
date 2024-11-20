@@ -170,13 +170,6 @@ def fetch_locus_ld():
             else:
                 end = start
             _ = coord_out.write("\t".join((chrom, start, end)) + "\n")
-    print(repr(" ".join([plink2_path,
-       "--bfile", gt_root,
-       "--extract", "bed1", f"{out_root}.bed1",
-       #"--thin-count", "1000",
-       "--bp-space", str(span // 2000),
-       "--r2-unphased", "square0",
-       "--out", out_root])))
     pr = subprocess.run(
       [plink2_path,
        "--bfile", gt_root,
@@ -286,7 +279,6 @@ def fetch_ld():
         ch, start, end, idx = re.split("[\:\-\_]", marker_id)
         ld.loc[len(ld)] = [marker_id, 1, ch, int(start), int(end), idx]
         ld = ld.sort_values(by="start").groupby("start", as_index=False).apply(lambda x: x.loc[x["val"].idxmax()])
-        print(ld)
         ld = (ld
           [["chr", "start", "val", "end", "idx"]]
           .values.tolist())
@@ -466,7 +458,7 @@ def fetch_bblplot():
            
         group_df = pd.concat(group_data, axis=1)
 
-        for ch, data, in group_df.groupby(level=["Chr"]):
+        for ch, data, in group_df.groupby(level="Chr"):
             data.index = data.index.droplevel()
             data = data.sort_index()
 
@@ -719,7 +711,6 @@ def contextmenu():
               fn)
         elif action == "fm_run":
             task_id = request.form["task_id"]
-            print(task_id)
             fn = f"{task_id}.params"
             params_json = os.path.join(
               tmp_dir,
