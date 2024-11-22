@@ -25,4 +25,9 @@ Annotate_promoter_variants.py
 setup_standalone.py
 static/colors.txt
 static/logo_backup.svg
+static/plotly_down.svg
+static/plotly_legend.svg
+static/plotly_recolor.svg
+static/plotly_recolor_rbg.svg
+static/plotly_recolor_palette.svg
 static/unused_WUR_RGB_standard_2021.png

@@ -59,24 +59,37 @@
                 title="Copy selection from Genes table" />
           </div>
           <div class="relative">
-            <button
-             type="button"
-             id="var-button"
-             class="collapsed toggle-var-button"
-             onclick="toggleVariants();">
-              Select all
-            </button>
+            <div class="var-buttons">
+              <button
+               type="button"
+               class="collapsed var-button"
+               style="margin-right: 5px;" 
+               onclick="annotateSev();">
+               <b>Annotate severity</b>
+              </button>
+              <button
+               type="button"
+               class="collapsed var-button"
+               onclick="toggleVariants();">
+                <b>Select all</b>
+              </button>
+            </div>
           </div>
-      </div>
+        </div>
         <div
          id="vars-div"
          class="results-container collapsed margin-top scrollable">
-          <div>
-            <h2 style="padding-left: 2px;" class="small-padded-bottom">
-              <a href="#" onclick="annotateSev();">
-                Annotate variant severity
-              </a>
-            </h2>
+          <div class="sticky varbar-div">
+            <table id="varbar" style="width: 100%; table-layout: fixed; border-collapse: collapse;">
+              <tr>
+                {% for ann in anns %}
+                  <td
+                   id="{{ 'varbar' + loop.index0|string }}"
+                   class="var-sel"></td>
+                {% endfor %}
+              </tr>
+            </table>
+            <div id="highlight-rect" style="position: absolute; border: 2px solid red;"></div>
           </div>
           <table id="vars-table">
             <tr>
@@ -94,9 +107,10 @@
                 </div>
               </th>
               {% for ann in anns %}
+                {% set bar_id = 'varbar' + loop.index0|string %}
                 <td
                  class="center-text clickable"
-                 onclick="this.children[0].checked=!this.children[0].checked;">
+                 onclick="this.children[0].checked=!this.children[0].checked;document.getElementById('{{ bar_id }}').classList.toggle('var-sel', this.children[0].checked)">
                   <input
                    type="checkbox"
                    id="{{ 'var' + loop.index0|string }}"
@@ -105,6 +119,7 @@
                    len="{{ ann[3]|length }}"
                    class="var-checkbox"
                    onclick="event.stopPropagation();"
+                   onchange="document.getElementById('{{ bar_id }}').classList.toggle('var-sel', this.checked);"
                    checked>
                 </td>
               {% endfor %}
@@ -176,15 +191,15 @@
                     <span style="display: inline-block;">{{ ann[8] }}</span>
                     {% if ann[8] != "—" %}
                       <span style="background-color: rgba(
-                       {{ (255 - [0, ((ann[8] * 510) - 255) *2]|max) *0.8 }},
-                       {{ [255, (ann[8] * 510) *2]|min *0.8 }},
+                       {{ (255 - [0, (ann[8] * 1020) - 255]|max) *0.8 }},
+                       {{ [255, ann[8] * 1020]|min *0.8 }},
                        0,
                        0.65); position: absolute; right: 0; width: 13px; height: 13px; margin-right: 5px; border-radius: 50%;"></span>
                     {% endif %}
                   </div>
                 </td>
               {% endfor %}
-            <tr class="header-top">
+            <tr class="var-header-top">
               <th class="header-left">
                 Annotation
               </th>
@@ -781,6 +796,24 @@
   </script>
 {# ============================================================= JavaScript #}
   <script type="text/javascript">
+    const colorCycle = [
+      "#1f77b4",  // muted blue
+      "#ff7f0e",  // safety orange
+      "#2ca02c",  // cooked asparagus green
+      "#d62728",  // brick red
+      "#9467bd",  // muted purple
+      "#8c564b",  // chestnut brown
+      "#e377c2",  // raspberry yogurt pink
+      "#7f7f7f",  // middle gray
+      "#bcbd22",  // curry yellow-green
+      "#17becf"   // blue-teal
+    ];
+
+    var recolorMode = "cycle";
+    var lastClick = 0;
+    var delay = 200;
+    var clickTimeout;
+
     const igvConfig = {{ igv_conf|tojson|safe }};
     var igvDiv = document.getElementById("igv-div");
     if (igvDiv != null) {
@@ -846,31 +879,43 @@
     function toggleVariants() {
       var varCheckboxes = document.querySelectorAll(".var-checkbox");
       var selectAll = !varCheckboxes[0].checked;
-      varCheckboxes.forEach( function(checkbox) {
+      varCheckboxes.forEach( function(checkbox, idx) {
         checkbox.checked = selectAll;
+        document.getElementById("varbar" + idx).classList.toggle("var-sel", selectAll);
       });
     }
 
     function showToggleVars() {
-      var toggleVars = document.getElementById("var-button");
+      var varButtons = Array.from(document.getElementsByClassName("var-button"));
       var varsDiv = document.getElementById("vars-div");
       var varsHidden = varsDiv.classList.contains("collapsed");
-      toggleVars.classList.toggle("collapsed", varsHidden);
+      varButtons.forEach(function(button) {
+        button.classList.toggle("collapsed", varsHidden);
+      });
+
+      if (!varsDiv.classList.contains("collapsed")) {
+        if (varsDiv.clientWidth < varsDiv.scrollWidth) {
+          setVarBar();
+          var varCheckboxes = document.querySelectorAll(".var-checkbox");
+          varCheckboxes.forEach( function(checkbox, idx) {
+            document.getElementById("varbar" + idx).classList.toggle("var-sel", checkbox.checked);
+
+          document.getElementById("varbar").classList.remove("collapsed");
+          document.getElementById("highlight-rect").classList.remove("collapsed");
+          });
+        } else {
+          document.getElementById("varbar").classList.add("collapsed");
+          document.getElementById("highlight-rect").classList.add("collapsed");
+        }
+      }
     }
 
     function toggleExp(tableId) {
-      var projTable = document.getElementById("projects-table");
-      var runsTable = document.getElementById("runs-table");
-      var expPlot = document.getElementById("genexp-plot");
-
-      if (tableId === "projects-table") {
-        projTable.classList.remove("collapsed");
-        runsTable.classList.add("collapsed");
-      } else {
-        projTable.classList.add("collapsed");
-        runsTable.classList.remove("collapsed");
-      }
-      expPlot.classList.add("collapsed");
+      var targetTable = document.getElementById(tableId);
+      var otherId = tableId === "runs-table" ? "projects-table" : "runs-table";
+      targetTable.classList.toggle("collapsed", !targetTable.classList.contains("collapsed"));
+      document.getElementById(otherId).classList.add("collapsed");
+      document.getElementById("genexp-plot").classList.toggle("collapsed", !targetTable.classList.contains("collapsed"))
     }
 {# ========================================================== Apply filters #}
     function filterGenes() {
@@ -1031,7 +1076,6 @@
 
       var varsArr = positions.map(v => v.textContent.trim());
       var varNum = varsArr.length;
-      console.log(varsArr);
 
       // Separate genotype data by genotype trace, get phenotype data
       var traceData = {};
@@ -1124,6 +1168,8 @@
         var selectedPos = data.points[0].x;
         var checkbox = document.querySelector('[pos="' + selectedPos + '"]');
         checkbox.checked = !checkbox.checked;
+        checkboxIdx = checkbox.id.slice(3);
+        document.getElementById("varbar" + checkboxIdx).classList.toggle("var-sel", checkbox.checked);
 
         // Change the color of the clicked x-axis tick label
         var xClicked = data.points[0].x;
@@ -1253,25 +1299,27 @@
           }
           if (uniqueVal === "") {
             uniqueVal = "(blank)";
-         }
-
-         var trace = {
-            x: geneValues,
-            y: expValues,
-            type: "box",
-            name: uniqueVal + " (n=" + Math.round(
-              expValues.length / selectedGenes.length) + ")",
-            hoverinfo: "x+text",
-            hovertext: hoverValues,
-            boxpoints: expJitter ? "all" : "outliers",
-            jitter: 0.9,
-            pointpos: 0,
-          };
-          if (false && colors[colLabel]) {
-            trace["marker"] = { color: colors[colLabel][uniqueVal] };
-            trace["fillcolor"] = colors[colLabel][uniqueVal];
           }
-          traces.push(trace);
+
+          if (expValues.length > 0) {
+            var trace = {
+              x: geneValues,
+              y: expValues,
+              type: "box",
+              name: uniqueVal + " (n=" + Math.round(
+                expValues.length / selectedGenes.length) + ")",
+              hoverinfo: "x+text",
+              hovertext: hoverValues,
+              boxpoints: expJitter ? "all" : "outliers",
+              jitter: 0.9,
+              pointpos: 0,
+            };
+            if (false && colors[colLabel]) {
+              trace["marker"] = { color: colors[colLabel][uniqueVal] };
+              trace["fillcolor"] = colors[colLabel][uniqueVal];
+            }
+            traces.push(trace);
+          }
         }
       }
 
@@ -1285,11 +1333,13 @@
         yaxis: {
           title: "Expression quantile",
           tickformat: ".2f",
+          range: [0,1],
+          autorange: false,
         },
         xaxis: {
           tickangle: 20,
           automargin: true,
-          showgrid: true,
+          showgrid: false,
         },
 //        automargin: true,
         margin: {
@@ -1301,6 +1351,132 @@
         },
       };
 
+      var config = {
+        editable: false,
+        modeBarButtonsToAdd: [
+          {
+            name: "Toggle legend",
+            icon: {
+              "width": 100,
+              "height": 100,
+              "path": "M 12 14 A 10 10 0 0 0 2 25 A 10 10 0 0 0 12 35 A 10 10 0 0 0 23 25 A 10 10 0 0 0 12 14 z M 39 20 C 36 20 34 22 34 25 C 34 28 36 30 39 30 L 93 30 C 96 30 98 28 98 25 C 98 22 96 20 93 20 L 39 20 z M 12 45 A 10 10 0 0 0 2 56 A 10 10 0 0 0 12 66 A 10 10 0 0 0 23 56 A 10 10 0 0 0 12 45 z M 39 51 C 36 51 34 53 34 56 C 34 59 36 61 39 61 L 93 61 C 96 61 98 59 98 56 C 98 53 96 51 93 51 L 39 51 z M 12 76 A 10 10 0 0 0 2 87 A 10 10 0 0 0 12 97 A 10 10 0 0 0 23 87 A 10 10 0 0 0 12 76 z M 39 82 C 36 82 34 84 34 87 C 34 90 36 92 39 92 L 93 92 C 96 92 98 90 98 87 C 98 84 96 82 93 82 L 39 82 z ",
+            },
+            click: function(gd) {
+              Plotly.relayout(gd, { showlegend: !gd.layout.showlegend });
+            }
+          },
+          {
+            name: "Move traces down",
+            icon: {
+              "width": 100,
+              "height": 100,
+              "path": "m 48,12 c -2,10e-7 -5,2 -5,5 V 61 L 33,50 c -1,-1 -5,-1 -7,0 l -1,1 c -1,1 -1,5 -10e-7,7 L 44,80 c 0,0 2,1 3,1 0,0 0,-0 0,-0 0,0 0,0 0,0 H 47 13 c -2,0 -5,2 -5,5 l 0,2 c -7e-7,2 2,5 5,5 l 72,2e-6 c 2,10e-7 5,-2 5,-5 l -1e-6,-2 c 0,-2 -2,-5 -5,-5 l -34,2e-6 -0,-1e-6 c 0,1e-6 0,-0 0,-0 0,0 0,0 0,0 1,0 2,-0 3,-1 L 75,59 c 1,-1 1,-5 10e-7,-7 l -1,-1 c -1,-1 -5,-1 -7,10e-7 l -10,10 0,-43 c -10e-7,-2 -2,-5 -5,-5 z",
+            },
+            click: function(gd) {
+              var visibleIdxs = [];
+              gd.data.forEach( function(trace, idx) {
+                if (
+                 trace.showlegend !== false &&
+                 (!trace.hasOwnProperty("visible") ||
+                  trace.visible !== "legendonly")) {
+                  visibleIdxs.push(idx);
+                }
+              });
+              Plotly.moveTraces(gd, visibleIdxs);
+            }
+          },
+          {
+            name: "Recolor traces (double-click to change mode)",
+            icon: {
+              "width": 100,
+              "height": 100,
+              "path": "m 11,11 c -3,0 -5,2 -5,5 v 19 c 0,3 2,5 5,5 H 68 c 3,0 5,-2 5,-5 v -5 h 7 V 48 L 41,62 c -1,0 -2,2 -2,4 v 25 c 3e-4,2 1,4 4,4 2,-3e-4 4,-1 4,-4 V 70 l 40,-13 c 1,-0 2,-2 2,-4 V 26 C 91,24 89,22 86,22 H 74 v -5 c 0,-3 -2,-5 -5,-5 z",
+            },
+            click: function(gd) {
+              var clickEvent = event;
+              if (clickTimeout) {
+                clearTimeout(clickTimeout);
+                recolorMode = recolorMode === "cycle" ? "custom" : "cycle";
+                clickTimeout = null;
+              } else {
+                clickTimeout = setTimeout(function() {
+                  if (recolorMode === "cycle") {
+                    var t;
+                    var color;
+                    var colors = colorCycle.slice();
+                    var traceIdxs = [];
+                    var traceColors = [];
+                    var legendGroups = [];
+  
+                    for (let i = 0; i < gd.data.length; i++) {
+                      t = gd.data[i];
+                      if (colors.length === 0) {
+                        colors = colorCycle.slice();
+                      }
+                      color = colors.splice(Math.floor(Math.random() * colors.length), 1)[0];
+                      //var [r,g,b] = Array(3).fill().map(() => Math.floor(Math.random() * 208));
+                      //color = `rgb(${r}, ${g}, ${b})`;
+                      traceIdxs.push(i);
+                      traceColors.push(color);
+                      if (t.legendgroup != null) {
+                        legendGroups.push(t.legendgroup);
+                      }
+                    }
+                  } else {
+                    var visibleTraces = [];
+                    var visibleIdx = 0;
+                    gd.data.forEach( function(trace, idx) {
+                      if (
+                       trace.showlegend !== false &&
+                       (!trace.hasOwnProperty("visible") ||
+                        trace.visible !== "legendonly")) {
+                        visibleTraces.push(trace.Id);
+                        visibleIdx = idx;
+                      }
+                    });
+                    if (visibleTraces.length !== 1) {
+                      showHelp(clickEvent, null, "Select exacly one trace to recolor.");
+                      clickTimeout = null;
+                      return false;
+                    } else {
+                      var traceColor = "";
+                      while (traceColor === "") {
+                        var traceColor = prompt("Trace color:");
+                      }
+                    }
+                    if (traceColor == null) {
+                      clickTimeout = null;
+                      return false;
+                    }
+                    traceColors = [traceColor];
+                    traceIdxs = [visibleIdx];
+                  }
+                  Plotly.restyle(
+                    "genexp-plot",
+                    {"line.color": traceColors,
+                     "marker.color": traceColors},
+                    traceIdxs);
+  
+                  clickTimeout = null;
+                }, delay);
+              }
+            }
+          },
+          {
+            name: "Edit plot",
+            icon: Plotly.Icons.pencil,
+            click: function(gd) {
+              Plotly.newPlot(
+                gd.id,
+                gd.data,
+                gd.layout,
+                { ...gd._context, editable: !gd._context.editable});
+            }
+          },
+        ],
+        modeBarButtonsToRemove: [],
+      };
+
       // Break long legend titles by newlines
       for (let i = 0; i < traces.length; i++) {
         traces[i].name = traces[i].name.replace(/(.{15,}?)\s/g, "$1<br>");
@@ -1310,7 +1486,7 @@
       document.getElementById("projects-table").classList.add("collapsed");
       document.getElementById("genexp-plot").classList.remove("collapsed");
 
-      Plotly.newPlot("genexp-plot", traces, layout);
+      Plotly.newPlot("genexp-plot", traces, layout, config);
 
       var plotDiv = document.getElementById("genexp-plot");
       plotDiv.on("plotly_click", function(data){
@@ -1470,6 +1646,7 @@
         var checkbox = varBoxes[i];
         if (!visibleGenes.includes(checkbox.getAttribute("gene"))) {
           checkbox.checked = false;
+          document.getElementById("varbar" + i).classList.toggle("var-sel", checkbox.checked);
         }
       }
     }
@@ -1572,7 +1749,6 @@
       }).map( c => {
         return c.getAttribute("pos").replaceAll(",", "");
       });
-      console.log( JSON.stringify(selectedVars));
       document.getElementById("ann_sev").value = JSON.stringify(selectedVars);
       var form = document.querySelector("form");
       form.action = "{{ url_for('ann_sev', genome=genome) }}";
@@ -1615,6 +1791,25 @@
         geneIds.push(exp[0]);
       });
 	}
+
+    function setVarBar() {
+      var varsDiv = document.getElementById("vars-div");
+      var varBar = document.getElementById("varbar");
+      var highlightRect = document.getElementById("highlight-rect");
+      var headerWidth = document.getElementById("vars-table").querySelector("th").clientWidth;
+      var varsFrom = varsDiv.scrollLeft / (varsDiv.scrollWidth - headerWidth);
+      var varsTo = (varsDiv.scrollLeft + varsDiv.clientWidth - headerWidth) / (varsDiv.scrollWidth - headerWidth);
+
+      const varBarWidth = varBar.offsetWidth;
+      const startX = varsFrom * varBarWidth;
+      const endX = varsTo * varBarWidth;
+      const rectWidth = endX - startX;
+
+      highlightRect.style.left = `${startX}px`;
+      highlightRect.style.top = `0px`;
+      highlightRect.style.width = `${rectWidth}px`;
+      highlightRect.style.height = `${varBar.offsetHeight - 4}px`;
+    }
 
     document.addEventListener("DOMContentLoaded", () => {
       // Reset scrolling
@@ -1676,6 +1871,13 @@
       popupClickedRetain(helpPopup);
     });
 
+    var varsDiv = document.getElementById("vars-div");
+    if (varsDiv != null) {
+      varsDiv.addEventListener("scroll", function(event) {
+        setVarBar()
+      });
+    }
+
     // Hide shown popup on click
     document.addEventListener("click", function(event) {
       if (visibleDropdown != null) {
@@ -1711,4 +1913,3 @@
     {% include "fa/opts_scripts.html" %}
     </script>
 {% endblock %}
-

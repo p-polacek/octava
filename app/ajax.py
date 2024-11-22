@@ -177,6 +177,7 @@ def fetch_locus_ld():
        #"--thin-count", "1000",
        "--bp-space", str(span // 2000),
        "--r2-unphased", "square0",
+       "--silent",
        "--out", out_root],
       check=True,
       text=True,
@@ -259,6 +260,7 @@ def fetch_ld():
        "--ld-snp", marker_id,
        "--ld-window-kb", "1000",
        "--ld-window-r2", "0",
+       "--silent",
        "--out", out_root],
       check=True)
     if is_hap:

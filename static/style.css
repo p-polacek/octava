@@ -577,7 +577,7 @@ button {
 	font-size: 1em;
 }
 
-.toggle-var-button {
+.var-buttons {
 	position: absolute;
 	right: 0;
 	top: 0;
@@ -667,6 +667,12 @@ table td {
 	z-index: 2;
 }
 
+.var-header-top {
+	position: sticky;
+	top: 20px;
+	z-index: 2;
+}
+
 .selected {
 	background-color: #85ed87;
 }
@@ -701,3 +707,13 @@ td .resizable {
 	overflow: hidden;
 }
 
+.var-sel {
+    background-color: #014e60;
+    line-height: 15px;
+}
+
+.varbar-div {
+    background-color: #fff;
+    z-index: 5;
+    height: 20px;
+}

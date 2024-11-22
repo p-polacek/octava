@@ -473,6 +473,9 @@
     var plotColorSelected = "#014e60";
     var plotMargins = {l: 80, r: 40, b: 50, t: 30, pad: 4};
 
+    var lastClick = 0;
+    var delay = 400;
+
     // Process phenotype data, trait names, sample names
     var phe = {{ phe|tojson }};
     if (phe.length > 0) {
@@ -1044,8 +1047,6 @@
         Plotly.newPlot("plot-div", traces, layout);
 
         // Allow zoomimg into a part of the subplot by double-clicking
-        var lastClick = 0;
-        var delay = 400;
         var plotDiv = document.getElementById("plot-div");
         plotDiv.on("plotly_click", function(data) {
           if (data.event.button === 0) {

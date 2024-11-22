@@ -112,7 +112,7 @@ def am_pipeline(genome, form):
                   "stats",
                   "params")
                 with open(params_path, "r") as params_in:
-                    is_hap = json.load(params_in)[1][11] == "Yes"
+                    is_hap = json.load(params_in)[1][10] == "Yes"
             vcf_reader = VcfReader(vcf_path)
 
             sev_path = os.path.join(

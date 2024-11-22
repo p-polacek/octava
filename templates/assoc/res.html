@@ -516,6 +516,11 @@
     const FMData = {{ fm_data|tojson }};
     var highlightedGenes = [];
 
+    var recolorMode = "cycle";
+    var lastClick = 0;
+    var delay = 200;
+    var clickTimeout;
+
     var chrTicks = [];
     for (let i = 0; i < chrNames.length; i++) {
       chrTicks.push(chrOffsets[i] + Math.floor(chrSizes[i] / 2));
@@ -1069,88 +1074,132 @@
         }
 
         var config = {
-          //editable: true,
+          editable: false,
           modeBarButtonsToAdd: [
             {
               name: "Toggle legend",
               icon: {
                 "width": 100,
                 "height": 100,
-                "path": "M 12.879834 14.90245 A 10.460726 10.460726 0 0 0 2.4189738 25.362793 A 10.460726 10.460726 0 0 0 12.879834 35.823653 A 10.460726 10.460726 0 0 0 23.340694 25.362793 A 10.460726 10.460726 0 0 0 12.879834 14.90245 z M 39.734526 20.261812 C 36.908574 20.261812 34.633545 22.536843 34.633545 25.362793 C 34.633545 28.188744 36.908574 30.463774 39.734526 30.463774 L 93.538477 30.463774 C 96.364428 30.463774 98.639457 28.188744 98.639457 25.362793 C 98.639457 22.536843 96.364428 20.261812 93.538477 20.261812 L 39.734526 20.261812 z M 12.879834 45.889189 A 10.460726 10.460726 0 0 0 2.4189738 56.350049 A 10.460726 10.460726 0 0 0 12.879834 66.810909 A 10.460726 10.460726 0 0 0 23.340694 56.350049 A 10.460726 10.460726 0 0 0 12.879834 45.889189 z M 39.734526 51.249068 C 36.908574 51.249068 34.633545 53.524098 34.633545 56.350049 C 34.633545 59.176 36.908574 61.451029 39.734526 61.451029 L 93.538477 61.451029 C 96.364428 61.451029 98.639457 59.176 98.639457 56.350049 C 98.639457 53.524098 96.364428 51.249068 93.538477 51.249068 L 39.734526 51.249068 z M 12.879834 76.876444 A 10.460726 10.460726 0 0 0 2.4189738 87.336788 A 10.460726 10.460726 0 0 0 12.879834 97.797648 A 10.460726 10.460726 0 0 0 23.340694 87.336788 A 10.460726 10.460726 0 0 0 12.879834 76.876444 z M 39.734526 82.235807 C 36.908574 82.235807 34.633545 84.510838 34.633545 87.336788 C 34.633545 90.162739 36.908574 92.438285 39.734526 92.438285 L 93.538477 92.438285 C 96.364428 92.438285 98.639457 90.162739 98.639457 87.336788 C 98.639457 84.510838 96.364428 82.235807 93.538477 82.235807 L 39.734526 82.235807 z ",
+                "path": "M 12 14 A 10 10 0 0 0 2 25 A 10 10 0 0 0 12 35 A 10 10 0 0 0 23 25 A 10 10 0 0 0 12 14 z M 39 20 C 36 20 34 22 34 25 C 34 28 36 30 39 30 L 93 30 C 96 30 98 28 98 25 C 98 22 96 20 93 20 L 39 20 z M 12 45 A 10 10 0 0 0 2 56 A 10 10 0 0 0 12 66 A 10 10 0 0 0 23 56 A 10 10 0 0 0 12 45 z M 39 51 C 36 51 34 53 34 56 C 34 59 36 61 39 61 L 93 61 C 96 61 98 59 98 56 C 98 53 96 51 93 51 L 39 51 z M 12 76 A 10 10 0 0 0 2 87 A 10 10 0 0 0 12 97 A 10 10 0 0 0 23 87 A 10 10 0 0 0 12 76 z M 39 82 C 36 82 34 84 34 87 C 34 90 36 92 39 92 L 93 92 C 96 92 98 90 98 87 C 98 84 96 82 93 82 L 39 82 z ",
               },
               click: function(gd) {
                 Plotly.relayout(gd, { showlegend: !gd.layout.showlegend });
               }
             },
             {
-              name: "Recolor traces",
+              name: "Move traces down",
               icon: {
                 "width": 100,
                 "height": 100,
-                "path": "m 11.510409,11.366231 c -3.1216375,0 -5.6347986,2.513162 -5.6347986,5.634801 v 19.699573 c 0,3.121638 2.5131611,5.634282 5.6347986,5.634282 H 68.73844 c 3.121636,0 5.634798,-2.512644 5.634798,-5.634282 v -5.432227 h 7.968506 V 48.946369 L 41.662056,62.930528 c -1.784525,0.613529 -2.982544,2.292543 -2.982246,4.17959 v 25.453227 c 3.93e-4,2.439731 1.978087,4.417425 4.417818,4.417818 2.439731,-3.93e-4 4.417425,-1.978087 4.417818,-4.417818 V 70.262381 l 40.681755,-13.98416 c 1.784525,-0.613529 2.982544,-2.292543 2.982246,-4.17959 V 26.85056 C 91.17881,24.41093 89.201259,22.433379 86.761629,22.432742 H 74.373238 v -5.43171 c 0,-3.121639 -2.513162,-5.634801 -5.634798,-5.634801 z",
+                "path": "m 48,12 c -2,10e-7 -5,2 -5,5 V 61 L 33,50 c -1,-1 -5,-1 -7,0 l -1,1 c -1,1 -1,5 -10e-7,7 L 44,80 c 0,0 2,1 3,1 0,0 0,-0 0,-0 0,0 0,0 0,0 H 47 13 c -2,0 -5,2 -5,5 l 0,2 c -7e-7,2 2,5 5,5 l 72,2e-6 c 2,10e-7 5,-2 5,-5 l -1e-6,-2 c 0,-2 -2,-5 -5,-5 l -34,2e-6 -0,-1e-6 c 0,1e-6 0,-0 0,-0 0,0 0,0 0,0 1,0 2,-0 3,-1 L 75,59 c 1,-1 1,-5 10e-7,-7 l -1,-1 c -1,-1 -5,-1 -7,10e-7 l -10,10 0,-43 c -10e-7,-2 -2,-5 -5,-5 z",
               },
               click: function(gd) {
-                var t;
-                var color;
-                var colors = colorCycle.slice();
-                var traceIdxs = [];
-                var traceColors = [];
-                var legendGroups = [];
-
-                for (let i = 0; i < gd.data.length; i++) {
-                  t = gd.data[i];
-                  if (t.traceType === "__fm__" || t.traceType == null) {
-                    if (t.legendgroup == null || !legendGroups.includes(t.legendgroup)) {
-                      if (colors.length === 0) {
-                        colors = colorCycle.slice();
-                      }
-                      color = colors.splice(Math.floor(Math.random() * colors.length), 1)[0];
-                      //var [r,g,b] = Array(3).fill().map(() => Math.floor(Math.random() * 208));
-                      //color = `rgb(${r}, ${g}, ${b})`;
-                      traceIdxs.push(i);
-                      traceColors.push(color);
-                      if (t.legendgroup != null) {
-                        legendGroups.push(t.legendgroup);
-                      }
-                    } else {
-                      traceIdxs.push(i);
-                      traceColors.push(traceColors[legendGroups.indexOf(t.legendgroup)]);
-                    }
-                  }
-                }
-                Plotly.restyle(
-                  "live-plot",
-                  {"line.color": traceColors,
-                   "marker.color": traceColors},
-                  traceIdxs);
-              }
-            },
-            {
-              name: "Rename trace",
-              icon: Plotly.Icons.pencil,
-              click: function(gd) {
-                var visibleTraces = [];
-                var visibleIdx = 0;
+                var visibleIdxs = [];
                 gd.data.forEach( function(trace, idx) {
                   if (
                    trace.showlegend !== false &&
                    (!trace.hasOwnProperty("visible") ||
                     trace.visible !== "legendonly")) {
-                    visibleTraces.push(trace.Id);
-                    visibleIdx = idx;
+                    visibleIdxs.push(idx);
                   }
                 });
-                if (visibleTraces.length !== 1) {
-                  showHelp(event, null, "Select exacly one trace to rename.");
+                Plotly.moveTraces(gd, visibleIdxs);
+              }
+            },
+            {
+              name: "Recolor traces (double-click to change mode)",
+              icon: {
+                "width": 100,
+                "height": 100,
+                "path": "m 11,11 c -3,0 -5,2 -5,5 v 19 c 0,3 2,5 5,5 H 68 c 3,0 5,-2 5,-5 v -5 h 7 V 48 L 41,62 c -1,0 -2,2 -2,4 v 25 c 3e-4,2 1,4 4,4 2,-3e-4 4,-1 4,-4 V 70 l 40,-13 c 1,-0 2,-2 2,-4 V 26 C 91,24 89,22 86,22 H 74 v -5 c 0,-3 -2,-5 -5,-5 z",
+              },
+              click: function(gd) {
+                var clickEvent = event;
+                if (clickTimeout) {
+                  clearTimeout(clickTimeout);
+                  recolorMode = recolorMode === "cycle" ? "custom" : "cycle";
+                  clickTimeout = null;
                 } else {
-                  var traceName = "";
-                  while (traceName === "") {
-                    var traceName = prompt("Trace name:");
-                  }
+                  clickTimeout = setTimeout(function() {
+                    if (recolorMode === "cycle") {
+                      var t;
+                      var color;
+                      var colors = colorCycle.slice();
+                      var traceIdxs = [];
+                      var traceColors = [];
+                      var legendGroups = [];
+
+                      for (let i = 0; i < gd.data.length; i++) {
+                        t = gd.data[i];
+                        if (t.traceType === "__fm__" || t.traceType == null) {
+                          if (t.legendgroup == null || !legendGroups.includes(t.legendgroup)) {
+                            if (colors.length === 0) {
+                              colors = colorCycle.slice();
+                            }
+                            color = colors.splice(Math.floor(Math.random() * colors.length), 1)[0];
+                            //var [r,g,b] = Array(3).fill().map(() => Math.floor(Math.random() * 208));
+                            //color = `rgb(${r}, ${g}, ${b})`;
+                            traceIdxs.push(i);
+                            traceColors.push(color);
+                            if (t.legendgroup != null) {
+                              legendGroups.push(t.legendgroup);
+                            }
+                          } else {
+                            traceIdxs.push(i);
+                            traceColors.push(traceColors[legendGroups.indexOf(t.legendgroup)]);
+                          }
+                        }
+                      }
+                    } else {
+                      var visibleTraces = [];
+                      var visibleIdx = 0;
+                      gd.data.forEach( function(trace, idx) {
+                        if (
+                         trace.showlegend !== false &&
+                         (!trace.hasOwnProperty("visible") ||
+                          trace.visible !== "legendonly")) {
+                          visibleTraces.push(trace.Id);
+                          visibleIdx = idx;
+                        }
+                      });
+                      if (visibleTraces.length !== 1) {
+                        showHelp(clickEvent, null, "Select exacly one trace to recolor.");
+                        clickTimeout = null;
+                        return false;
+                      } else {
+                        var traceColor = "";
+                        while (traceColor === "") {
+                          var traceColor = prompt("Trace color:");
+                        }
+                      }
+                      if (traceColor == null) {
+                        clickTimeout = null;
+                        return false;
+                      }
+                      traceColors = [traceColor];
+                      traceIdxs = [visibleIdx];
+                    }
+                    Plotly.restyle(
+                      "live-plot",
+                      {"line.color": traceColors,
+                       "marker.color": traceColors},
+                      traceIdxs);
+
+                    clickTimeout = null;
+                  }, delay);
                 }
-                if (traceName != null) {
-                  Plotly.restyle("live-plot", { name: traceName }, [visibleIdx])
-                }
+              }
+            },
+            {
+              name: "Edit plot",
+              icon: Plotly.Icons.pencil,
+              click: function(gd) {
+                Plotly.newPlot(
+                  gd.id,
+                  gd.data,
+                  gd.layout,
+                  { ...gd._context, editable: !gd._context.editable});
               }
             },
           ],

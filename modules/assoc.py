@@ -175,11 +175,11 @@ def run_qc(genome, task_id, markers=None):
               task_id,
               [plink2_path,
                "--bfile", in_path,
-               "--missing",
-               "--geno-counts",
-               "--het",
-               "--freq",
-               "--hardy",
+               "--missing", "scols=nmiss,nobs", "vcols=nmiss,nobs",
+               "--geno-counts", "cols=refalt1,nobs",
+               "--het", "cols=het,nobs",
+               "--freq", "cols=reffreq",
+               "--hardy", "cols=p",
                "--allow-extra-chr",
                "--out", stats_out])
         else:
@@ -187,11 +187,11 @@ def run_qc(genome, task_id, markers=None):
               task_id,
               [plink2_path,
                "--vcf", in_path,
-               "--missing",
-               "--geno-counts",
-               "--het",
-               "--freq",
-               "--hardy",
+               "--missing", "scols=nmiss,nobs", "vcols=nmiss,nobs",
+               "--geno-counts", "cols=refalt1,nobs",
+               "--het", "cols=het,nobs",
+               "--freq", "cols=reffreq",
+               "--hardy", "cols=p",
                "--make-bed",
                "--export", "vcf", "bgz",
                "--allow-extra-chr",
@@ -222,22 +222,13 @@ def run_qc(genome, task_id, markers=None):
       "ID",
       "ID",
       "ID")
-    if markers:
-        usecols = {
-          "smiss": [2,3],
-          "vmiss": [2,3],
-          "shet": [1,2,4],
-          "vhet": [1,5,6,7],
-          "maf": [5],
-          "hwe": [9]}
-    else:
-        usecols = {
-          "smiss": [1,2],
-          "vmiss": [2,3],
-          "shet": [0,1,3],
-          "vhet": [1,4,5,6],
-          "maf": [4],
-          "hwe": [9]}
+    usecols = {
+      "smiss": [1,2],
+      "vmiss": [1,2],
+      "shet": [0,1,3],
+      "vhet": [0,1,2],
+      "maf": [1],
+      "hwe": [2]}
 
     progress(task_id, "Processing genotype statistics")
     for metric, ext, id_col in zip(metrics, exts, id_cols):
@@ -260,13 +251,13 @@ def run_qc(genome, task_id, markers=None):
             if metric in ("smiss", "vmiss"):
                 cnt.update(chk[0] / chk[1])
             elif metric == "shet":
-                chk[3] = (chk[2] - chk[1]) / chk[2]
-                chk = chk.loc[:, [1,3]]
+                chk[3] = chk[1] / chk[2]
+                chk = chk.loc[:, [0,3]]
                 cnt.update(chk[3])
             elif metric == "vhet":
-                chk[4] = (chk[2] / (chk[1] + chk[2] + chk[3]))
-                chk = chk.loc[:, [0,4]]
-                cnt.update(chk[4])
+                chk[3] = chk[1] / chk[2]
+                chk = chk.loc[:, [0,3]]
+                cnt.update(chk[3])
             elif metric == "maf":
                 chk[1] = 1 - chk[0]
                 cnt.update(chk.min(axis=1))
@@ -317,15 +308,15 @@ def run_qc(genome, task_id, markers=None):
             samp_df = pd.read_csv(
               samp_path,
               sep="\t",
-              header=[0],
-              index_col=[0])
+              header=0,
+              index_col=0)
             for metric, ext in (("smiss", "smiss"), ("shet", "het")):
                 qc_in = f"{stats_out}.{ext}"
                 df = (pd
                   .read_csv(
                     qc_in,
                     sep="\t",
-                    index_col=[0],
+                    index_col=0,
                     usecols=[0] + usecols[metric])
                   .rename_axis("Acc"))
                 if metric == "smiss":
@@ -338,7 +329,7 @@ def run_qc(genome, task_id, markers=None):
                 elif metric == "shet":
                     samp_df = pd.concat([
                       samp_df,
-                      (((df["OBS_CT"] - df["O(HOM)"]) / df["OBS_CT"])
+                      ((df["O(HET)"] / df["OBS_CT"])
                         .rename("Heterozygosity")
                         .round(5))],
                       axis=1)
@@ -720,9 +711,10 @@ def filt_qc(
         progress(task_id, "Pruning markers by LD")
         popen(task_id, cmd)
     else:
-        os.link(
-          full_vcf,
-          plink_out + ".vcf.gz")
+        if not os.path.exists(plink_out + ".vcf.gz"):
+            os.link(
+              full_vcf,
+              plink_out + ".vcf.gz")
 
     gt_stats_dir = os.path.join(
       data_dir,
@@ -952,8 +944,7 @@ def filt_qc(
     
     with open(params_fn, "w") as params_out:
         params = [
-          ["",
-           "Sample missingness",
+          ["Sample missingness",
            "Variant missingness",
            "Sample heterozygosity",
            "Variant heterozygosity",
@@ -964,8 +955,7 @@ def filt_qc(
            "Samples retained/original",
            "Markers retained/original",
            "Is a haplotype set"],
-          ["Value",
-           float(data["smiss"]) if data["smiss"] else "—",
+          [float(data["smiss"]) if data["smiss"] else "—",
            float(data["vmiss"]) if data["vmiss"] else "—",
            float(data["shet"]) if data["shet"] else "—",
            float(data["vhet"]) if data["vhet"] else "—",
@@ -1395,7 +1385,7 @@ def run_assoc(genome, params, task_id):
               line_skip=1, force=True)
 
             with open(os.path.join(assoc_dir, "stats", "params")) as params_in:
-                is_hap = json.load(params_in)[1][11] == "Yes"
+                is_hap = json.load(params_in)[1][10] == "Yes"
             if is_hap:
                 endmap = (pd
                   .read_csv(
@@ -1645,7 +1635,7 @@ def assoc_process(
     res[pval_col] = -np.log10(res[pval_col])
     # Save results for MP visualisation
     with open(os.path.join(assoc_dir, "stats", "params")) as params_in:
-        is_hap = json.load(params_in)[1][11] == "Yes"
+        is_hap = json.load(params_in)[1][10] == "Yes"
     if is_hap:
         endmap = (pd
           .read_csv(

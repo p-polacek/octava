@@ -865,7 +865,7 @@ def assoc_qc(genome):
               "params")
             with open(params_path) as params_in:
                 params = json.load(params_in)
-            if params[1][11] == "No":
+            if params[1][10] == "No":
                 form.filt_from.choices.append(d)
                 saved_params[d] = [
                   val if val != "—" else ""
@@ -970,7 +970,7 @@ def assoc_opts(genome):
               "stats",
               "params")
             with open(params_path, "r") as params_in:
-                hap = json.load(params_in)[1][11] == "Yes"
+                hap = json.load(params_in)[1][10] == "Yes"
             haps[m] = hap
             if 1 or not hap:
                 form.kq_from.choices.append(m)
@@ -987,7 +987,10 @@ def assoc_opts(genome):
        "Kinship matrix"),
       ("pca",
        "Principal components")]
-    form.chr.choices = gdata["chr_names"]
+    concat = json.loads(config["concat"])
+    form.chr.choices = [
+      c for c in gdata["chr_names"]
+      if c not in concat]
 
     return render_template(
       "assoc/opts.html",
@@ -1000,7 +1003,7 @@ def assoc_opts(genome):
       chr_names   = gdata["chr_names"],
       chr_sizes   = gdata["chr_sizes"],
       chr_offsets = gdata["chr_offsets"],
-      concat      = json.loads(config["concat"]),
+      concat      = concat,
       errors      = None)
 
 ###############################################################################
