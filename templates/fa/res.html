@@ -809,10 +809,8 @@
       "#17becf"   // blue-teal
     ];
 
-    var recolorMode = "cycle";
-    var lastClick = 0;
-    var delay = 200;
-    var clickTimeout;
+    var customOrder = [];
+    var customColors = [];
 
     const igvConfig = {{ igv_conf|tojson|safe }};
     var igvDiv = document.getElementById("igv-div");
@@ -1386,7 +1384,7 @@
             }
           },
           {
-            name: "Recolor traces (double-click to change mode)",
+            name: "Recolor traces",
             icon: {
               "width": 100,
               "height": 100,
@@ -1394,73 +1392,30 @@
             },
             click: function(gd) {
               var clickEvent = event;
-              if (clickTimeout) {
-                clearTimeout(clickTimeout);
-                recolorMode = recolorMode === "cycle" ? "custom" : "cycle";
-                clickTimeout = null;
-              } else {
-                clickTimeout = setTimeout(function() {
-                  if (recolorMode === "cycle") {
-                    var t;
-                    var color;
-                    var colors = colorCycle.slice();
-                    var traceIdxs = [];
-                    var traceColors = [];
-                    var legendGroups = [];
-  
-                    for (let i = 0; i < gd.data.length; i++) {
-                      t = gd.data[i];
-                      if (colors.length === 0) {
-                        colors = colorCycle.slice();
-                      }
-                      color = colors.splice(Math.floor(Math.random() * colors.length), 1)[0];
-                      //var [r,g,b] = Array(3).fill().map(() => Math.floor(Math.random() * 208));
-                      //color = `rgb(${r}, ${g}, ${b})`;
-                      traceIdxs.push(i);
-                      traceColors.push(color);
-                      if (t.legendgroup != null) {
-                        legendGroups.push(t.legendgroup);
-                      }
-                    }
-                  } else {
-                    var visibleTraces = [];
-                    var visibleIdx = 0;
-                    gd.data.forEach( function(trace, idx) {
-                      if (
-                       trace.showlegend !== false &&
-                       (!trace.hasOwnProperty("visible") ||
-                        trace.visible !== "legendonly")) {
-                        visibleTraces.push(trace.Id);
-                        visibleIdx = idx;
-                      }
-                    });
-                    if (visibleTraces.length !== 1) {
-                      showHelp(clickEvent, null, "Select exacly one trace to recolor.");
-                      clickTimeout = null;
-                      return false;
-                    } else {
-                      var traceColor = "";
-                      while (traceColor === "") {
-                        var traceColor = prompt("Trace color:");
-                      }
-                    }
-                    if (traceColor == null) {
-                      clickTimeout = null;
-                      return false;
-                    }
-                    traceColors = [traceColor];
-                    traceIdxs = [visibleIdx];
+              var traceIdxs = [];
+              var traceColors = [];
+              showHelp(clickEvent, null, '<input type="color" id="colorPicker" value="#ff0000" />');
+              document.getElementById("colorPicker").click();
+              document.getElementById("help-popup").classList.add("collapsed");
+              document.getElementById("colorPicker").addEventListener("input", function() {
+                var traceColor = this.value;
+                gd.data.forEach(function(trace, idx) {
+                  if (
+                    trace.showlegend !== false &&
+                    (!trace.hasOwnProperty("visible")
+                     || trace.visible !== "legendonly")) {
+                    traceIdxs.push(idx);
+                    traceColors.push(traceColor);
                   }
-                  Plotly.restyle(
-                    "genexp-plot",
-                    {"line.color": traceColors,
-                     "marker.color": traceColors},
-                    traceIdxs);
-  
-                  clickTimeout = null;
-                }, delay);
-              }
-            }
+                });
+
+                Plotly.restyle(
+                  "genexp-plot", {
+                    "line.color": traceColors,
+                    "marker.color": traceColors},
+                  traceIdxs);
+              });
+            },
           },
           {
             name: "Edit plot",

@@ -177,7 +177,7 @@ def fetch_locus_ld():
        #"--thin-count", "1000",
        "--bp-space", str(span // 2000),
        "--r2-unphased", "square0",
-       "--silent",
+       #"--silent",
        "--out", out_root],
       check=True,
       text=True,
@@ -245,11 +245,18 @@ def fetch_ld():
           "gt",
           "gt")        
     else:
+#        in_root = os.path.join(
+#          data_dir,
+#          form["genome"],
+#          "stats",
+#          "gt")
         in_root = os.path.join(
           data_dir,
           form["genome"],
-          "stats",
-          "gt")
+          "assoc",
+          markers,
+          "gt",
+          "gt.full")        
     out_root = os.path.join(
       tmp_dir,
       task_id)
@@ -258,9 +265,9 @@ def fetch_ld():
        "--bfile", in_root,
        "--r2-unphased",
        "--ld-snp", marker_id,
-       "--ld-window-kb", "1000",
+       "--ld-window-kb", "1500",
        "--ld-window-r2", "0",
-       "--silent",
+       #"--silent",
        "--out", out_root],
       check=True)
     if is_hap:
