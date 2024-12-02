@@ -264,12 +264,18 @@ def run_qc(genome, task_id, markers=None):
             elif metric == "hwe":
                 cnt.update(-np.log10(chk[0]))
             if metric in ("shet", "vhet"):
-                chk.to_hdf(
-                  h5_out,
-                  key="het",
-                  mode="a",
-                  format="table",
-                  append=True)
+                (chk
+                  .set_axis(
+                    ["k", "v"],
+                    axis=1)
+                  .to_hdf(
+                    h5_out,
+                    key="het",
+                    mode="a",
+                    format="table",
+                    data_columns=["k", "v"],
+                    min_itemsize={"k": 256},
+                    append=True))
 
         cnt = {(-1 if np.isnan(v) else v): cnt[v] for v in cnt.keys()}
         cnt_vals = list(cnt.keys())

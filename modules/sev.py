@@ -525,7 +525,7 @@ def annotate_sev(genome, markers, task_id):
                     progress(
                       task_id,
                       "Mismatch between variant and sequence " +\
-                      f"in {t_id}, {':'.join(marker)}, {var['Var']}")
+                      f"in {t_id}, {':'.join(list(map(str, marker)))}, {var['Var']}")
                     continue
 
                 mutated_seq[var["Start_pos"] - 1:var["End_pos"]] = var["Subs"]
