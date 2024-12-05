@@ -1054,7 +1054,7 @@ def assoc_run(genome):
 
     if data["model_sgl"] != "mtmlm":
         for group in data["traits_group"]:
-            group = json.loads(group)[0]
+            group = json.loads(group)
             for trait in group:
                 if trait not in data["traits"]:
                     data["traits"].append(trait)

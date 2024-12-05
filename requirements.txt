@@ -1,4 +1,4 @@
-bed-reader
+bed-reader==1.0.5
 bgen-reader
 biopython
 Flask

@@ -130,7 +130,7 @@ def am_pipeline(genome, form):
         db_path = os.path.join(
           data_dir,
           genome,
-          f"{genome}.db")
+          "gff.db")
         db = gffutils.FeatureDB(db_path)
     except:
         errors.append("Problem loading GFFutils DB file.")
@@ -375,7 +375,6 @@ def am_pipeline(genome, form):
         samples = vcf_reader.header.samples
 
     # Initiate sample entries beforehand
-    print(query["samples"])
     for sample in samples:
         gts.append([])
 

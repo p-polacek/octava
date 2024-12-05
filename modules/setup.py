@@ -35,7 +35,7 @@ def genome_setup(
     db_path = os.path.join(
       data_dir,
       genome,
-      f"{genome}.db")
+      "gff.db")
     if not os.path.exists(db_path):
         progress(task_id, "Creating an annotation database")
         gffutils.create_db(
@@ -190,7 +190,8 @@ def genome_setup(
     seq_sizes = idx_df.iloc[:, 1].tolist()
 
     if seq_chroms != chroms or seq_sizes != sizes:
-        print(
+        progress(
+          task_id, 
           "Chromosomes do not match in size or names between "
           "vcf and seq files.")
         raise OSError
