@@ -1247,6 +1247,10 @@ def assoc_res(genome):
       [json.dumps(group[0]), group[1]]
       for group in gdata["groups"].get("traits", [])]
 
+    form.assoc_loci.choices = [
+      [json.dumps(group[0]), group[1]]
+      for group in gdata["groups"].get("assoc-locus", [])]
+
     chroms  = gdata["chr_names"]
     sizes   = gdata["chr_sizes"]
     offsets = gdata["chr_offsets"]
@@ -1273,6 +1277,7 @@ def assoc_res(genome):
                 .read_feather(
                   fm_path)
                 .values.tolist()])
+
     saved_runs = list()
     saved_runs_dir = os.path.join(
       data_dir,

@@ -1085,6 +1085,7 @@
 
       for (let i = 0; i < samples.length; i++) {
         const cells = rows[i+7].querySelectorAll("td");
+        console.log(cells);
 
         for (let j = 0; j < selectedVars.length; j++) {
           var gt = cells[selectedVars[j]]
@@ -1106,6 +1107,7 @@
           }
         }
       }
+      console.log(traceData);
 
       var traces = [];
       var gts = ["—", "·", "·/var1", "var1"];

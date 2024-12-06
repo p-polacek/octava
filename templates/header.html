@@ -113,6 +113,8 @@
           for (let i = 0; i < selectedItems.length; i++) {
             selectedItems[i] = selectedItems[i].trim();
           }
+        } else if (setToGroup === "assoc-locus") {
+          var selectedItems = [document.getElementById("assoc-locus-field").value];
         } else {
           var allItems = document.querySelectorAll("." + setToGroup + "-checkbox");
           var selectedItems = [];
@@ -161,6 +163,11 @@
                     if (setToGroup === "samples") {
                       filterSamplesTable();
                     }
+                    if (setToGroup === "assoc-locus") {
+                      if (this.checked) {
+                        goToLocus(this.value);
+                      }
+                    }
                   });
   
                   var label = document.createElement("label");
@@ -175,7 +182,7 @@
                   checkboxRow.appendChild(label);
                   dropdown.appendChild(checkboxRow);
                   updateCount(dropdown);
-  
+
                   if (!["expruns", "samples"].includes(setToGroup)) {
                     var allItems = document.querySelectorAll("." + setToGroup + "-checkbox");
                     for (var item of allItems) {

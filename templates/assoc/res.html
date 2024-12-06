@@ -102,9 +102,9 @@
               {% endfor %}
 {# =========================================================== Plot options #}
               <div class="row-div mini-padded-top">
-                <label class="default-label bold">
+                <h2>
                   Options:
-                </label>
+                </h2>
               </div>
               <div class="row-input-div justified small-padded-top">
                 <label
@@ -215,13 +215,29 @@
               </div>
 {# ======================================================= Loci of interest #}
               <div class="row-div padded-top small-padded-bottom">
+                <h2>
+                  Loci of interest:
+                </h2>
+              </div>
+              <div class="row-div small-padded-bottom">
+                <div class="row-input-div justified">
+                  <label for="assoc-locus-field" class="default-label bold">
+                    Current:
+                  </label>
+                  <input id="assoc-locus-field" class="default-input" />
+                </div>
+                <img
+                  class="aux-button clickable"
+                  src="{{ url_for('serve_button', button='save') }}"
+                  onclick="makeGroup(event, 'assoc-locus');"
+                  title="Save current locus" />
+              </div>
+              <div class="row-div small-padded-bottom">
                 <button
                  type="button"
                  class="dropdown-button"
                  onclick="showDropdown(event, this);" >
-                  <label class="default-label bold">
-                    Loci of interest:
-                  </label>
+                  {{ form.assoc_loci.label(class="default-label bold") }}
                   <span
                    id="loci_count"
                    class="default-label counter">
@@ -230,13 +246,34 @@
                 </button>
                 <img
                   class="aux-button clickable"
-                  id="add-locus"
-                  src="{{ url_for('serve_button', button='save') }}"
-                  onclick="addLocus();"
-                  title="Mark current locus as locus of interest" />
+                  src="{{ url_for('serve_button', button='delete') }}"
+                  onclick="deleteGroup(event, 'assoc-locus');"
+                  title="Delete selected loci" />
                 <div
-                 id="loci-dropdown"
+                 id="assoc-locus_group-dropdown"
                  class="dropdown-menu collapsed" >
+                  <div class="sticky non-transparent small-padding">
+                    <input
+                     type="text"
+                     class="search-bar"
+                     placeholder="Search..."
+                     onkeyup="filterDropdown(visibleDropdown);">
+                    <button
+                     type="button"
+                     onclick="toggleAll(visibleDropdown);">
+                      Select all
+                    </button>
+                  </div>
+                    {% for choice in form.assoc_loci %}
+                    <div class="checkbox-row group-option">
+                      {{ choice(
+                       class="assoc-locus_group-checkbox",
+                       onchange="updateCount(
+                        this.parentElement.parentElement);
+                        if (this.checked) { goToLocus(this.value); };") }}
+                      {{ choice.label(class="checkbox-label") }}
+                    </div>
+                  {% endfor %}
                 </div>
               </div>
               <div class="row-input-div small-padded-bottom justified collapsed">
@@ -1323,6 +1360,15 @@
           });
   
           plotDiv.on("plotly_relayout", function(event) {
+            var locusField = document.getElementById("assoc-locus-field");
+            var currLocus = validateLocus();
+            if (currLocus != null) {
+              var [c,s,e] = currLocus;
+              locusField.value = `${c}:${s.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}-${e.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+            } else {
+              locusField.value = "";
+            }
+
             var viewStart = Math.max(0, Math.floor(event["xaxis.range[0]"]));
             var viewEnd = Math.min(Math.ceil(event["xaxis.range[1]"], chrSizes.reduce((a, b) => a + b, 0)));
             var numShapes = Math.ceil(plotNames.length / 2);
@@ -1559,6 +1605,14 @@
       return [startChrom, start, end];
     }
 
+    function goToLocus(locus) {
+      var [chrom, span] = JSON.parse(locus)[0].split(":");
+      var [start, end] = span.replaceAll(",", "").split("-");
+      var offset = offsetDict[chrom];
+      var locusRange = [parseInt(start) + offset, parseInt(end) + offset];
+      Plotly.relayout("live-plot", { "xaxis.range": locusRange });
+    }
+
     function toggleRF() {
       var method = document.querySelector("input[name='fm_method']:checked");
       if (method == null || method.value === "") {
@@ -1651,9 +1705,15 @@
         document.getElementById("optimize").checked = "";
         form.target = "";
 
-        var lociDropdown = document.getElementById("loci-dropdown");
-        var loci = [...lociDropdown.querySelectorAll(".dropdown-tag")];
-        var savedLoci = loci.map(x => x.id);
+        var lociDropdown = document.getElementById("assoc-locus_group-dropdown");
+        var loci = [...lociDropdown.querySelectorAll(".assoc-locus_group-checkbox")];
+        var savedLoci = loci
+          .filter(l => l.checked)
+          .map(l => JSON.parse(l.value)[0]);
+        var currLocus = document.getElementById("assoc-locus-field");
+        if (currLocus.value !== "") {
+          savedLoci.push(currLocus.value);
+        }
         if (savedLoci.length === 0) {
           showHelp(event, null, "Select at least one locus of interest.");
           event.preventDefault();
@@ -1802,6 +1862,7 @@
       popupClickedRetain(helpPopup);
 
       showPlot();
+      document.getElementById("assoc-locus-field").value = "";
       //document.getElementById("sel-locus").value = "";
     });
 

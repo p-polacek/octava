@@ -442,11 +442,15 @@ class AssocResForm(RegionForm, PlotForm):
       "Model max SNPs:")
 
     fm_ids = MultiCheckboxField(
-     "",
-     choices=[])
+      "",
+      choices=[])
     fm_runs = MultiCheckboxField(
-     "Saved analyses:",
-     choices=[])
+      "Saved analyses:",
+      choices=[])
+
+    assoc_loci = MultiCheckboxField(
+      "Saved loci:",
+      choices=[])
 
     k = BooleanField(
       "Kinship (K) correction",
