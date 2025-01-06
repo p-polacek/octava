@@ -45,7 +45,7 @@
             </div>
             <div id="pca-sample-div"></div>
 {# =========================================================== Filters from #}
-            <div class="row-div padded-top small-padded-bottom">
+            <div class="row-div padded-top">
               <div class="
                row-input-div
                justified">
@@ -102,6 +102,51 @@
                 </div>
               </div>
             </span>
+{# ======================================================= Filter by sample #}
+            <h2 class="padded-top">
+              Filter samples:
+            </h2>
+            <div
+             id="sample-div"
+             class="row-div small-padded-top small-padded-bottom">
+              <button
+               type="button"
+               class="dropdown-button"
+               onclick="showDropdown(event, this);">
+                {{ form.samples_group.label(class="default-label bold") }}
+                <span
+                 class="default-label counter"
+                 id="samples_group-count">
+                  0 selected
+                </span>
+              </button>
+              <div
+               id="samples_group-dropdown"
+               class="dropdown-menu collapsed">
+                <div class="sticky non-transparent small-padding">
+                  <input
+                   type="text"
+                   class="search-bar"
+                   placeholder="Search..."
+                   onkeyup="filterDropdown(visibleDropdown);">
+                  <button
+                   type="button"
+                   onclick="
+                    toggleAll(visibleDropdown);">
+                    Select all
+                  </button>
+                </div>
+                {% for choice in form.samples_group %}
+                  <div class="checkbox-row samples_group-option">
+                    {{ choice(
+                     class="samples_group-checkbox",
+                     onchange="updateCount(
+                      this.parentElement.parentElement);") }}
+                    {{ choice.label(class="checkbox-label") }}
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
 {# ============================================================ Missingness #}
             <h2 class="padded-top">
               Missingness per:
@@ -267,10 +312,10 @@
         </form>
         </div>
 {# ========================================================= Plot and table #}
-        <div class="padded-top flex results-subcontainer scrollable">
+        <div class="padded-top flex results-subcontainer disp-flex">
           <div
             id="plot-div"
-            class="results-subcontainer"></div>
+            class="flex no-min-width"></div>
           {#
           <div id="table-div">
             <div class="row-div justified padded-bottom">

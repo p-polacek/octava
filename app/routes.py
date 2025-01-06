@@ -873,6 +873,10 @@ def assoc_qc(genome):
 
     form.chr.choices = gdata["chr_names"]
 
+    form.samples_group.choices = [
+      (json.dumps(group[0]), group[1])
+       for group in gdata["groups"].get("samples", [])]
+
     return render_template(
       "assoc/qc.html",
       genome       = genome,

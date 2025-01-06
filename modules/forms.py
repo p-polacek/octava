@@ -326,6 +326,9 @@ class PlotForm(FlaskForm):
 class AssocQCform(PlotForm):
     filt_ext = BooleanField(
       "Apply to existing:")
+    samples_group = MultiCheckboxField(
+      "By sample group:",
+      choices = [])
     filt_from = RadioField(
       "Markers:",
       choices=[])

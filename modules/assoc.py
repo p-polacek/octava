@@ -264,6 +264,8 @@ def run_qc(genome, task_id, markers=None):
             elif metric == "hwe":
                 cnt.update(-np.log10(chk[0]))
             if metric in ("shet", "vhet"):
+                if os.path.exists(h5_out):
+                    os.remove(h5_out)
                 (chk
                   .set_axis(
                     ["k", "v"],
@@ -596,20 +598,34 @@ def filt_qc(
         shet_exc = os.path.join(
           filt_dir,
           "shet_exclude.txt")
+        if os.path.exists(shet_exc):
+            os.remove(shet_exc)
         df = pd.read_hdf(
           os.path.join(stats_dir, "shet.h5"),
           chunksize=100000)
         for chk in df:
             chk.columns = pd.RangeIndex(chk.columns.size)
+            print(chk[chk[1] > float(data["shet"])][0])
             chk[chk[1] > float(data["shet"])][0].to_csv(
               shet_exc,
               mode="a",
               index=False,
               header=False)
+
+    if data["samples_group"]:
+        samp_inc = os.path.join(
+          filt_dir,
+          "samp_include.txt")
+        with open(samp_inc, "w") as samp_out:
+            for group in data["samples_group"]:
+                _ = samp_out.write("\n".join(json.loads(group)) + "\n")
+
     if data["vhet"]:
         vhet_exc = os.path.join(
           filt_dir,
           "vhet_exclude.txt")
+        if os.path.exists(vhet_exc):
+            os.remove(vhet_exc)
         df = pd.read_hdf(
           os.path.join(stats_dir, "vhet.h5"),
           chunksize=100000)
@@ -622,11 +638,14 @@ def filt_qc(
               header=False)
 
     # Apply filters
-    fq = any(data[f] for f in ("smiss", "vmiss", "shet", "vhet", "maf", "hwe"))
+    fq = any(data[f] for f in (
+      "samples_group", "smiss", "vmiss",
+      "shet", "vhet", "maf", "hwe"))
     if fq:
         plink_filt = plink_out + ".filt"
         cmd = [plink2_path, "--vcf", f"{plink_in}.vcf.gz"]
         cmd = cmd + ["--remove", shet_exc] if data["shet"] else cmd
+        cmd = cmd + ["--keep", samp_inc] if data["samples_group"] else cmd
         cmd = cmd + ["--exclude", vhet_exc] if data["vhet"] else cmd
         cmd = cmd + ["--mind", str(data["smiss"])] if data["smiss"] else cmd
         cmd = cmd + ["--geno", str(data["vmiss"])] if data["vmiss"] else cmd
