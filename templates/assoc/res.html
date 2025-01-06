@@ -641,7 +641,7 @@
       var window  = Math.max(0, document.getElementById("window").value);
       var minSize = Math.max(0, document.getElementById("min-size").value);
       var plotAvg = +document.getElementById("plot-avg").checked;
-
+      document.getElementById("assoc-locus-field").value = "";
 
       var checkboxClasses = [
        ".markers-option",
@@ -665,6 +665,7 @@
 
         var allKeys = [];
         var groupNames = [];
+        var selOnly = false;
 
         var checkedRows = [];
         var checkboxRows = document.querySelectorAll(".traits_group-option");
@@ -675,45 +676,51 @@
           }
         });
         if (checkedRows.length === 0) {
-          if (event.type !== "DOMContentLoaded") {
-
-            showHelp(event, null, "Traits must be grouped to plot as groups.");
-          }
-
-          return;
-        }
-
-        checkedRows.forEach( function(checkedRow) {
-          var groupKeys = [];
-          var groupName = checkedRow.querySelector("label").textContent.trim();
-          if (!separate) {
-            groupNames.push(groupName);
-          }
-
-          var tData = checkedRow.querySelector("input[type='checkbox']").value;
-          var traits = JSON.parse(tData);
-          for (let i = 0; i < checkedArr[0].length; i++) {
-            markers = checkedArr[0][i];
-
-            for (let j = 0; j < checkedArr[1].length; j++) {
-              model = checkedArr[1][j];
-
-              if (separate) {
-                groupNames.push([markers, model, groupName].join(", "));
+          for (var i = 0; i < checkedArr[0].length; i++) {
+            for (var j = 0; j < checkedArr[1].length; j++) {
+              for (var k = 0; k < checkedArr[2].length; k++) {
+                allKeys.push([checkedArr[0][i],
+                         checkedArr[1][j],
+                         checkedArr[2][k]]);
               }
-
-              var groupKey = [];
-              traits.forEach( function(trait) {
-                groupKey.push([markers, model, trait]);
-              });
-              groupKeys.push(groupKey);
             }
           }
-          if (!separate) {
-            groupKeys = [groupKeys.flat()];
-          }
-          allKeys = allKeys.concat(groupKeys);
-        });
+          allKeys = [allKeys];
+          groupNames = ["<i>Selected results</i>"];
+          selOnly = true;
+        } else {
+          checkedRows.forEach( function(checkedRow) {
+            var groupKeys = [];
+            var groupName = checkedRow.querySelector("label").textContent.trim();
+            if (!separate) {
+              groupNames.push(groupName);
+            }
+
+            var tData = checkedRow.querySelector("input[type='checkbox']").value;
+            var traits = JSON.parse(tData);
+            for (let i = 0; i < checkedArr[0].length; i++) {
+              markers = checkedArr[0][i];
+
+              for (let j = 0; j < checkedArr[1].length; j++) {
+                model = checkedArr[1][j];
+
+                if (separate) {
+                  groupNames.push([markers, model, groupName].join(", "));
+                }
+
+                var groupKey = [];
+                traits.forEach( function(trait) {
+                  groupKey.push([markers, model, trait]);
+                });
+                groupKeys.push(groupKey);
+              }
+            }
+            if (!separate) {
+              groupKeys = [groupKeys.flat()];
+            }
+            allKeys = allKeys.concat(groupKeys);
+          });
+        }
 {# ======================================================= Fetch group data #}
         // Assemble bubble plot data server-side
         var request = $.ajax({
@@ -784,31 +791,33 @@
         }
       }
 {# ======================================================= Fetch individual #}
-      dataKeys.forEach( function(dataKey) {
-        (function(key) {
-          var stringKey = JSON.stringify(key);
-          if (!(stringKey in mplotData)) {
-            var request = $.ajax({
-              url: "{{ url_for('fetch_mplot') }}",
-              method: "POST",
-              data: {
-                genome: genome,
-                markers: key[0],
-                model: key[1],
-                trait: key[2],
-              },
-              success: function(data) {
-                if (typeof data == "string") {
-                  mplotData[stringKey] = JSON.parse(data);
-                } else {
-                  mplotData[stringKey] = null;
+      if (!selOnly) {
+        dataKeys.forEach( function(dataKey) {
+          (function(key) {
+            var stringKey = JSON.stringify(key);
+            if (!(stringKey in mplotData)) {
+              var request = $.ajax({
+                url: "{{ url_for('fetch_mplot') }}",
+                method: "POST",
+                data: {
+                  genome: genome,
+                  markers: key[0],
+                  model: key[1],
+                  trait: key[2],
+                },
+                success: function(data) {
+                  if (typeof data == "string") {
+                    mplotData[stringKey] = JSON.parse(data);
+                  } else {
+                    mplotData[stringKey] = null;
+                  }
                 }
-              }
-            });
-            requests.push(request);
-          }
-        })(dataKey);
-      });
+              });
+              requests.push(request);
+            }
+          })(dataKey);
+        });
+      }
 {# ========================================================== Fetch FM data #}
       var FMtoPlot = FMData.slice();
       var selectedRuns = [];
@@ -842,82 +851,84 @@
         var lastChrom = chrNames[chrNames.length - 1];
         var xMax = chrOffsets.slice(-1)[0] + chrSizes.slice(-1)[0];
 
-        dataKeys.forEach( function(key) {
-          var stringKey = JSON.stringify(key);
-          if (mplotData[stringKey] != null) {
-            var data = mplotData[stringKey];
-            yMax = Math.max(yMax, data[0][2]);
-            var isHap = false;
-            if (data.length > 0 && data[0].length === 5) {
-              isHap = true;
-            }
-
-            var traceName = key;
-            traceName[1] = modelsDict[traceName[1]];
-            const trace = {
-              name: traceName.join(", "),
-              legendgroup: traceName.join(", "),
-              Id: key,
-              mode: "markers",
-              type: "scattergl",
-              yaxis: "y2",
-              x: data.map(i => {
-                if (isHap) {
-                  return i[1] + (i[3] - i[1]) / 2 + offsetDict[i[0]];
-                } else {
-                  return i[1] + offsetDict[i[0]];
-                }
-              }),
-              y: data.map(i => i[2]),
-              text: data.map(i => {
-                if (isHap) {
-                  return `${i[0]}:${i[1]
-                   .toString()
-                   .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}-${i[3]
-                   .toString()
-                   .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}_${i[4]}`;
-                } else {
-                  return `${i[0]}:${i[1]
-                   .toString()
-                   .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
-                 }
-              }),
-              hoverinfo: "text+y",
-              hovertemplate: "%{text}<br>log10(p): %{y}",
-              hoverlabel: {
-                namelength: 0,
-                bgcolor: "white",
-              },
-              marker: {
-                size: 6,
-                opacity: 1,
-              },
-            };
-            traces.push(trace);
-            if (isHap) {
-              var xLines = [];
-              var yLines = [];
-              data.forEach(point => {
-                xLines.push(point[1] + offsetDict[point[0]], point[3] + offsetDict[point[0]], null);
-                yLines.push(point[2], point[2], null);
-              });
-              traces.push({
-                x: xLines,
-                y: yLines,
-                type: "scattergl",
-                mode: "lines",
-                yaxis: "y2",
+        if (!selOnly) {
+          dataKeys.forEach( function(key) {
+            var stringKey = JSON.stringify(key);
+            if (mplotData[stringKey] != null) {
+              var data = mplotData[stringKey];
+              yMax = Math.max(yMax, data[0][2]);
+              var isHap = false;
+              if (data.length > 0 && data[0].length === 5) {
+                isHap = true;
+              }
+  
+              var traceName = key;
+              traceName[1] = modelsDict[traceName[1]];
+              const trace = {
+                name: traceName.join(", "),
                 legendgroup: traceName.join(", "),
-                line: {
-                  width: 6,
-                  color: colorCycle[traces.length - 1],
+                Id: key,
+                mode: "markers",
+                type: "scattergl",
+                yaxis: "y2",
+                x: data.map(i => {
+                  if (isHap) {
+                    return i[1] + (i[3] - i[1]) / 2 + offsetDict[i[0]];
+                  } else {
+                    return i[1] + offsetDict[i[0]];
+                  }
+                }),
+                y: data.map(i => i[2]),
+                text: data.map(i => {
+                  if (isHap) {
+                    return `${i[0]}:${i[1]
+                     .toString()
+                     .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}-${i[3]
+                     .toString()
+                     .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}_${i[4]}`;
+                  } else {
+                    return `${i[0]}:${i[1]
+                     .toString()
+                     .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+                   }
+                }),
+                hoverinfo: "text+y",
+                hovertemplate: "%{text}<br>log10(p): %{y}",
+                hoverlabel: {
+                  namelength: 0,
+                  bgcolor: "white",
                 },
-                hoverinfo: "skip",
-                showlegend: false,
-              });
+                marker: {
+                  size: 6,
+                  opacity: 1,
+                },
+              };
+              traces.push(trace);
+              if (isHap) {
+                var xLines = [];
+                var yLines = [];
+                data.forEach(point => {
+                  xLines.push(point[1] + offsetDict[point[0]], point[3] + offsetDict[point[0]], null);
+                  yLines.push(point[2], point[2], null);
+                });
+                traces.push({
+                  x: xLines,
+                  y: yLines,
+                  type: "scattergl",
+                  mode: "lines",
+                  yaxis: "y2",
+                  legendgroup: traceName.join(", "),
+                  line: {
+                    width: 6,
+                    color: colorCycle[(traces.length - 1) % 10],
+                  },
+                  hoverinfo: "skip",
+                  showlegend: false,
+                });
+              }
             }
-          }
-        });
+          });
+        }
 
         if (FMtoPlot.length > 0) {
           var yPipMax = 0;
@@ -1118,27 +1129,18 @@
               }
             },
             {
-              name: "Move traces down",
-              icon: {
-                "width": 100,
-                "height": 100,
-                "path": "m 48,12 c -2,10e-7 -5,2 -5,5 V 61 L 33,50 c -1,-1 -5,-1 -7,0 l -1,1 c -1,1 -1,5 -10e-7,7 L 44,80 c 0,0 2,1 3,1 0,0 0,-0 0,-0 0,0 0,0 0,0 H 47 13 c -2,0 -5,2 -5,5 l 0,2 c -7e-7,2 2,5 5,5 l 72,2e-6 c 2,10e-7 5,-2 5,-5 l -1e-6,-2 c 0,-2 -2,-5 -5,-5 l -34,2e-6 -0,-1e-6 c 0,1e-6 0,-0 0,-0 0,0 0,0 0,0 1,0 2,-0 3,-1 L 75,59 c 1,-1 1,-5 10e-7,-7 l -1,-1 c -1,-1 -5,-1 -7,10e-7 l -10,10 0,-43 c -10e-7,-2 -2,-5 -5,-5 z",
-              },
+              name: "Edit plot",
+              icon: Plotly.Icons.pencil,
               click: function(gd) {
-                var visibleIdxs = [];
-                gd.data.forEach( function(trace, idx) {
-                  if (
-                   trace.showlegend !== false &&
-                   (!trace.hasOwnProperty("visible") ||
-                    trace.visible !== "legendonly")) {
-                    visibleIdxs.push(idx);
-                  }
-                });
-                Plotly.moveTraces(gd, visibleIdxs);
+                Plotly.newPlot(
+                  gd.id,
+                  gd.data,
+                  gd.layout,
+                  { ...gd._context, editable: !gd._context.editable});
               }
             },
             {
-              name: "Recolor traces",
+              name: "Recolor visible traces",
               icon: {
                 "width": 100,
                 "height": 100,
@@ -1164,7 +1166,7 @@
                   });
 
                   Plotly.restyle(
-                    "genexp-plot", {
+                    gd, {
                       "line.color": traceColors,
                       "marker.color": traceColors},
                     traceIdxs);
@@ -1172,14 +1174,44 @@
               },
             },
             {
-              name: "Edit plot",
-              icon: Plotly.Icons.pencil,
+              name: "Move visible traces down",
+              icon: {
+                "width": 100,
+                "height": 100,
+                "path": "m 48,12 c -2,10e-7 -5,2 -5,5 V 61 L 33,50 c -1,-1 -5,-1 -7,0 l -1,1 c -1,1 -1,5 -10e-7,7 L 44,80 c 0,0 2,1 3,1 0,0 0,-0 0,-0 0,0 0,0 0,0 H 47 13 c -2,0 -5,2 -5,5 l 0,2 c -7e-7,2 2,5 5,5 l 72,2e-6 c 2,10e-7 5,-2 5,-5 l -1e-6,-2 c 0,-2 -2,-5 -5,-5 l -34,2e-6 -0,-1e-6 c 0,1e-6 0,-0 0,-0 0,0 0,0 0,0 1,0 2,-0 3,-1 L 75,59 c 1,-1 1,-5 10e-7,-7 l -1,-1 c -1,-1 -5,-1 -7,10e-7 l -10,10 0,-43 c -10e-7,-2 -2,-5 -5,-5 z",
+                //m 24,17 a 7,7 0 0 0 -5,2 7,7 0 0 0 0,10 L 39,49 19,70 a 7,7 0 0 0 0,10 7,7 0 0 0 10,0 L 50,60 70,80 a 7,7 0 0 0 10,0 7,7 0 0 0 0,-10 L 60,49 80,29 a 7,7 0 0 0 0,-10 7,7 0 0 0 -5,-2 7,7 0 0 0 -5,2 L 50,39 29,19 a 7,7 0 0 0 -5,-2 z
+              },
               click: function(gd) {
-                Plotly.newPlot(
-                  gd.id,
-                  gd.data,
-                  gd.layout,
-                  { ...gd._context, editable: !gd._context.editable});
+                var visibleIdxs = [];
+                gd.data.forEach( function(trace, idx) {
+                  if (
+                   trace.showlegend !== false &&
+                   (!trace.hasOwnProperty("visible") ||
+                    trace.visible !== "legendonly")) {
+                    visibleIdxs.push(idx);
+                  }
+                });
+                Plotly.moveTraces(gd, visibleIdxs);
+              }
+            },
+            {
+              name: "Delete visible traces",
+              icon: {
+                "width": 100,
+                "height": 100,
+                "path": "m 24,17 a 7,7 0 0 0 -5,2 7,7 0 0 0 0,10 L 39,49 19,70 a 7,7 0 0 0 0,10 7,7 0 0 0 10,0 L 50,60 70,80 a 7,7 0 0 0 10,0 7,7 0 0 0 0,-10 L 60,49 80,29 a 7,7 0 0 0 0,-10 7,7 0 0 0 -5,-2 7,7 0 0 0 -5,2 L 50,39 29,19 a 7,7 0 0 0 -5,-2 z",
+              },
+              click: function(gd) {
+                var visibleIdxs = [];
+                gd.data.forEach( function(trace, idx) {
+                  if (
+                   trace.showlegend !== false &&
+                   (!trace.hasOwnProperty("visible") ||
+                    trace.visible !== "legendonly")) {
+                    visibleIdxs.push(idx);
+                  }
+                });
+                Plotly.deleteTraces(gd, visibleIdxs);
               }
             },
           ],
@@ -1264,6 +1296,15 @@
                   ldData = ldData.slice(0, -1);
                   var ldVals = ldData.map(i => i[2]);
                   var traces = [];
+
+                  var currTraces = document.getElementById("live-plot").data;
+                  var ldTraces = currTraces
+                    .map((trace, idx) => ({ trace, idx }))
+                    .filter(v => v.trace.traceType === "__ld__");
+                  if (ldTraces.length !== 0) {
+                    //Plotly.deleteTraces("live-plot", ldTrace[0].idx);
+                  }
+
                   const trace = {
                     name: "LD to " + markerId,
                     legendgroup: "LD to " + markerId,
@@ -1275,7 +1316,10 @@
                     fill: "tozeroy",
                     fillgradient: {
                       type: "vertical",
-                      colorscale: [[0,"rgba(208,208,208,0.5)"], [1,"rgba(208,0,0,0.5)"]],
+                      colorscale: [
+                        [0,"rgba(208,208,208,0.5)"],
+                        //[1,"rgba(208,0,0,0.5)"]],
+                        [1, colorCycle[(ldTraces.length + 3) % 10] + "80"]],
                       start: 0,
                       stop: 1,
                     },
@@ -1326,14 +1370,7 @@
                      [1, "rgb(208,0,0)"]],
                   };
                   traces.push(trace);
-  
-                  var currTraces = document.getElementById("live-plot").data;
-                  var ldTrace = currTraces
-                    .map((trace, idx) => ({ trace, idx }))
-                    .filter(v => v.trace.traceType === "__ld__");
-                  if (ldTrace.length !== 0) {
-                    Plotly.deleteTraces("live-plot", ldTrace[0].idx);
-                  }
+
                   Plotly.addTraces("live-plot", traces);
                   
                 }

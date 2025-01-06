@@ -260,7 +260,7 @@ def run_qc(genome, task_id, markers=None):
                 cnt.update(chk[3])
             elif metric == "maf":
                 chk[1] = 1 - chk[0]
-                cnt.update(chk.min(axis=1))
+                cnt.update(chk.min(axis=1).round(2))
             elif metric == "hwe":
                 cnt.update(-np.log10(chk[0]))
             if metric in ("shet", "vhet"):
@@ -276,7 +276,10 @@ def run_qc(genome, task_id, markers=None):
                     data_columns=["k", "v"],
                     min_itemsize={"k": 256},
                     append=True))
-
+            if metric == "maf":
+                print(chk.min(axis=1).sort_values())
+                print(sorted(cnt)[:10])
+                print(cnt[sorted(cnt)[0]], cnt[0.1])
         cnt = {(-1 if np.isnan(v) else v): cnt[v] for v in cnt.keys()}
         cnt_vals = list(cnt.keys())
         if metric == "hwe":
@@ -452,7 +455,7 @@ def run_qc(genome, task_id, markers=None):
 
     # Clean up
     for fn in os.listdir(stats_dir):
-        if (fn.startswith("gt")
+        if 0 and (fn.startswith("gt")
           and not fn.endswith(
             (".gz",
              ".bed",
@@ -580,118 +583,101 @@ def filt_qc(
         os.makedirs(stats_dir)
 
     if data["filt_ext"] and data["filt_from"]:
-        progress(task_id, f"Copying filters from {data['filt_from']}")
-        full_root = os.path.join(
+        plink_in = os.path.join(
           data_dir,
           genome,
           "assoc",
           data["filt_from"],
           "gt",
           "gt.full")
-        for ext in (".bed", ".bim", ".fam", ".vcf.gz"):
-            if not os.path.exists(plink_out + ".full" + ext):
-                os.link(
-                  os.path.abspath(full_root + ext),
-                  plink_out + ".full" + ext)
 
-        full_root = plink_out + ".full"
-        full_vcf = full_root + ".vcf.gz"
+    # Prepare heterozygosity filters
+    if data["shet"]:
+        shet_exc = os.path.join(
+          filt_dir,
+          "shet_exclude.txt")
+        df = pd.read_hdf(
+          os.path.join(stats_dir, "shet.h5"),
+          chunksize=100000)
+        for chk in df:
+            chk.columns = pd.RangeIndex(chk.columns.size)
+            chk[chk[1] > float(data["shet"])][0].to_csv(
+              shet_exc,
+              mode="a",
+              index=False,
+              header=False)
+    if data["vhet"]:
+        vhet_exc = os.path.join(
+          filt_dir,
+          "vhet_exclude.txt")
+        df = pd.read_hdf(
+          os.path.join(stats_dir, "vhet.h5"),
+          chunksize=100000)
+        for chk in df:
+            chk.columns = pd.RangeIndex(chk.columns.size)
+            chk[chk[1] > float(data["vhet"])][0].to_csv(
+              vhet_exc,
+              mode="a",
+              index=False,
+              header=False)
 
+    # Apply filters
+    fq = any(data[f] for f in ("smiss", "vmiss", "shet", "vhet", "maf", "hwe"))
+    if fq:
+        plink_filt = plink_out + ".filt"
+        cmd = [plink2_path, "--vcf", f"{plink_in}.vcf.gz"]
+        cmd = cmd + ["--remove", shet_exc] if data["shet"] else cmd
+        cmd = cmd + ["--exclude", vhet_exc] if data["vhet"] else cmd
+        cmd = cmd + ["--mind", str(data["smiss"])] if data["smiss"] else cmd
+        cmd = cmd + ["--geno", str(data["vmiss"])] if data["vmiss"] else cmd
+        cmd = cmd + ["--maf", str(data["maf"])] if data["maf"] else cmd
+        cmd = cmd + ["--hwe", str(10**(-data["hwe"]))] if data["hwe"] else cmd
+        cmd = cmd + [
+          "--allow-extra-chr",
+          "--export", "vcf", "bgz", "id-paste=iid",
+          "--out", plink_filt]
+        progress(task_id, "Applying filters")
+        popen(task_id, cmd)
     else:
-        # Filter based on missingness
-        if data["smiss"] or data["vmiss"]:
-            plink_intmd = plink_out + ".miss"
-            cmd = [plink2_path, "--vcf", f"{plink_in}.vcf.gz"]
-            cmd = cmd + ["--mind", str(data["smiss"])] if data["smiss"] else cmd
-            cmd = cmd + ["--geno", str(data["vmiss"])] if data["vmiss"] else cmd
-            cmd = cmd + [
-              "--allow-extra-chr",
-              "--export", "vcf", "bgz", "id-paste=iid",
-              "--out", plink_intmd]
-            progress(task_id, "Applying missingnes filters")
-            popen(task_id, cmd)
-        else:
-            progress(task_id, "Skipping missingness filtering", bold=False)
-            plink_intmd = plink_in
+        plink_filt = plink_in
 
-        # Prepare heterozygosity filters
-        if data["shet"]:
-            shet_exc = os.path.join(
-              filt_dir,
-              "shet_exclude.txt")
-            df = pd.read_hdf(
-              os.path.join(stats_dir, "shet.h5"),
-              chunksize=100000)
-            for chk in df:
-                chk.columns = pd.RangeIndex(chk.columns.size)
-                chk[chk[1] > float(data["shet"])][0].to_csv(
-                  shet_exc,
-                  mode="a",
-                  index=False,
-                  header=False)
-        if data["vhet"]:
-            vhet_exc = os.path.join(
-              filt_dir,
-              "vhet_exclude.txt")
-            df = pd.read_hdf(
-              os.path.join(stats_dir, "vhet.h5"),
-              chunksize=100000)
-            for chk in df:
-                chk.columns = pd.RangeIndex(chk.columns.size)
-                chk[chk[1] > float(data["vhet"])][0].to_csv(
-                  vhet_exc,
-                  mode="a",
-                  index=False,
-                  header=False)
+    full_root = os.path.join(
+      filt_dir,
+      "gt.full")
+    full_vcf = f"{full_root}.vcf.gz"
+    vcf_in = plink_filt + ".vcf.gz"
 
-        # Filter based on remaining thresholds
-        if any(data[f] for f in ("shet", "vhet", "maf", "hwe")):
-            plink_filt = plink_out + ".filt"
-            cmd = [plink2_path, "--vcf", f"{plink_intmd}.vcf.gz"]
-            cmd = cmd + ["--remove", shet_exc] if data["shet"] else cmd
-            cmd = cmd + ["--exclude", vhet_exc] if data["vhet"] else cmd
-            cmd = cmd + ["--maf", str(data["maf"])] if data["maf"] else cmd
-            cmd = cmd + ["--hwe", str(10**(-data["hwe"]))] if data["hwe"] else cmd
-            cmd = cmd + [
-              "--allow-extra-chr",
-              "--export", "vcf", "bgz", "id-paste=iid",
-              "--out", plink_filt]
-            progress(task_id, "Applying remaining filters")
-            popen(task_id, cmd)
-        else:
-            progress(task_id, "Skipping additional filtering", bold=False)
-            if data["smiss"] or data["vmiss"]:
-                plink_filt = plink_intmd
-            else:
-                plink_filt = plink_in
-
-        # Impute missing genotypes
+    # Impute missing genotypes
+    if data["imp"]:
         beagle_path = os.path.join(
           tool_dir,
           "beagle.jar")
 
-        vcf_in = plink_filt + ".vcf.gz"
-        full_root = os.path.join(
-          filt_dir,
-          "gt.full")
-        full_vcf = f"{full_root}.vcf.gz"
+        progress(task_id, "Imputing missing genotypes")
+        popen(
+          task_id,
+          ["java",
+           "-jar",
+           beagle_path,
+           f"gt={vcf_in}",
+           f"out={full_root}"])
+    else:
+        if fq:
+            os.rename(
+              vcf_in,
+              plink_out + ".full.vcf.gz")
+        else:
+            os.link(
+              f"{plink_in}.vcf.gz",
+              full_vcf)
 
-        if data["imp"]:
-            progress(task_id, "Imputing missing genotypes")
-            popen(
-              task_id,
-              ["java",
-               "-jar",
-               beagle_path,
-               f"gt={vcf_in}",
-               f"out={full_root}"])
-            popen(
-              task_id,
-              [plink2_path,
-               "--vcf", full_vcf,
-               "--make-bed",
-               "--allow-extra-chr",
-               "--out", full_root])
+    popen(
+      task_id,
+      [plink2_path,
+       "--vcf", full_vcf,
+       "--make-bed",
+       "--allow-extra-chr",
+       "--out", full_root])
 
     # Prune by LD
     if data["prune"]:
@@ -702,7 +688,7 @@ def filt_qc(
         popen(task_id,
           [plink2_path,
           "--vcf", full_vcf,
-          "--indep-pairwise", data["window"], str(data["prune"]),
+          "--indep-pairphase", data["window"], str(data["prune"]),
           "--allow-extra-chr",
           "--out", plink_out])
         prune_in = plink_out + ".prune.in"
@@ -934,19 +920,6 @@ def filt_qc(
     # Get filtered number of markers and samples
     bed = bed_reader.open_bed(f"{plink_out}.bed")
     samp_filt, var_filt = bed.iid_count, bed.sid_count
-    # Save parameters and counts in a file
-    if data["filt_ext"] and data["filt_from"]:
-        params_path = os.path.join(
-          data_dir,
-          genome,
-          "assoc",
-          data["filt_from"],
-          "stats",
-          "params")
-        with open(params_path) as params_in:
-            saved_params = json.load(params_in)[1][1:7]
-        for idx, filt in enumerate(("smiss", "vmiss", "shet", "vhet", "maf", "hwe")):
-            data[filt] = saved_params[idx] if saved_params[idx] != "—" else ""
     
     with open(params_fn, "w") as params_out:
         params = [

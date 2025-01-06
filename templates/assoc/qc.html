@@ -195,7 +195,7 @@
                justified">
                 {{ form.imp.label(
                  class="default-label bold") }}
-                {{ form.imp(id="imp-field", disabled="disabled") }}
+                {{ form.imp(id="imp-field") }}
               </div>
               <img
                class="aux-button clickable"
@@ -359,26 +359,8 @@
       var filtFields = ["smiss", "vmiss", "shet", "vhet", "maf", "hwe"];
       if (filtExt) {
         document.getElementById("filt-from-div").classList.remove("collapsed");
-        var filtFrom = document.querySelector("input[name='filt_from']:checked");
-        if (filtFrom != null) {
-          for (let i = 0; i < filtFields.length; i++) {
-            var savedThresh = savedParams[filtFrom.value][i];
-            var threshField = document.getElementById(filtFields[i] + "-thresh");
-            threshField.value = savedThresh;
-            threshField.disabled = "disabled";
-            threshField.style.backgroundColor = "#eee";
-            //document.querySelector(`label[for="${threshField.id}"]`).style.color = "#aaa";
-          }
-        }
       } else {
         document.getElementById("filt-from-div").classList.add("collapsed");        
-        for (let i = 0; i < filtFields.length; i++) {
-          var threshField = document.getElementById(filtFields[i] + "-thresh");
-          threshField.value = threshField.defaultValue;
-          threshField.disabled = "";
-          threshField.style.backgroundColor = "";
-          //document.querySelector(`label[for="${threshField.id}"]`).style.color = "";
-        }
       }
     }
 

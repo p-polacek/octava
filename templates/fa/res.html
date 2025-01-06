@@ -125,7 +125,7 @@
               {% endfor %}
             <tr>
               <th class="header-left">
-                Chrom:position
+                Position
               </th>
               {% for ann in anns %}
                 <td class="center-text wider-col">
@@ -425,7 +425,7 @@
                   class="dropdown-button"
                   onclick="toggleExp('projects-table');">
                   <label class="default-label bold">
-                    Project:
+                    Study:
                   </label>
                   <span
                    id="projects-count"
@@ -810,7 +810,7 @@
     ];
 
     var customOrder = [];
-    var customColors = [];
+    var customColors = {};
 
     const igvConfig = {{ igv_conf|tojson|safe }};
     var igvDiv = document.getElementById("igv-div");
@@ -1085,7 +1085,6 @@
 
       for (let i = 0; i < samples.length; i++) {
         const cells = rows[i+7].querySelectorAll("td");
-        console.log(cells);
 
         for (let j = 0; j < selectedVars.length; j++) {
           var gt = cells[selectedVars[j]]
@@ -1107,7 +1106,6 @@
           }
         }
       }
-      console.log(traceData);
 
       var traces = [];
       var gts = ["—", "·", "·/var1", "var1"];
@@ -1247,11 +1245,15 @@
             y: expValues,
             type: "box",
             name: groupName + " (n=" + members.length + ")",
+            Id: groupName,
             hoverinfo: "x+text",
             hovertext: hoverValues,
             boxpoints: expJitter ? "all" : "outliers",
             jitter: 0.9,
             pointpos: 0,
+            line: {
+              color: customColors[groupName] || colorCycle[(traces.length) % 10]
+            },
           };
           if (false && colors[colLabel]) {
             trace["marker"] = { color: colors[colLabel][uniqueVal] };
@@ -1308,11 +1310,15 @@
               type: "box",
               name: uniqueVal + " (n=" + Math.round(
                 expValues.length / selectedGenes.length) + ")",
+              Id: uniqueVal,
               hoverinfo: "x+text",
               hovertext: hoverValues,
               boxpoints: expJitter ? "all" : "outliers",
               jitter: 0.9,
               pointpos: 0,
+              line: {
+                color: customColors[uniqueVal] || colorCycle[(traces.length) % 10],
+              },
             };
             if (false && colors[colLabel]) {
               trace["marker"] = { color: colors[colLabel][uniqueVal] };
@@ -1351,6 +1357,16 @@
         },
       };
 
+      traces.sort((a, b) => {
+        const idxA = customOrder.indexOf(a.Id);
+        const idxB = customOrder.indexOf(b.Id);
+
+        if (idxA === -1 && idxB === -1) return 0;
+        if (idxA === -1) return 1;
+        if (idxB === -1) return -1;
+        return idxA - idxB;
+      });
+
       var config = {
         editable: false,
         modeBarButtonsToAdd: [
@@ -1366,7 +1382,92 @@
             }
           },
           {
-            name: "Move traces down",
+            name: "Edit plot",
+            icon: Plotly.Icons.pencil,
+            click: function(gd) {
+              Plotly.newPlot(
+                gd.id,
+                gd.data,
+                gd.layout,
+                { ...gd._context, editable: !gd._context.editable});
+            }
+          },
+          {
+            name: "Recolor visible traces",
+            icon: {
+              "width": 100,
+              "height": 100,
+              "path": "m 11,11 c -3,0 -5,2 -5,5 v 19 c 0,3 2,5 5,5 H 68 c 3,0 5,-2 5,-5 v -5 h 7 V 48 L 41,62 c -1,0 -2,2 -2,4 v 25 c 3e-4,2 1,4 4,4 2,-3e-4 4,-1 4,-4 V 70 l 40,-13 c 1,-0 2,-2 2,-4 V 26 C 91,24 89,22 86,22 H 74 v -5 c 0,-3 -2,-5 -5,-5 z",
+            },
+            click: function(gd) {
+              var clickEvent = event;
+              var traceColors;
+              var traceIdxs = [];
+              var traceIds = [];
+              gd.data.forEach(function(trace, idx) {
+                if (
+                  trace.showlegend !== false &&
+                  (!trace.hasOwnProperty("visible")
+                    || trace.visible !== "legendonly")) {
+                  traceIdxs.push(idx);
+                  traceIds.push(trace.Id || "");
+                }
+              });
+
+              showHelp(clickEvent, null, '<input type="color" id="colorPicker" value="#ff0000" />');
+              document.getElementById("colorPicker").click();
+              document.getElementById("help-popup").classList.add("collapsed");
+              document.getElementById("colorPicker").addEventListener("input", function() {
+                var colorChoice = this.value;
+                traceColors = [];
+                gd.data.forEach(function(trace, idx) {
+                  if (
+                    trace.showlegend !== false &&
+                    (!trace.hasOwnProperty("visible")
+                     || trace.visible !== "legendonly")) {
+                    traceColors.push(colorChoice);
+                    customColors[trace.Id || ""] = colorChoice;
+                  }
+                });
+
+                Plotly.restyle(
+                  gd, {
+                    "line.color": traceColors},
+                  traceIdxs);
+              });
+            },
+          },
+          {
+            name: "Reset colors of visible traces",
+            icon: {
+              "width": 100,
+              "height": 100,
+              "path": "m 51,8 c -10,0 -20,4 -27,12 a 6,6 0 0 0 0,9 6,6 0 0 0 9,-0 c 7,-8 20,-10 30,-3 9,6 12,19 7,29 -4,9 -15,13 -25,11 L 54,55 11,54 31,91 39,79 C 56,85 75,78 84,62 93,46 88,25 72,14 67,10 60,8 53,8 c -0,-0 -1,-0 -2,-0 z",
+            },
+            click: function(gd) {
+              var traceIds = [];
+              var traceIdxs = [];
+              var traceColors = [];
+
+              gd.data.forEach(function(trace, idx) {
+                if (
+                  trace.showlegend !== false &&
+                  (!trace.hasOwnProperty("visible")
+                    || trace.visible !== "legendonly")) {
+                  traceIdxs.push(idx);
+                  delete customColors[trace.Id || ""];
+                  traceColors.push(colorCycle[idx % 10]);
+                }
+              });
+
+              Plotly.restyle(
+                gd, {
+                  "line.color": traceColors},
+                traceIdxs);
+            },
+          },
+          {
+            name: "Move visible traces down",
             icon: {
               "width": 100,
               "height": 100,
@@ -1383,51 +1484,30 @@
                 }
               });
               Plotly.moveTraces(gd, visibleIdxs);
-            }
+
+              // Save custom order
+              var traceIds = gd.data.map( t => t.Id);
+              customOrder = traceIds.concat(customOrder.filter( i => !traceIds.includes(i) ));
+            },
           },
           {
-            name: "Recolor traces",
+            name: "Delete visible traces",
             icon: {
               "width": 100,
               "height": 100,
-              "path": "m 11,11 c -3,0 -5,2 -5,5 v 19 c 0,3 2,5 5,5 H 68 c 3,0 5,-2 5,-5 v -5 h 7 V 48 L 41,62 c -1,0 -2,2 -2,4 v 25 c 3e-4,2 1,4 4,4 2,-3e-4 4,-1 4,-4 V 70 l 40,-13 c 1,-0 2,-2 2,-4 V 26 C 91,24 89,22 86,22 H 74 v -5 c 0,-3 -2,-5 -5,-5 z",
+              "path": "m 24,17 a 7,7 0 0 0 -5,2 7,7 0 0 0 0,10 L 39,49 19,70 a 7,7 0 0 0 0,10 7,7 0 0 0 10,0 L 50,60 70,80 a 7,7 0 0 0 10,0 7,7 0 0 0 0,-10 L 60,49 80,29 a 7,7 0 0 0 0,-10 7,7 0 0 0 -5,-2 7,7 0 0 0 -5,2 L 50,39 29,19 a 7,7 0 0 0 -5,-2 z",
             },
             click: function(gd) {
-              var clickEvent = event;
-              var traceIdxs = [];
-              var traceColors = [];
-              showHelp(clickEvent, null, '<input type="color" id="colorPicker" value="#ff0000" />');
-              document.getElementById("colorPicker").click();
-              document.getElementById("help-popup").classList.add("collapsed");
-              document.getElementById("colorPicker").addEventListener("input", function() {
-                var traceColor = this.value;
-                gd.data.forEach(function(trace, idx) {
-                  if (
-                    trace.showlegend !== false &&
-                    (!trace.hasOwnProperty("visible")
-                     || trace.visible !== "legendonly")) {
-                    traceIdxs.push(idx);
-                    traceColors.push(traceColor);
-                  }
-                });
-
-                Plotly.restyle(
-                  "genexp-plot", {
-                    "line.color": traceColors,
-                    "marker.color": traceColors},
-                  traceIdxs);
+              var visibleIdxs = [];
+              gd.data.forEach( function(trace, idx) {
+                if (
+                 trace.showlegend !== false &&
+                 (!trace.hasOwnProperty("visible") ||
+                  trace.visible !== "legendonly")) {
+                  visibleIdxs.push(idx);
+                }
               });
-            },
-          },
-          {
-            name: "Edit plot",
-            icon: Plotly.Icons.pencil,
-            click: function(gd) {
-              Plotly.newPlot(
-                gd.id,
-                gd.data,
-                gd.layout,
-                { ...gd._context, editable: !gd._context.editable});
+              Plotly.deleteTraces(gd, visibleIdxs);
             }
           },
         ],
@@ -1438,6 +1518,7 @@
       for (let i = 0; i < traces.length; i++) {
         traces[i].name = traces[i].name.replace(/(.{15,}?)\s/g, "$1<br>");
       }
+
 
       document.getElementById("runs-table").classList.add("collapsed");
       document.getElementById("projects-table").classList.add("collapsed");
@@ -1455,7 +1536,7 @@
         // Change the color of the clicked x-axis tick label
         var xClicked = data.points[0].x;
         var ticks = plotDiv.getElementsByClassName("xtick");
-        for (var i = 0; i < ticks.length; i += 1) {
+        for (var i = 0; i < ticks.length; i++) {
           var tickText = ticks[i].getElementsByTagName("text")[0];
           if (tickText.innerHTML === xClicked) {
             tickText.style.fill = !checkbox.checked ? "red" : "limegreen";

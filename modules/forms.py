@@ -325,40 +325,47 @@ class PlotForm(FlaskForm):
 
 class AssocQCform(PlotForm):
     filt_ext = BooleanField(
-      "Apply from existing:")
+      "Apply to existing:")
     filt_from = RadioField(
       "Markers:",
       choices=[])
     smiss = DecimalField(
       "sample ≤",
       places  = None,
-      default = 0.1)
+      #default = 0.1
+      )
     vmiss = DecimalField(
       "marker ≤",
       places  = None,
-      default = 0.1)
+      #default = 0.1
+      )
     shet = DecimalField(
       "sample ≤",
       places  = None,
-      default = 0.1)
+      #default = 0.1
+      )
     vhet = DecimalField(
       "marker ≤",
       places  = None,
-      default = 0.1)
+      #default = 0.1
+      )
     maf = DecimalField(
       "Minor AF ≥",
       places  = None,
-      default = 0.05)
+      #default = 0.05
+      )
     hwe = DecimalField(
       "-log10(P) HWE ≤",
       places  = None)
     prune = DecimalField(
       "Threshold <",
       places  = None,
-      default = 0.95)
+      #default = 0.95
+      )
     window = IntegerField(
       "Window (kb):",
-      default = 200)
+      #default = 200
+      )
     imp = BooleanField(
       "Impute",
       default="checked")
@@ -456,7 +463,7 @@ class AssocResForm(RegionForm, PlotForm):
       "Kinship (K) correction",
       default = True)
     q = BooleanField(
-      "PCA (Q) correction",
+      "PC (Q) correction",
       default = True)
     q_num = IntegerField(
       "Number of PCs:",

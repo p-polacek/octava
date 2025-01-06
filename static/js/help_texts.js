@@ -55,7 +55,7 @@ var helpTexts = {
   "</td></tr></table>",
 
  "filt-ext":
-  "Re-apply filtering and imputation from existing marker set",
+  "Use an existing marker set as the input for filtering<br>Use for reapplying filters or constructing haplotype block from existing marker sets",
  "ld-prune":
   "For each marker, removes all markers within <i>Window</i> with r-squared above <i>Threshold</i>",
  "impute":
@@ -84,7 +84,7 @@ var helpTexts = {
   "<tr><th>Add <i>Loci of interest</i></th><td>Middle-click (mouse wheel click) marker or zoom into a plot region and click (+)</td></tr>" +
   "<tr><th>View per-marker LD</th><td>Left-click marker</td></tr></table>",
  "as-group":
-  "<table><tr><th>Plot as groups</th><td>Groups results per <i>Window</i> (moving with a step of half the <i>Window</i> size)<br>Plots as a single marker, with the size representing the number of runs with<br>significant association within the window (at or above <i>Threshold</i>)<br>Traits must be saved as a <i>Trait group</i> to plot as groups</td></tr>" +
+  "<table><tr><th>Plot as groups</th><td>Groups results per <i>Window</i><br>Plots as a single marker; size represents the number of runs<br>with significant association within the window (at or above <i>Threshold</i>)<br>Save traits as a <i>Trait group</i> to plot</td></tr>" +
   "<tr><th>Plot averages</th><td>Plot the average significance and average position of peak markers<br>(by default, plots the position and significance of the most significant peak marker)</td></tr>" +
   "<tr><th>Combinations separately</th><td>Plot all combinations of <i>Trait group, Marker set</i> and <i>Model</i> separately<br>(by default, all results for a <i> Trait group</i> are grouped into one)</td></tr>" +
   "<tr><th>Number of traits</th><td>Minimum number of traits with significant association within <i>Window</i> to plot</td></tr></table>",
