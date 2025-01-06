@@ -1280,6 +1280,7 @@
               if (data.event.button === 1) {
                 addLocus(markerId);
               } else if (data.event.button === 0) {
+              var window = document.getElementById("window").value;
               var request = $.ajax({
                 url: "{{ url_for('fetch_ld') }}",
                 method: "POST",
@@ -1287,6 +1288,7 @@
                   genome: genome,
                   markers: markers,
                   marker_id: markerId,
+                  window: window,
                 },
                 success: function(ldData) {
                   var isHap = false;

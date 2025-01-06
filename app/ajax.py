@@ -233,6 +233,7 @@ def fetch_ld():
     form = request.form
     markers = form["markers"]
     marker_id = form["marker_id"].replace(",", "")
+    window = int(form["window"])
     task_id = str(uuid.uuid4())
     is_hap = False
     if "-" in marker_id and "_" in marker_id:
@@ -260,12 +261,22 @@ def fetch_ld():
     out_root = os.path.join(
       tmp_dir,
       task_id)
+    if is_hap:
+        ch, pos = marker_id.split("_")[0].split(":")
+        start, end = map(int, pos.split("-"))
+    else:
+        ch, pos = marker_id.split(":")
+        start = end = int(pos)
     subprocess.run(
       [plink2_path,
+       #"--bfile", "chr6",
        "--bfile", in_root,
+       "--chr", ch,
+       "--from-bp", str(start - window*1000),
+       "--to-bp", str(end + window*1000),
        "--r2-unphased",
        "--ld-snp", marker_id,
-       "--ld-window-kb", "1500",
+       "--ld-window-kb", str(window),
        "--ld-window-r2", "0",
        #"--silent",
        "--out", out_root],
