@@ -245,6 +245,8 @@ def run_qc(genome, task_id, markers=None):
         h5_out = os.path.join(
           stats_dir,
           f"{metric}.h5")
+        if os.path.exists(h5_out):
+            os.remove(h5_out)
 
         for chk in df:
             chk.columns = pd.RangeIndex(chk.columns.size)
@@ -260,12 +262,10 @@ def run_qc(genome, task_id, markers=None):
                 cnt.update(chk[3])
             elif metric == "maf":
                 chk[1] = 1 - chk[0]
-                cnt.update(chk.min(axis=1).round(2))
+                cnt.update(chk.min(axis=1))
             elif metric == "hwe":
                 cnt.update(-np.log10(chk[0]))
             if metric in ("shet", "vhet"):
-                if os.path.exists(h5_out):
-                    os.remove(h5_out)
                 (chk
                   .set_axis(
                     ["k", "v"],
@@ -278,10 +278,6 @@ def run_qc(genome, task_id, markers=None):
                     data_columns=["k", "v"],
                     min_itemsize={"k": 256},
                     append=True))
-            if metric == "maf":
-                print(chk.min(axis=1).sort_values())
-                print(sorted(cnt)[:10])
-                print(cnt[sorted(cnt)[0]], cnt[0.1])
         cnt = {(-1 if np.isnan(v) else v): cnt[v] for v in cnt.keys()}
         cnt_vals = list(cnt.keys())
         if metric == "hwe":
@@ -457,7 +453,7 @@ def run_qc(genome, task_id, markers=None):
 
     # Clean up
     for fn in os.listdir(stats_dir):
-        if 0 and (fn.startswith("gt")
+        if (fn.startswith("gt")
           and not fn.endswith(
             (".gz",
              ".bed",
@@ -605,7 +601,6 @@ def filt_qc(
           chunksize=100000)
         for chk in df:
             chk.columns = pd.RangeIndex(chk.columns.size)
-            print(chk[chk[1] > float(data["shet"])][0])
             chk[chk[1] > float(data["shet"])][0].to_csv(
               shet_exc,
               mode="a",
@@ -861,17 +856,17 @@ def filt_qc(
       [plink2_path,
        "--bfile", kin_in,
        "--make-rel", "square",
-       "--pca", "10",
+       "--pca", "15",
        "--allow-extra-chr",
        "--out", plink_out])
-    k_matr = pd.read_csv(
+    rel_matrix = pd.read_csv(
       f"{plink_out}.rel",
       sep="\t",
       header=None,
       index_col=None)
 
     # Convert PCA eigenvectors to PVE
-    sum_diag = sum(np.diag(k_matr))
+    sum_diag = sum(np.diag(rel_matrix))
     eigenval = pd.read_csv(
       f"{plink_out}.eigenval",
       header=None,
@@ -911,20 +906,25 @@ def filt_qc(
       f"{hamm_out}.dist.id",
       sep="\t",
       header=None)[1].tolist()
-    hamm_df = pd.DataFrame(hamm_matrix)
-    hamm_df = hamm_df.set_axis(hamm_labels, axis=0)
-    hamm_df = hamm_df.set_axis(hamm_labels, axis=1)
+    kin_matrix = (pd
+      .DataFrame(hamm_matrix)
+      .set_axis(hamm_labels, axis=0)
+      .set_axis(hamm_labels, axis=1))
 
-    tree, lab_order = wpgma(
+    tree, label_order = wpgma(
       hamm_matrix,
       hamm_labels)
 
-    hamm_df = hamm_df.loc[lab_order]
-    hamm_df = hamm_df.loc[:, lab_order]
+#    kin_matrix = (
+#      rel_matrix
+#        .set_axis(hamm_labels, axis=0)
+#        .set_axis(hamm_labels, axis=1)
+#        .loc[label_order, label_order])
+    kin_matrix = kin_matrix.loc[label_order, label_order]
     with open(f"{hamm_out}", "w") as matr_out:
         json.dump(
-          [hamm_df.values.tolist(),
-           lab_order],
+          [kin_matrix.values.tolist(),
+           label_order],
           matr_out)
 
     progress(task_id, "Saving summary")

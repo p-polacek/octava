@@ -60,7 +60,7 @@
                onclick="showHelp(event, 'filt-ext');" />
             </div>
             <span id="filt-from-div" class="collapsed">
-              <div class="row-div small-padded-bottom">
+              <div class="row-div small-padded-top small-padded-bottom">
                 <button
                  type="button"
                  class="dropdown-button"
@@ -373,6 +373,7 @@
   <script>
     var markers;
     var chrData;
+    var histData;
     var visibleDropdown = null;
     var genome      = '{{ genome }}';
     var varNum      = '{{ var_num }}';
@@ -380,9 +381,7 @@
     var mdbin       = {{ mdbin }};
     var names       = {{ chr_names|tojson }};
     var sizes       = {{ chr_sizes|tojson }};
-    var histData    = {{ hist_data|tojson }};
 	var savedSets   = {{ saved_sets|tojson }};
-    var savedParams = {{ saved_params|tojson }};
     var offsets     = {{ chr_offsets|tojson }};
     var concatNames = {{ concat|tojson }};
 
@@ -407,6 +406,18 @@
       } else {
         document.getElementById("filt-from-div").classList.add("collapsed");        
       }
+      // Fetch plot data
+      var markers;
+      var filtFrom = document.querySelector("input[name='filt_from']:checked");
+      if (filtExt && filtFrom) {
+        markers = filtFrom.value;
+      } else {
+        markers = null;
+      }
+      fetchPlots(markers, false, function(results) {
+        histData = results;
+        showPlot();
+      });
     }
 
     function bParams(methodChoice) {
@@ -442,9 +453,9 @@
 
     document.addEventListener("DOMContentLoaded", function() {
       document.getElementById("choice-field").selectedIndex = 0;
+      toggleFiltFrom();
       showPlot();
       bMethod();
-      toggleFiltFrom();
       updateTracker(document.getElementById("filt_from-tracker"));
     });
     window.addEventListener("resize", function() { resizePlot() });

@@ -104,7 +104,8 @@ class AddForm(FlaskForm):
       "Concatenate contigs:",
       choices=[])
     edit = BooleanField(
-      "Enable editing dataset later:")
+      "Enable editing dataset later:",
+      default=True)
     igv_vis = IntegerField(
       "Visibility window:",
       default=1000000)

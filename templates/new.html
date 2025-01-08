@@ -322,14 +322,15 @@
                   </div>
                 </div>
 {# =========================================================== Edit dataset #}
-                <div class="row-div padded-bottom">
+                <div class="row-div padded-bottom collapsed">
                   <div class="wide-input-div justified">
                     {{ form.edit.label(
                      class="default-label bold") }}
                     {{ form.edit }}
                   </div>
                 </div>
-{# =========================================================== IGV settings #}
+{# ============================================================ IGV options #}
+                <span class="collapsed">
                 <div class="row-div padded-top">
                   <h2>
                     IGV visualisation options:
@@ -347,6 +348,7 @@
                     {{ form.igv_h(class="default-input promsize-input") }}
                   </div>
                 </div>
+                </span>
               {% endif %}
             {% endif %}
             <div class="row-input-div justified padded-top padded-bottom">
@@ -399,7 +401,7 @@
         var icon = iconInput.files[0];
         if (icon.size  > 1048576) {
           iconInput.value = "";
-          alert("File should be 1Mb maximum.");
+          alert("File must be 1MB maximum.");
           return;
         }
         const validTypes = ["image/jpg", "image/jpeg", "image/png"];
@@ -417,7 +419,7 @@
         preview.onload = function() {
           if (preview.height !== 128 || preview.width !== 128) {
             resetIcon();
-            alert("Icon resolution must be 256x256px.");
+            alert("Icon must be in square aspect ratio (128x128px or similar).");
           }
         }
       }

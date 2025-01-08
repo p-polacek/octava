@@ -5,7 +5,7 @@
 {% block style %}
   <style>
     {% for genome in genomes %}
-      {% set genome_idx = genome[0]|string %}
+      {% set genome_idx = loop.index0|string %}
       {% set genome_label = "label" + genome_idx %}
       {% set genome_div = "div" + genome_idx %}
 
@@ -52,23 +52,22 @@
      class="centered-div clickable"
      id="genome-sel-div">
       {% for genome in genomes %}
-        {% set genome_idx = genome[0]|string %}
-        {% set genome_name = genome[1] %}
+        {% set genome_idx = loop.index0|string %}
         <div
          class="object-div"
          id="{{ 'div' + genome_idx }}"
-         onclick="showTools('{{ genome_name }}');">
+         onclick="showTools('{{ genome }}');">
           <div class="genome-icon-div">
             <img
              class="genome-icon"
              src="{{ url_for(
               'serve_icon',
-              genome=genome_name) }}"
-             alt="{{ genome_name }}">
+              genome=genome) }}"
+             alt="{{ genome }}">
             <h2
              class="text-wrap padded-top"
              id="{{ 'label' + genome_idx }}">
-              {{ genome_name }}
+              {{ genome }}
             </h2>
           </div>
         </div>
@@ -122,7 +121,7 @@
 
 {% block script %}
   <script>
-    var links = JSON.parse({{ links|tojson|safe }});
+    var links = {{ links|tojson }};
     function addNew() {
       window.location.href = "{{ url_for('new') }}";
     }

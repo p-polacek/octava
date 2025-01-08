@@ -132,26 +132,24 @@ def index():
         lock = get_lock("__clean__")
     with lock:
         clean()
-    genomes = list(
-      enumerate(
-        sorted(
-          [p for p in os.listdir(data_dir)
-           if os.path.exists(
-             os.path.join(
-               data_dir,
-               p,
-               "init"))])))
+    genomes = sorted(
+      [p for p in os.listdir(data_dir)
+       if os.path.exists(
+         os.path.join(
+           data_dir,
+           p,
+           "init"))])
     links = {
-      genome[1]: {
-        "gv": url_for("fa_opts", genome=genome[1]),
-        "ts": url_for("ts", genome=genome[1]),
-        "assoc": url_for("assoc", genome=genome[1]),
-        "edit": url_for("edit", genome=genome[1])}
+      genome: {
+        "gv": url_for("fa_opts", genome=genome),
+        "ts": url_for("ts", genome=genome),
+        "assoc": url_for("assoc", genome=genome),
+        "edit": url_for("edit", genome=genome)}
       for genome in genomes}
     return render_template(
       "index.html",
       genomes = genomes,
-      links   = json.dumps(links),
+      links   = links,
       genome  = "")
 
 ###############################################################################
@@ -220,7 +218,7 @@ def setup_new(genome):
     exts.update(
       dict.fromkeys(
         ["seq", "cds", "pep"],
-        (".fa", ".fasta", ".fna", ".fa.gz", ".fasta.gz", ".fna.gz")))
+        (".fa", ".fasta", ".fna", ".faa", ".fa.gz", ".fasta.gz", ".fna.gz", ".faa.gz")))
     exts.update(
       dict.fromkeys(
         ["phe", "exp", "run", "proj", "samp", "info", "blastp"],
@@ -246,7 +244,6 @@ def setup_new(genome):
 def setup(genome):
     form = AddForm(request.form)
     icon = request.files["icon"]
-    warning = ""
     error = ""
     if icon.filename:
         icon.seek(0, os.SEEK_END)
@@ -260,7 +257,6 @@ def setup(genome):
             if ext not in (".png", ".jpg", ".jpeg"):
                 error = "Icon is the wrong file type."
             else:
-                icon.seek(0) 
                 icon.save(
                   os.path.join(
                     data_dir,
@@ -292,7 +288,6 @@ def setup(genome):
           task      = "setup",
           task_id   = task_id,
           task_spec = task_spec,
-          warning   = warning,
           form      = "")
 
 @app.route(
@@ -383,9 +378,8 @@ def edit(genome):
       form    = form,
       edit    = True,
       allow   = allow,
-      errors   = errors,
+      errors  = errors,
       action  = url_for("edit", genome=genome))
-
 
 ###############################################################################
 ### Trait/sample view
@@ -514,7 +508,7 @@ def ts(genome):
       genome     = genome,
       form       = form,
       phe        = phe,
-      gt_samples   = gt_samples,
+      gt_samples = gt_samples,
       samp_info  = samp_info,
       errors     = errors)
 
@@ -668,18 +662,16 @@ def fa_res(genome):
 
         exp_data = list()
         tb = tabix.open(exp_path)
-        # Skip header line
         if genes:
+            # Skip header line
             for gene in genes[1:]:
                 try:
-                    for gene_entry in tb.query(
-                      gene[1],
-                      gene[2],
-                      gene[3]):
+                    for gene_entry in tb.query(*gene[1:4]):
                         if gene_entry[0] != gene[0]:
                             continue
                         exp_data.append([gene_entry[0]] + gene_entry[4:])
                 except tabix.TabixError:
+                    # Gene not found, ignore
                     pass
     else:
         exp_data  = ""
@@ -850,7 +842,6 @@ def assoc_qc(genome):
       genome,
       "assoc")
     saved_sets = list()
-    saved_params = dict()
     for d in os.listdir(markers_root):
         init_path = os.path.join(
           markers_root,
@@ -867,9 +858,6 @@ def assoc_qc(genome):
                 params = json.load(params_in)
             if params[1][10] == "No":
                 form.filt_from.choices.append(d)
-                saved_params[d] = [
-                  val if val != "—" else ""
-                  for val in params[1][1:7]]
 
     form.chr.choices = gdata["chr_names"]
 
@@ -889,8 +877,7 @@ def assoc_qc(genome):
       chr_sizes    = gdata["chr_sizes"],
       chr_offsets  = gdata["chr_offsets"],
       concat       = json.loads(config["concat"]),
-      saved_sets   = saved_sets,
-      saved_params = saved_params)
+      saved_sets   = saved_sets)
 
 ###############################################################################
 ### Apply filters to create new marker set, redirect
@@ -968,16 +955,7 @@ def assoc_opts(genome):
             m,
             "init")):
             form.markers_sgl.choices.append(m)
-            params_path = os.path.join(
-              markers_root,
-              m,
-              "stats",
-              "params")
-            with open(params_path, "r") as params_in:
-                hap = json.load(params_in)[1][10] == "Yes"
-            haps[m] = hap
-            if 1 or not hap:
-                form.kq_from.choices.append(m)
+            form.kq_from.choices.append(m)
 
     form.chrom.choices = [""] + gdata["chr_names"]
     form.traits_group.choices = [
@@ -1219,7 +1197,8 @@ def assoc_res(genome):
 
     form.markers.choices = [
       d for d in os.listdir(markers_root)
-      if os.path.isdir(os.path.join(markers_root, d))]
+      if os.path.isdir(os.path.join(markers_root, d))
+      and os.path.exists(os.path.join(markers_root, d, "init"))]
 
     analysed_traits = list()
     analysed_models = list()
@@ -1339,60 +1318,3 @@ def assoc_locus(genome):
       task_id   = task_id,
       task_spec = task_spec,
       form      = form.data)
-
-"""
-@app.route(
-  "/<genome>/Association_analysis/Locus/<task_id>",
-  methods=["POST"])
-def finemap(
-  genome,
-  task_id):
-    form = AssocResForm(request.form)
-    form.process(data=session.get(genome + "_fm_form", {}))
-
-    params = form.data
-    config  = load_config(genome)
-    markers = params["mrk"]
-    model   = params["mod"]
-    trait   = params["trt"]
-    pval    = params["pval"]
-    coord   = params["coord"]
-
-    if params["fm_method"] == "pm":
-        igv_conf = igv_fm(
-          genome,
-          markers,
-          model,
-          trait,
-          coord,
-          pval,
-          task_id)
-    elif params["fm_method"] == "rf":
-        igv_conf = igv_rf(
-          genome,
-          markers,
-          model,
-          trait,
-          coord,
-          pval,
-          task_id)
-    else:
-        igv_conf = igv_nofm(
-          genome,
-          markers,
-          model,
-          trait,
-          coord,
-          pval,
-          task_id)
-
-    return render_template(
-      "assoc/locus.html",
-      genome   = genome,
-      markers  = markers,
-      model    = model,
-      igv_conf = igv_conf,
-      vis_win  = config["igv_vis"],
-      height   = config["igv_h"],
-      opt_hash = task_id)
-"""

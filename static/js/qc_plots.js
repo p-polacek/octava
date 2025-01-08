@@ -628,7 +628,7 @@ function showPlot() {
       plot_bgcolor: "rgba(0, 0, 0, 0)",
       paper_bgcolor: "rgba(0, 0, 0, 0)",
       xaxis: {
-        title: xLabels[plotChoice],
+        title: "Value",
         gridcolor: "rgba(0,0,0,0.1)",
       },
       yaxis: {
@@ -687,16 +687,15 @@ function resizePlot() {
   }
 }
 
-function fetchPlots(markers, callback) {
-  payload = {};
-  payload["genome"] = genome;
-  payload["markers"] = markers;
-  payload["hap"] = haps[markers];
-
+function fetchPlots(markers, isHap, callback) {
   $.ajax({
     url: "/hist",
     method: "POST",
-    data:   payload,
+    data: {
+      "genome": genome,
+      "markers": markers,
+      "hap": isHap,
+    },
     success: function (results) {
       callback(results);
     }

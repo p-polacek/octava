@@ -621,7 +621,7 @@
 
       var markerBtns = document.getElementsByName("markers_sgl");
       for (let i = 0; i < markerBtns.length; i++) {
-        var btn = markerBtns[i]
+        var btn = markerBtns[i];
         btn.addEventListener("change", function(event) {
           markers = event.target.value;
           if (haps[markers]) {
@@ -632,7 +632,7 @@
             document.getElementById("plothap-sel").classList.add("collapsed");
           }
           fetchChr();
-          fetchPlots(markers, function(results) {
+          fetchPlots(markers, haps[markers], function(results) {
             histData = results;
             //document.getElementById("choice-field").value = "smiss";
             //showPlot();

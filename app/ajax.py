@@ -359,12 +359,18 @@ def fetch_hist():
     genome  = form["genome"]
     markers = form["markers"]
 
-    stats_dir = os.path.join(
-      data_dir,
-      genome,
-      "assoc",
-      markers,
-      "stats")
+    if markers:
+        stats_dir = os.path.join(
+          data_dir,
+          genome,
+          "assoc",
+          markers,
+          "stats")
+    else:
+        stats_dir = os.path.join(
+          data_dir,
+          genome,
+          "stats")
     hist_data = dict()
     if form["hap"] == "true":
         metrics = (
@@ -380,16 +386,18 @@ def fetch_hist():
           "pca",
           "kin")
     else:
-        metrics = (
+        metrics = [
           "smiss",
           "vmiss",
           "shet",
           "vhet",
           "maf",
           "hwe",
-          "dens",
-          "pca",
-          "kin")
+          "dens"]
+        if markers:
+            metrics += [
+              "pca",
+              "kin"]
     for metric in metrics:
         hist_path = os.path.join(stats_dir, metric)
         with open(hist_path, "r") as hist_in:
