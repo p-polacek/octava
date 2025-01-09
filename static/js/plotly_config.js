@@ -1,119 +1,151 @@
-const scriptUrl = "https://cdn.plot.ly/plotly-2.35.2.min.js";
-const script = document.createElement("script");
-script.src = scriptUrl;
-script.type = "text/javascript";
-script.async = true;
-document.head.appendChild(script);
+var customOrder = [];
+var customColors = {};
 
-var config = {
-  editable: false,
-  modeBarButtonsToAdd: [
-    {
-      name: "Toggle legend",
-      icon: {
-        "width": 100,
-        "height": 100,
-        "path": "M 12 14 A 10 10 0 0 0 2 25 A 10 10 0 0 0 12 35 A 10 10 0 0 0 23 25 A 10 10 0 0 0 12 14 z M 39 20 C 36 20 34 22 34 25 C 34 28 36 30 39 30 L 93 30 C 96 30 98 28 98 25 C 98 22 96 20 93 20 L 39 20 z M 12 45 A 10 10 0 0 0 2 56 A 10 10 0 0 0 12 66 A 10 10 0 0 0 23 56 A 10 10 0 0 0 12 45 z M 39 51 C 36 51 34 53 34 56 C 34 59 36 61 39 61 L 93 61 C 96 61 98 59 98 56 C 98 53 96 51 93 51 L 39 51 z M 12 76 A 10 10 0 0 0 2 87 A 10 10 0 0 0 12 97 A 10 10 0 0 0 23 87 A 10 10 0 0 0 12 76 z M 39 82 C 36 82 34 84 34 87 C 34 90 36 92 39 92 L 93 92 C 96 92 98 90 98 87 C 98 84 96 82 93 82 L 39 82 z ",
-      },
-      click: function(gd) {
-        Plotly.relayout(gd, { showlegend: !gd.layout.showlegend });
-      }
+var plotColors = [
+  //"#1f77b4",  // muted blue
+  "#ff7f0e",  // safety orange
+  //"#2ca02c",  // cooked asparagus green
+  "#d62728",  // brick red
+  "#9467bd",  // muted purple
+  "#8c564b",  // chestnut brown
+  "#e377c2",  // raspberry yogurt pink
+  "#7f7f7f",  // middle gray
+  "#bcbd22",  // curry yellow-green
+  "#17becf"   // blue-teal
+];
+
+var buttonsToAdd = {
+  legend: {
+    name: "Toggle legend",
+    icon: {
+      "width": 100,
+      "height": 100,
+      "path": "M 12 14 A 10 10 0 0 0 2 25 A 10 10 0 0 0 12 35 A 10 10 0 0 0 23 25 A 10 10 0 0 0 12 14 z M 39 20 C 36 20 34 22 34 25 C 34 28 36 30 39 30 L 93 30 C 96 30 98 28 98 25 C 98 22 96 20 93 20 L 39 20 z M 12 45 A 10 10 0 0 0 2 56 A 10 10 0 0 0 12 66 A 10 10 0 0 0 23 56 A 10 10 0 0 0 12 45 z M 39 51 C 36 51 34 53 34 56 C 34 59 36 61 39 61 L 93 61 C 96 61 98 59 98 56 C 98 53 96 51 93 51 L 39 51 z M 12 76 A 10 10 0 0 0 2 87 A 10 10 0 0 0 12 97 A 10 10 0 0 0 23 87 A 10 10 0 0 0 12 76 z M 39 82 C 36 82 34 84 34 87 C 34 90 36 92 39 92 L 93 92 C 96 92 98 90 98 87 C 98 84 96 82 93 82 L 39 82 z ",
     },
-    {
-      name: "Recolor traces (double-click to change mode)",
-      icon: {
-        "width": 100,
-        "height": 100,
-        "path": "m 11,11 c -3,0 -5,2 -5,5 v 19 c 0,3 2,5 5,5 H 68 c 3,0 5,-2 5,-5 v -5 h 7 V 48 L 41,62 c -1,0 -2,2 -2,4 v 25 c 3e-4,2 1,4 4,4 2,-3e-4 4,-1 4,-4 V 70 l 40,-13 c 1,-0 2,-2 2,-4 V 26 C 91,24 89,22 86,22 H 74 v -5 c 0,-3 -2,-5 -5,-5 z",
-      },
-      click: function(gd) {
-        var clickEvent = event;
-        if (clickTimeout) {
-          clearTimeout(clickTimeout);
-          recolorMode = recolorMode === "cycle" ? "custom" : "cycle";
-          clickTimeout = null;
-        } else {
-          clickTimeout = setTimeout(function() {
-            if (recolorMode === "cycle") {
-              var t;
-              var color;
-              var colors = colorCycle.slice();
-              var traceIdxs = [];
-              var traceColors = [];
-              var legendGroups = [];
-
-              for (let i = 0; i < gd.data.length; i++) {
-                t = gd.data[i];
-                if (t.traceType === "__fm__" || t.traceType == null) {
-                  if (t.legendgroup == null || !legendGroups.includes(t.legendgroup)) {
-                    if (colors.length === 0) {
-                      colors = colorCycle.slice();
-                    }
-                    color = colors.splice(Math.floor(Math.random() * colors.length), 1)[0];
-                    //var [r,g,b] = Array(3).fill().map(() => Math.floor(Math.random() * 208));
-                    //color = `rgb(${r}, ${g}, ${b})`;
-                    traceIdxs.push(i);
-                    traceColors.push(color);
-                    if (t.legendgroup != null) {
-                      legendGroups.push(t.legendgroup);
-                    }
-                  } else {
-                    traceIdxs.push(i);
-                    traceColors.push(traceColors[legendGroups.indexOf(t.legendgroup)]);
-                  }
-                }
-              }
-            } else {
-              var visibleTraces = [];
-              var visibleIdx = 0;
-              gd.data.forEach( function(trace, idx) {
-                if (
-                 trace.showlegend !== false &&
-                 (!trace.hasOwnProperty("visible") ||
-                  trace.visible !== "legendonly")) {
-                  visibleTraces.push(trace.Id);
-                  visibleIdx = idx;
-                }
-              });
-              if (visibleTraces.length !== 1) {
-                showHelp(clickEvent, null, "Select exacly one trace to recolor.");
-                clickTimeout = null;
-                return false;
-              } else {
-                var traceColor = "";
-                while (traceColor === "") {
-                  var traceColor = prompt("Trace color:");
-                }
-              }
-              if (traceColor == null) {
-                clickTimeout = null;
-                return false;
-              }
-              traceColors = [traceColor];
-              traceIdxs = [visibleIdx];
-            }
-            Plotly.restyle(
-              "live-plot",
-              {"line.color": traceColors,
-               "marker.color": traceColors},
-              traceIdxs);
-
-            clickTimeout = null;
-          }, delay);
+    click: function(gd) {
+      Plotly.relayout(gd, { showlegend: !gd.layout.showlegend });
+    }
+  },
+  edit: {
+    name: "Edit plot",
+    icon: Plotly.Icons.pencil,
+    click: function(gd) {
+      Plotly.newPlot(
+        gd.id,
+        gd.data,
+        gd.layout,
+        { ...gd._context, editable: !gd._context.editable});
+    }
+  },
+  recolor: {
+    name: "Recolor visible traces",
+    icon: {
+      "width": 100,
+      "height": 100,
+      "path": "m 11,11 c -3,0 -5,2 -5,5 v 19 c 0,3 2,5 5,5 H 68 c 3,0 5,-2 5,-5 v -5 h 7 V 48 L 41,62 c -1,0 -2,2 -2,4 v 25 c 3e-4,2 1,4 4,4 2,-3e-4 4,-1 4,-4 V 70 l 40,-13 c 1,-0 2,-2 2,-4 V 26 C 91,24 89,22 86,22 H 74 v -5 c 0,-3 -2,-5 -5,-5 z",
+    },
+    click: function(gd) {
+      var clickEvent = event;
+      var traceColors;
+      var traceIdxs = [];
+      var traceIds = [];
+      gd.data.forEach(function(trace, idx) {
+        if (trace.visible === true) {
+          traceIdxs.push(idx);
+          traceIds.push(trace.Id || "");
         }
-      }
+      });
+
+      showHelp(clickEvent, null, '<input type="color" id="colorPicker" value="#ff0000" />');
+      document.getElementById("colorPicker").click();
+      document.getElementById("help-popup").classList.add("collapsed");
+      document.getElementById("colorPicker").addEventListener("input", function() {
+        var colorChoice = this.value;
+        traceColors = [];
+        gd.data.forEach(function(trace, idx) {
+          if (trace.visible === true) {
+            traceColors.push(colorChoice);
+            customColors[trace.Id || ""] = colorChoice;
+          }
+        });
+
+        Plotly.restyle(
+          gd, {
+            "marker.color": traceColors,
+            "line.color": traceColors},
+          traceIdxs);
+      });
     },
-    {
-      name: "Edit plot",
-      icon: Plotly.Icons.pencil,
-      click: function(gd) {
-        Plotly.newPlot(
-          gd.id,
-          gd.data,
-          gd.layout,
-          { ...gd._context, editable: !gd._context.editable});
-      }
+  },
+  reset_color: {
+    name: "Reset colors of visible traces",
+    icon: {
+      "width": 100,
+      "height": 100,
+      "path": "m 51,8 c -10,0 -20,4 -27,12 a 6,6 0 0 0 0,9 6,6 0 0 0 9,-0 c 7,-8 20,-10 30,-3 9,6 12,19 7,29 -4,9 -15,13 -25,11 L 54,55 11,54 31,91 39,79 C 56,85 75,78 84,62 93,46 88,25 72,14 67,10 60,8 53,8 c -0,-0 -1,-0 -2,-0 z",
     },
-  ],
-  modeBarButtonsToRemove: [],
-};
+    click: function(gd) {
+      var traceIds = [];
+      var traceIdxs = [];
+      var traceColors = [];
+
+      gd.data.forEach(function(trace, idx) {
+        if (trace.visible === true) {
+          traceIdxs.push(idx);
+          delete customColors[trace.Id || ""];
+          traceColors.push(colorCycle[idx % 10]);
+        }
+      });
+
+      Plotly.restyle(
+        gd, {
+          "line.color": traceColors},
+        traceIdxs);
+    },
+  },
+  move_down: {
+    name: "Move visible traces down",
+    icon: {
+      "width": 100,
+      "height": 100,
+      "path": "m 48,12 c -2,10e-7 -5,2 -5,5 V 61 L 33,50 c -1,-1 -5,-1 -7,0 l -1,1 c -1,1 -1,5 -10e-7,7 L 44,80 c 0,0 2,1 3,1 0,0 0,-0 0,-0 0,0 0,0 0,0 H 47 13 c -2,0 -5,2 -5,5 l 0,2 c -7e-7,2 2,5 5,5 l 72,2e-6 c 2,10e-7 5,-2 5,-5 l -1e-6,-2 c 0,-2 -2,-5 -5,-5 l -34,2e-6 -0,-1e-6 c 0,1e-6 0,-0 0,-0 0,0 0,0 0,0 1,0 2,-0 3,-1 L 75,59 c 1,-1 1,-5 10e-7,-7 l -1,-1 c -1,-1 -5,-1 -7,10e-7 l -10,10 0,-43 c -10e-7,-2 -2,-5 -5,-5 z",
+    },
+    click: function(gd) {
+      var visibleIdxs = [];
+      gd.data.forEach( function(trace, idx) {
+        if (
+         trace.showlegend !== false &&
+         (!trace.hasOwnProperty("visible") ||
+          trace.visible !== "legendonly")) {
+          visibleIdxs.push(idx);
+        }
+      });
+      Plotly.moveTraces(gd, visibleIdxs);
+
+      // Save custom order
+      var traceIds = gd.data.map( t => t.Id);
+      customOrder = traceIds.concat(customOrder.filter( i => !traceIds.includes(i) ));
+    },
+  },
+  _delete: {
+    name: "Delete visible traces",
+    icon: {
+      "width": 100,
+      "height": 100,
+      "path": "m 24,17 a 7,7 0 0 0 -5,2 7,7 0 0 0 0,10 L 39,49 19,70 a 7,7 0 0 0 0,10 7,7 0 0 0 10,0 L 50,60 70,80 a 7,7 0 0 0 10,0 7,7 0 0 0 0,-10 L 60,49 80,29 a 7,7 0 0 0 0,-10 7,7 0 0 0 -5,-2 7,7 0 0 0 -5,2 L 50,39 29,19 a 7,7 0 0 0 -5,-2 z",
+    },
+    click: function(gd) {
+      var visibleIdxs = [];
+      gd.data.forEach( function(trace, idx) {
+        if (
+         trace.showlegend !== false &&
+         (!trace.hasOwnProperty("visible") ||
+          trace.visible !== "legendonly")) {
+          visibleIdxs.push(idx);
+        }
+      });
+      Plotly.deleteTraces(gd, visibleIdxs);
+    }
+  },
+}
+

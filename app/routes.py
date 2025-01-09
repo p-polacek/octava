@@ -949,11 +949,17 @@ def assoc_opts(genome):
       "assoc")
     haps = dict()
     for m in os.listdir(markers_root):
-        if os.path.exists(
-          os.path.join(
-            markers_root,
-            m,
-            "init")):
+        init_path = os.path.join(markers_root, m, "init")
+        if os.path.exists(init_path):
+            params_path = os.path.join(
+              markers_root,
+              m,
+              "stats",
+              "params")
+            with open(params_path, "r") as params_in:
+                hap = json.load(params_in)[1][10] == "Yes"
+            haps[m] = hap
+
             form.markers_sgl.choices.append(m)
             form.kq_from.choices.append(m)
 

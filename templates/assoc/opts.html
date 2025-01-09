@@ -475,10 +475,7 @@
 {% block script %}
   <script src="{{url_for(
    'static',
-   filename='js/qc_plots.js')}}"></script>
-  <script src="{{url_for(
-   'static',
-   filename='js/group.js')}}"></script>
+   filename='js/plotly_config.js')}}"></script>
   <script src="{{url_for(
    'static',
    filename='js/contextmenu.js')}}"></script>
@@ -486,12 +483,15 @@
    'static',
    filename='js/help_texts.js')}}"></script>
   <script src="{{url_for(
+   'static',
+   filename='js/qc_plots.js')}}"></script>
+  <script src="{{url_for(
   'static',
-  filename='js/popups.js')}}"></script>
+   filename='js/popups.js')}}"></script>
+  <script src="{{url_for(
+   'static',
+   filename='js/group.js')}}"></script>
 
-  <script
-   src="https://cdn.plot.ly/plotly-2.35.2.min.js">
-  </script>
   <script
    src="https://code.jquery.com/jquery-3.6.4.min.js">
   </script>
@@ -631,13 +631,13 @@
             document.getElementById("plot-sel").classList.remove("collapsed");
             document.getElementById("plothap-sel").classList.add("collapsed");
           }
-          fetchChr();
           fetchPlots(markers, haps[markers], function(results) {
             histData = results;
             //document.getElementById("choice-field").value = "smiss";
             //showPlot();
             //document.getElementById("choice-field").value = "dens";
-            showPlot();
+            fetchChr();
+            //showPlot();
           });
         });
         if (btn.checked) {

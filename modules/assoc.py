@@ -242,11 +242,11 @@ def run_qc(genome, task_id, markers=None):
           index_col=None,
           chunksize=100000,
           usecols=usecols[metric])
-        h5_out = os.path.join(
+        het_out = os.path.join(
           stats_dir,
-          f"{metric}.h5")
-        if os.path.exists(h5_out):
-            os.remove(h5_out)
+          f"{metric}.txt.gz")
+        if os.path.exists(het_out):
+            os.remove(het_out)
 
         for chk in df:
             chk.columns = pd.RangeIndex(chk.columns.size)
@@ -266,18 +266,13 @@ def run_qc(genome, task_id, markers=None):
             elif metric == "hwe":
                 cnt.update(-np.log10(chk[0]))
             if metric in ("shet", "vhet"):
-                (chk
-                  .set_axis(
-                    ["k", "v"],
-                    axis=1)
-                  .to_hdf(
-                    h5_out,
-                    key="het",
-                    mode="a",
-                    format="table",
-                    data_columns=["k", "v"],
-                    min_itemsize={"k": 256},
-                    append=True))
+                chk.to_csv(
+                  het_out,
+                  mode="a",
+                  sep="\t",
+                  header=False,
+                  index=False,
+                  compression="gzip")
         cnt = {(-1 if np.isnan(v) else v): cnt[v] for v in cnt.keys()}
         cnt_vals = list(cnt.keys())
         if metric == "hwe":
@@ -588,6 +583,12 @@ def filt_qc(
           data["filt_from"],
           "gt",
           "gt.full")
+        stats_dir = os.path.join(
+          data_dir,
+          genome,
+          "assoc",
+          data["filt_from"],
+          "stats")
 
     # Prepare heterozygosity filters
     if data["shet"]:
@@ -596,8 +597,12 @@ def filt_qc(
           "shet_exclude.txt")
         if os.path.exists(shet_exc):
             os.remove(shet_exc)
-        df = pd.read_hdf(
-          os.path.join(stats_dir, "shet.h5"),
+        df = pd.read_csv(
+          os.path.join(stats_dir, "shet.txt.gz"),
+          sep="\t",
+          header=None,
+          index_col=None,
+          compression="gzip",
           chunksize=100000)
         for chk in df:
             chk.columns = pd.RangeIndex(chk.columns.size)
@@ -621,8 +626,12 @@ def filt_qc(
           "vhet_exclude.txt")
         if os.path.exists(vhet_exc):
             os.remove(vhet_exc)
-        df = pd.read_hdf(
-          os.path.join(stats_dir, "vhet.h5"),
+        df = pd.read_csv(
+          os.path.join(stats_dir, "vhet.txt.gz"),
+          sep="\t",
+          header=None,
+          index_col=None,
+          compression="gzip",
           chunksize=100000)
         for chk in df:
             chk.columns = pd.RangeIndex(chk.columns.size)

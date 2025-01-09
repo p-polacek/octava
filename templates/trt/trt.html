@@ -430,26 +430,26 @@
 
 {% block script %}
   <script src="{{url_for(
-  'static',
-  filename='js/popups.js')}}"></script>
+   'static',
+   filename='js/filterable_table.js')}}"></script>
   <script src="{{url_for(
    'static',
-   filename='js/group.js')}}"></script>
+   filename='js/plotly_config.js')}}"></script>
   <script src="{{url_for(
    'static',
    filename='js/help_texts.js')}}"></script>
   <script src="{{url_for(
+  'static',
+   filename='js/popups.js')}}"></script>
+  <script src="{{url_for(
    'static',
-   filename='js/filterable_table.js')}}"></script>
+   filename='js/group.js')}}"></script>
 
   <script
-   src="https://cdn.plot.ly/plotly-latest.min.js">
+   src="https://cdn.jsdelivr.net/npm/pca-js@1.0.0/pca.min.js">
   </script>
   <script
    src="https://code.jquery.com/jquery-3.6.4.min.js">
-  </script>
-  <script
-   src="https://cdn.jsdelivr.net/npm/pca-js@1.0.0/pca.min.js">
   </script>
 
   <script>
