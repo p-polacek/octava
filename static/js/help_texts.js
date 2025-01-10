@@ -71,6 +71,8 @@ var helpTexts = {
   "<tr><th>Multi-trait MLM</th><td>Models association with multiple traits at once, via GEMMA</td></tr>" +
   "<tr><th>BLINK</th><td>Bayesian multi-locus model, via <a target='_blank' href='https://zzlab.net/blink/'>BLINK</a><br>Must correct for kinship, calculates kinship internally</td></tr>" +
   "<tr><th>Random forest</th><td>Calculates marker importance based on random forest regression<br>Averages the importances of <i>n</i> iterations<br>Corrects for spurious associations using a permutation approach</td></tr></table>",
+ "cov":
+  ".txt or .tsv file, tab-separated<br>First column is for sample IDs, all samples must be present<br>No header of column names must be present",
  "rf-options":
   "<table><tr><th>Optimization</th><td>Input <i>mtry</i> and <i>ntree</i> values, comma and space (, ) separated<br>Look for minimum value that gives PVE equal to that of higher values</td></tr>" +
   "<tr><th>Test markers</th><td><i>mtry</i>, number of markers to consider in each split</td></tr>" +

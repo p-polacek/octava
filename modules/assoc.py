@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import io
 import os
 import re
 import pty
@@ -1157,28 +1158,45 @@ def run_assoc(genome, params, task_id):
             f"{in_root}.txt",
             sep="\t"))
 
+        q_list = list()
         if params["q"] and params["q_num"] > 0:
-            # Covariates file created to only keep top n selected ones
-            # and filtered for necessary samples
+            # Covariates file filtered to keep top n selected ones
+            # and necessary samples
             q_matr = (pd
               .read_csv(
                 f"{kq_root}.eigenvec",
                 sep="\t",
                 header=[0],
-                index_col=[0,1]).droplevel(0))
-                #index_col=[0]))
+                index_col=[0,1])
+              .droplevel(0))
+            q_matr = q_matr.loc[:, q_matr.columns.tolist()[:int(params["q_num"])]]
             if not samples.isin(q_matr.index).all():
                 raise OSError(
                   "<b>Dataset selected for K/Q correction does not contain " +
                   "all samples from the genotype dataset.<b>")
-            (q_matr
-    #          .assign(I=1)
-              .loc[
-                samples,
-                q_matr.columns[:int(params["q_num"])]]
+            q_list.append(q_matr)
+        if params["cov"]:
+            cov = pd.read_csv(
+              io.StringIO(json.loads(params["cov"])),
+              sep="\t",
+              header=None,
+              index_col=0)
+            if not samples.isin(cov.index).all():
+                raise OSError(
+                  "<b>Additional covariates file does not contain " +
+                  "all samples from the genotype dataset.<b>")
+            q_list.append(cov)
+        if len(q_list) > 0:
+            (pd
+              .concat(
+                q_list,
+                axis=1)
+              .loc[samples]
               .to_csv(
                 f"{in_root}.cov",
                 sep="\t"))
+        elif os.path.exists(f"{in_root}.cov"):
+            os.remove(f"{in_root}.cov")
 
         blink_path = os.path.join(
           tool_dir,
@@ -1251,10 +1269,12 @@ def run_assoc(genome, params, task_id):
                 samples,
                 params["traits"]])
 
-        if params["k"] and (not params["q"] or params["q_num"] == 0):
+        if params["k"] and ((not params["q"] or params["q_num"] == 0) and not params["cov"]):
             raise OSError(
               "<b>Kiship correction must be used " +
               "together with PCA correction.<b>")
+
+        q_list = list()
         if params["q"] and params["q_num"] > 0:
             # Covariates file filtered to keep top n selected ones
             # and necessary samples
@@ -1266,32 +1286,53 @@ def run_assoc(genome, params, task_id):
                 index_col=[0,1])
               .droplevel(0)
               .assign(I=1))
+            q_matr = q_matr.loc[:, ["I"] + q_matr.columns.tolist()[:int(params["q_num"])]]
             if not samples.isin(q_matr.index).all():
                 raise OSError(
                   "<b>Dataset selected for K/Q correction does not contain " +
                   "all samples from the genotype dataset.<b>")
-            q_matr = q_matr.loc[
-              samples,
-              ["I"] + q_matr.columns.tolist()[:int(params["q_num"])]]
+            q_list.append(q_matr)
+        if params["cov"]:
+            cov = pd.read_csv(
+              io.StringIO(json.loads(params["cov"])),
+              sep="\t",
+              header=None,
+              index_col=0)
+            if not samples.isin(cov.index).all():
+                raise OSError(
+                  "<b>Additional covariates file does not contain " +
+                  "all samples from the genotype dataset.<b>")
+            q_list.append(cov)
+        if len(q_list) > 0:
+            q_matr = (pd
+              .concat(
+                q_list,
+                axis=1)
+              .loc[samples])
+
         if params["k"]:
-            k_matr = (pd
-              .read_csv(
-                f"{kq_root}.rel",
-                sep="\t",
-                index_col=None,
-                header=None)
-              .set_index(
-                samples)
-              .set_axis(
-                samples,
-                axis=1))
-            if not samples.isin(k_matr.index).all():
+            k_matr = pd.read_csv(
+              f"{kq_root}.rel",
+              sep="\t",
+              index_col=None,
+              header=None)
+            k_lab = pd.read_csv(
+              f"{kq_root}.rel.id",
+              sep="\t",
+              usecols=[1],
+              skiprows=[0],
+              header=None,
+              index_col=None)[1]
+            if not k_lab.isin(samples).all():
                 raise OSError(
                   "<b>Dataset selected for K/Q correction does not contain " +
                   "all samples from the genotype dataset.<b>")
-            k_matr = k_matr.loc[
-              samples,
-              samples]
+            k_matr = (k_matr
+              .set_axis(k_lab, axis=0)
+              .set_axis(k_lab, axis=1)
+              .loc[
+                samples,
+                samples])
         gt = bed_reader.open_bed(f"{in_root}.bed").read()
 
         if params["optimize"]:
@@ -1487,29 +1528,49 @@ def run_assoc(genome, params, task_id):
             header=False,
             index=False))
 
-        if model != "glm" or (params["q"] and params["q_num"] > 0):
-            # Covariates file created to only keep top n selected ones
-            # and filtered for necessary samples
-            q_matr = pd.read_csv(
-                f"{kq_root}.eigenvec",
-                sep="\t",
-                header=[0],
-                index_col=[0,1]).droplevel(0)
-                #index_col=[0])
-            if not samples.isin(q_matr.index).all():
-                raise OSError(
-                  "<b>Dataset selected for K/Q correction does not contain " +
-                  "all samples from the genotype dataset.<b>")
-            (q_matr
-              .assign(I=1)
-              .loc[
-                samples,
-                ["I"] + q_matr.columns.tolist()[:int(params["q_num"])]]
-              .to_csv(
-                f"{in_root}.cov",
-                sep="\t",
-                header=False,
-                index=False))
+        if model != "glm" or (params["cov"] or (params["q"] and params["q_num"] > 0)):
+            q_list = list()
+            if params["q"] and params["q_num"] > 0:
+                # Covariates file filtered to keep top n selected ones
+                # and necessary samples
+                q_matr = (pd
+                  .read_csv(
+                    f"{kq_root}.eigenvec",
+                    sep="\t",
+                    header=[0],
+                    index_col=[0,1])
+                  .droplevel(0)
+                  .assign(I=1))
+                q_matr = q_matr.loc[:, ["I"] + q_matr.columns.tolist()[:int(params["q_num"])]]
+                if not samples.isin(q_matr.index).all():
+                    raise OSError(
+                      "<b>Dataset selected for K/Q correction does not contain " +
+                      "all samples from the genotype dataset.<b>")
+                q_list.append(q_matr)
+            if params["cov"]:
+                cov = pd.read_csv(
+                  io.StringIO(json.loads(params["cov"])),
+                  sep="\t",
+                  header=None,
+                  index_col=0)
+                if not samples.isin(cov.index).all():
+                    raise OSError(
+                      "<b>Additional covariates file does not contain " +
+                      "all samples from the genotype dataset.<b>")
+                q_list.append(cov)
+            if len(q_list) > 0:
+                (pd
+                  .concat(
+                    q_list,
+                    axis=1)
+                  .loc[samples]
+                  .to_csv(
+                    f"{in_root}.cov",
+                    sep="\t",
+                    header=False,
+                    index=False))
+            elif os.path.exists(f"{in_root}.cov"):
+                os.remove(f"{in_root}.cov")
 
         if model != "glm":
             # Kinship file filtered for necessary samples
@@ -1518,10 +1579,17 @@ def run_assoc(genome, params, task_id):
                 sep="\t",
                 header=None,
                 index_col=None)
+            k_lab = pd.read_csv(
+                f"{kq_root}.rel.id",
+                sep="\t",
+                usecols=[1],
+                skiprows=[0],
+                header=None,
+                index_col=None)[1]
             (k_matr
               .loc[
-                q_matr.index.isin(samples),
-                q_matr.index.isin(samples)]
+                k_lab.isin(samples),
+                k_lab.isin(samples)]
               .to_csv(
                 f"{in_root}.kin",
                 sep="\t",

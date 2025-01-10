@@ -363,6 +363,39 @@
                class="default-label bold") }}
               {{ form.q_num(class="small-num-input") }}
             </div>
+{# ================================================== Additional covariates #}
+            <div class="row-div padded-top justified">
+              <div class="row-input-div">
+                <h2>
+                  Additional covariates:
+                </h2>
+              </div>
+              <img
+               class="aux-button clickable"
+               src="{{ url_for('serve_button', button='help') }}"
+               onclick="showHelp(event, 'cov');" />
+            </div>
+            <div class="row-div">
+              <div class="wide-input-div justified small-padded-top small-padded-bottom">
+                <label for="cov-file" class="default-label bold">
+                  File:
+                </label>
+                <input
+                 type="file"
+                 id="cov-file"
+                 class="icon-width"
+                 accept=".txt,.tsv"
+                 onchange="parseCov();" />
+              </div>
+              <img
+                class="aux-button clickable"
+                src="{{ url_for('serve_button', button='delete') }}"
+                onclick="
+                  document.getElementById('cov-file').value = '';
+                  document.getElementById('cov-field').value = '';"
+                title="Reset file" />
+            </div>
+            {{ form.cov(id="cov-field", class="collapsed") }}
 {# ========================================================== KQ from input #}
             <div class="row-div padded-top">
               <button
@@ -588,7 +621,23 @@
         rfParams.classList.add("collapsed");
       }
     }
-    function RFOptimize() {      var form = document.querySelector("form");      document.getElementById("optimize").checked = "checked";      form.target = "_blank";      form.submit();    }    function setAction() {      var form = document.querySelector("form");      document.getElementById("optimize").checked = "";      form.target = "";      form.submit();    }
+    function RFOptimize() {      var form = document.querySelector("form");      document.getElementById("optimize").checked = "checked";      form.target = "_blank";      form.submit();    }    function setAction() {      var form = document.querySelector("form");      document.getElementById("optimize").checked = "";      form.target = "";      form.submit();    }
+
+    function parseCov() {
+      var file = document.getElementById("cov-file").files[0];
+      if (file) {
+        var sep = file.name.endsWith(".csv") ? "," : "\t";
+        var reader = new FileReader();
+        reader.onload = function (event) {
+          document.getElementById("cov-field").value = JSON.stringify(event.target.result);
+        }
+        reader.onerror = function () {
+          alert("Error reading file.");
+        };
+      reader.readAsText(file);
+      }
+    }
+
     document.addEventListener("DOMContentLoaded", function() {
       fetchChr();
       //if (allowPhe !== "") {

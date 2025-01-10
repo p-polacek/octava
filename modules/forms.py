@@ -475,6 +475,8 @@ class AssocResForm(RegionForm, PlotForm):
     kq_from = RadioField(
       "K/Q from:",
       choices=[])
+    cov = StringField(
+      "")
     overwrite = BooleanField(
       "Overwrite existing")
     fm_method = RadioField(
