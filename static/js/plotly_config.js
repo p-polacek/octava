@@ -99,6 +99,7 @@ var buttonsToAdd = {
 
       Plotly.restyle(
         gd, {
+          "marker.color": traceColors,
           "line.color": traceColors},
         traceIdxs);
     },

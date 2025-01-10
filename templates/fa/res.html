@@ -1110,7 +1110,7 @@
         return !gts.includes(e)
       }));
 
-      gts.forEach( key => {
+      gts.forEach( (key, idx) => {
         if (Object.keys(traceData).includes(key)) {
           var [positions, values, samples] = traceData[key];
           var trace = {
@@ -1118,11 +1118,15 @@
             y: values,
             type: "box",
             name: key,
+            marker: {
+              color: colorCycle[idx],
+            },
             hoverinfo: "x+text",
             boxpoints: pheJitter ? "all" : "outliers",
             jitter: 0.9,
             pointpos: 0,
             hovertext: samples,
+            visible: true,
           };
           traces.push(trace);
         }
@@ -1156,7 +1160,15 @@
         },
       };
 
-      Plotly.newPlot("var-phe-plot", traces, layout);
+      var config = {
+        editable: false,
+        modeBarButtonsToAdd: 
+          ["legend", "edit", "recolor", "move_down", "_delete"]
+          .map(key => buttonsToAdd[key]),
+        modeBarButtonsToRemove: [],
+      };
+
+      Plotly.newPlot("var-phe-plot", traces, layout, config);
       var plotDiv = document.getElementById("var-phe-plot");
 
       plotDiv.on("plotly_click", function(data){
@@ -1251,6 +1263,7 @@
             line: {
               color: customColors[groupName] || colorCycle[(traces.length) % 10]
             },
+            visible: true,
           };
           if (false && colors[colLabel]) {
             trace["marker"] = { color: colors[colLabel][uniqueVal] };
@@ -1316,6 +1329,7 @@
               line: {
                 color: customColors[uniqueVal] || colorCycle[(traces.length) % 10],
               },
+              visible: true,
             };
             if (false && colors[colLabel]) {
               trace["marker"] = { color: colors[colLabel][uniqueVal] };
