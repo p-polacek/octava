@@ -350,7 +350,7 @@
             </div>
             <div class="row-input-div justified padded-bottom">
               <label
-               for="jitter"
+               for="phe-jitter"
                class="default-label bold">
                 Show all points
               </label>
@@ -1519,7 +1519,7 @@
               l: 100,
               r: 20,
               b: 20,
-              t: 20,
+              t: 30,
               pad: 4,
             },
             annotations: [
@@ -1544,7 +1544,16 @@
               }
             ],
           };
-          Plotly.newPlot("genenr-plot", [trace], layout);
+
+          var config = {
+            editable: false,
+            modeBarButtonsToAdd: 
+              ["edit"]
+              .map(key => buttonsToAdd[key]),
+            modeBarButtonsToRemove: [],
+          };
+
+          Plotly.newPlot("genenr-plot", [trace], layout, config);
         }
       });
     }
