@@ -643,10 +643,9 @@ def filt_qc(
               header=False)
 
     # Apply filters
-    fq = any(data[f] for f in (
+    if any(data[f] for f in (
       "samples_group", "smiss", "vmiss",
-      "shet", "vhet", "maf", "hwe"))
-    if fq:
+      "shet", "vhet", "maf", "hwe")):
         plink_filt = plink_out + ".filt"
         cmd = [plink2_path, "--vcf", f"{plink_in}.vcf.gz"]
         cmd = cmd + ["--remove", shet_exc] if data["shet"] else cmd
@@ -656,14 +655,26 @@ def filt_qc(
         cmd = cmd + ["--geno", str(data["vmiss"])] if data["vmiss"] else cmd
         cmd = cmd + ["--maf", str(data["maf"])] if data["maf"] else cmd
         cmd = cmd + ["--hwe", str(10**(-data["hwe"]))] if data["hwe"] else cmd
+        cmd = cmd + ["--make-bed"] if not data["imp"] else cmd
         cmd = cmd + [
           "--allow-extra-chr",
           "--export", "vcf", "bgz", "id-paste=iid",
           "--out", plink_filt]
         progress(task_id, "Applying filters")
         popen(task_id, cmd)
+
+        if not data["imp"]:
+            for ext in (".bed", ".bim", ".fam", ".vcf.gz"):
+                os.rename(
+                  plink_filt + ext,
+                  plink_out + ".full" + ext)
     else:
         plink_filt = plink_in
+        if not data["imp"]:
+            for ext in (".bed", ".bim", ".fam", ".vcf.gz"):
+                os.link(
+                  plink_filt + ext,
+                  plink_out + ".full" + ext)
 
     full_root = os.path.join(
       filt_dir,
@@ -685,23 +696,14 @@ def filt_qc(
            beagle_path,
            f"gt={vcf_in}",
            f"out={full_root}"])
-    else:
-        if fq:
-            os.rename(
-              vcf_in,
-              plink_out + ".full.vcf.gz")
-        else:
-            os.link(
-              f"{plink_in}.vcf.gz",
-              full_vcf)
 
-    popen(
-      task_id,
-      [plink2_path,
-       "--vcf", full_vcf,
-       "--make-bed",
-       "--allow-extra-chr",
-       "--out", full_root])
+        popen(
+          task_id,
+          [plink2_path,
+           "--vcf", full_vcf,
+           "--make-bed",
+           "--allow-extra-chr",
+           "--out", full_root])
 
     # Prune by LD
     if data["prune"]:
