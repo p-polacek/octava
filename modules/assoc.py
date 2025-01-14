@@ -436,16 +436,16 @@ def run_qc(genome, task_id, markers=None):
             os.remove(f"{var_only_root}.vcf")
             os.remove(f"{var_only_root}.log")
 
-        params_fn = os.path.join(
+        cnts_fn = os.path.join(
           stats_dir,
-          "params")
+          "cnts")
         # Save number of markers and samples
         bed = bed_reader.open_bed(f"{gt_out}.bed")
         var_all, samp_all = bed.iid_count, bed.sid_count
-        with open(params_fn, "w") as params_out:
+        with open(cnts_fn, "w") as cnts_out:
             json.dump(
               [var_all, samp_all],
-              params_out)
+              cnts_out)
 
     # Clean up
     for fn in os.listdir(stats_dir):
@@ -946,12 +946,12 @@ def filt_qc(
       "params")
 
     # Get original number of markers and samples
-    with open(os.path.join(stats_dir, "params"), "r") as params_in:
-        samp_all, var_all = json.load(params_in)
+    with open(os.path.join(stats_dir, "cnts"), "r") as cnts_in:
+        samp_all, var_all = json.load(cnts_in)
     # Get filtered number of markers and samples
     bed = bed_reader.open_bed(f"{plink_out}.bed")
     samp_filt, var_filt = bed.iid_count, bed.sid_count
-    
+
     with open(params_fn, "w") as params_out:
         params = [
           ["Sample missingness",
