@@ -642,11 +642,11 @@ def filt_qc(
               index=False,
               header=False)
 
+    plink_filt = plink_out + ".filt"
     # Apply filters
     if any(data[f] for f in (
       "samples_group", "smiss", "vmiss",
       "shet", "vhet", "maf", "hwe")):
-        plink_filt = plink_out + ".filt"
         cmd = [plink2_path, "--vcf", f"{plink_in}.vcf.gz"]
         cmd = cmd + ["--remove", shet_exc] if data["shet"] else cmd
         cmd = cmd + ["--keep", samp_inc] if data["samples_group"] else cmd
@@ -656,6 +656,7 @@ def filt_qc(
         cmd = cmd + ["--maf", str(data["maf"])] if data["maf"] else cmd
         cmd = cmd + ["--hwe", str(10**(-data["hwe"]))] if data["hwe"] else cmd
         cmd = cmd + ["--make-bed"] if not data["imp"] else cmd
+        cmd = cmd + ["--make-just-bim"] if data["imp"] else cmd
         cmd = cmd + [
           "--allow-extra-chr",
           "--export", "vcf", "bgz", "id-paste=iid",
@@ -669,12 +670,17 @@ def filt_qc(
                   plink_filt + ext,
                   plink_out + ".full" + ext)
     else:
-        plink_filt = plink_in
-        if not data["imp"]:
+        if data["imp"]:
+            if not os.path.exists(plink_filt + ".bim"):
+                os.link(
+                  plink_in + ".bim",
+                  plink_filt + ".bim")
+        else:
             for ext in (".bed", ".bim", ".fam", ".vcf.gz"):
                 os.link(
                   plink_filt + ext,
                   plink_out + ".full" + ext)
+        plink_filt = plink_in
 
     full_root = os.path.join(
       filt_dir,
@@ -684,18 +690,49 @@ def filt_qc(
 
     # Impute missing genotypes
     if data["imp"]:
+        # Determine one-marker chromosomes (removed, cannot be imputed)
+        chr_d = dict()
+        chr_data = pd.read_csv(
+          plink_filt + ".bim",
+          sep="\t",
+          usecols=[0,1],
+          header=None,
+          index_col=None,
+          chunksize=1000000)
+        for chk in chr_data:
+            for ch, vs in chk.groupby(0):
+                if vs.shape[0] == 1:
+                    chr_d.setdefault(ch, []).append(vs.reset_index().loc[0,1])
+        if any (len(v) == 1 for v in chr_d.values()):
+            chrs = []
+            excl_path = os.path.join(filt_dir, "exclude.txt")
+            with open(excl_path, "w") as excl:
+                for v in chr_d.values():
+                    if len(v) == 1:
+                        chrs.append(v[0].split(":")[0])
+                        _ = excl.write(v[0] + "\n")
+            progress(
+              task_id, 
+              "WARNING: these chromosomes have only a single marker:\n"
+              ", ".join(chrs)
+              "\nand were removed.")
+
         beagle_path = os.path.join(
           tool_dir,
           "beagle.jar")
 
         progress(task_id, "Imputing missing genotypes")
+        cmd = [
+          "java",
+          "-jar",
+          beagle_path,
+          f"gt={vcf_in}",
+          f"out={full_root}"]
+        if any (len(v) == 1 for v in chr_d.values()):
+            cmd.append(f"excludemarkers={excl_path}")
         popen(
           task_id,
-          ["java",
-           "-jar",
-           beagle_path,
-           f"gt={vcf_in}",
-           f"out={full_root}"])
+          cmd)
 
         popen(
           task_id,

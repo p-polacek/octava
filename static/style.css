@@ -484,8 +484,11 @@ button {
 .dropdown-menu {
 	z-index: 200;
 	position: absolute;
+	min-height: 200px;
+	min-width: 200px;
 	height: 200px;
 	width: 200px;
+    resize: both;
 	overflow: auto;
 	background-color: white;
 	white-space: nowrap;
