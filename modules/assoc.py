@@ -713,9 +713,9 @@ def filt_qc(
                         _ = excl.write(v[0] + "\n")
             progress(
               task_id, 
-              "WARNING: these chromosomes have only a single marker:\n"
-              ", ".join(chrs)
-              "\nand were removed.")
+              "WARNING: these chromosomes have only a single marker:\n" +\
+              ", ".join(chrs) + "\n" +\
+              "and were removed.")
 
         beagle_path = os.path.join(
           tool_dir,
