@@ -26,6 +26,7 @@ import numpy as np
 import pandas as pd
 
 from time import time
+from scipy.stats import boxcox
 from sklearn.decomposition import PCA
 
 from flask import (
@@ -432,6 +433,14 @@ def ts(genome):
                       phe_df[[params["trait_sgl"]]] >= float(params["binthr"]))
                       .astype(int))
                     transform = transform.set_axis([params["t_name"]], axis=1)
+                elif params["transform"] == "zs":
+                    data = phe_df[[params["trait_sgl"]]].dropna()
+                    transform = ((data - np.mean(data)) / np.std(data)).set_axis([params["t_name"]], axis=1)
+                elif params["transform"] == "bc":
+                    transform = phe_df[[params["trait_sgl"]]][phe_df[params["trait_sgl"]] > 0]
+                    transform[params["trait_sgl"]] = boxcox(transform[params["trait_sgl"]])[0]
+                    transform = transform.set_axis([params["t_name"]], axis=1)
+                    print(transform)
             elif params["t_type"] == "sel":
                 samples = json.loads(params["samples_sel"])
                 transform = phe_df.loc[samples, [params["trait_sgl"]]]
@@ -1042,7 +1051,7 @@ def assoc_run(genome):
 
     if data["model_sgl"] != "mtmlm":
         for group in data["traits_group"]:
-            group = json.loads(group)
+            group, group_name = json.loads(group)
             for trait in group:
                 if trait not in data["traits"]:
                     data["traits"].append(trait)
@@ -1110,14 +1119,14 @@ def assoc_run(genome):
             errors = ["Results already exist for all selected traits."]
     else:
         if data["traits"]:
-            errors = ["To use multi-trait MLM, traits must be grouped."]
+            pass
+            #errors = ["To use multi-trait MLM, traits must be grouped."]
         else:
             data["traits_group"] = [
               json.loads(g)
               for g in data["traits_group"]]
             existing_groups = list()
-            for group in data["traits_group"][:]:
-                group_name = group[1]
+            for group, group_name in data["traits_group"][:]:
                 # Skip existing runs
                 trait_out = os.path.join(
                   data_dir,
@@ -1126,9 +1135,10 @@ def assoc_run(genome):
                   data["markers_sgl"],
                   "res",
                   f"{data['model_sgl']}.{group_name}.feather")
-                if os.path.exists(trait_out):
-                    data["traits_group"].remove(group)
-                    existing_groups.append(group_name)
+                if not data["overwrite"]:
+                    if os.path.exists(trait_out):
+                        data["traits_group"].remove([group, group_name])
+                        existing_groups.append(group_name)
             if existing_groups:
                 errors.append("Results already exist for:")
                 errors.append(", ".join(existing_groups))
@@ -1141,8 +1151,8 @@ def assoc_run(genome):
                   task_spec[2] == data["markers_sgl"] and
                   task_spec[3] == data["model_sgl"]):
                     for group in task_spec[4]:
-                        if group[1] in data["traits_group"]:
-                            data["traits_group"].remove(group[1])
+                        if group in data["traits_group"]:
+                            data["traits_group"].remove(group)
                             queued_groups.append(group[1])
             if queued_groups:
                 errors.append("Results are already being generated for:")
@@ -1194,8 +1204,11 @@ def assoc_res(genome):
         form["markers"].data = [form["markers_sgl"].data]
         form["models"].data = [form["model_sgl"].data]
         form["traits"].data = form["traits"].data
-        form["traits_group"].data = form["traits_group"].data
+        form["traits_group"].data = [
+          json.dumps(json.loads(group.replace("'", '"'))[0])
+          for group in form["traits_group"].data]
 
+        
     markers_root = os.path.join(
       data_dir,
       genome,

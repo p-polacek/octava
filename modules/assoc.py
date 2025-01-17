@@ -1533,6 +1533,175 @@ def run_assoc(genome, params, task_id):
               "w") as params_out:
                 json.dump(run_params, params_out)
 
+    elif model in ("B", "C"):
+        # GCTB requires space-separated .fam and cofactor/kinship files
+        for ext in ("bed", "bim"):
+            if not os.path.exists(f"{in_root}.gctb.{ext}"):
+                os.link(f"{in_root}.{ext}", f"{in_root}.gctb.{ext}")
+
+        fam_path = f"{in_root}.fam"
+        fam_df = pd.read_csv(
+          fam_path,
+          sep="\t",
+          header=None,
+          index_col=None)
+        samples = fam_df[1]
+        (fam_df
+          .assign(IID = samples.tolist())
+          .loc[:, ["IID"] + fam_df.columns.tolist()[1:]]
+          .to_csv(
+            f"{in_root}.gctb.fam",
+            sep=" ",
+            header=False,
+            index=False))
+
+        phe_path = os.path.join(
+          data_dir,
+          genome,
+          config["phe"])
+        with master_lock:
+            lock = get_lock(phe_path)
+        with lock:
+            phe_df = pd.read_csv(
+              phe_path,
+              sep="\t",
+              header=[0],
+              index_col=[0])
+        (phe_df
+          .assign(IID = phe_df.index.tolist())
+          .loc[
+            samples,
+            ["IID"] + params["traits"]]
+          .to_csv(
+            f"{in_root}.txt",
+            header=False,
+            sep=" "))
+
+        q_list = list()
+        if params["q"] and params["q_num"] > 0:
+            # Covariates file filtered to keep top n selected ones
+            # and necessary samples
+            q_matr = (pd
+              .read_csv(
+                f"{kq_root}.eigenvec",
+                sep="\t",
+                header=[0],
+                index_col=[0,1])
+              .droplevel(0))
+            q_matr = q_matr.loc[:, q_matr.columns.tolist()[:int(params["q_num"])]]
+            if not samples.isin(q_matr.index).all():
+                raise OSError(
+                  "<b>Dataset selected for K/Q correction does not contain " +
+                  "all samples from the genotype dataset.<b>")
+            q_list.append(q_matr)
+        if params["cov"]:
+            cov = pd.read_csv(
+              io.StringIO(json.loads(params["cov"])),
+              sep="\t",
+              header=None,
+              index_col=0)
+            if not samples.isin(cov.index).all():
+                raise OSError(
+                  "<b>Additional covariates file does not contain " +
+                  "all samples from the genotype dataset.<b>")
+            q_list.append(cov)
+        if len(q_list) > 0:
+            (pd
+              .concat(
+                q_list,
+                axis=1)
+              .loc[samples]
+              .assign(IID = samples.tolist())
+              .loc[
+                :,
+                ["IID"] + [c for q in q_list for c in q.columns.tolist()]]
+              .to_csv(
+                f"{in_root}.cov",
+                header=False,
+                sep=" "))
+        elif os.path.exists(f"{in_root}.cov"):
+            os.remove(f"{in_root}.cov")
+
+        if params["k"]:
+            # Kinship file filtered for necessary samples
+            k_matr = pd.read_csv(
+                f"{kq_root}.rel",
+                sep="\t",
+                header=None,
+                index_col=None)
+            k_lab = pd.read_csv(
+                f"{kq_root}.rel.id",
+                sep="\t",
+                usecols=[1],
+                skiprows=[0],
+                header=None,
+                index_col=None)[1]
+            k_matr = k_matr.loc[
+                k_lab.isin(samples),
+                k_lab.isin(samples)]
+            (k_matr
+              .assign(FID = samples.tolist())
+              .assign(IID = samples.tolist())
+              .loc[:, ["FID", "IID"] + k_matr.columns.tolist()]
+              .to_csv(
+                f"{in_root}.kin",
+                sep=" ",
+                header=False,
+                index=False))
+
+        gctb_path = os.path.join(
+          tool_dir,
+          "gctb",
+          "gctb_2.5.2_Linux",
+          "gctb")
+        progress(task_id, "Running analysis")
+        for idx, trait in enumerate(params["traits"], start=1):
+            command = [
+              gctb_path,
+              "--bfile", f"{in_root}.gctb",
+              "--pheno", f"{in_root}.txt",
+              "--mpheno", str(idx),
+              "--covar", f"{in_root}.cov",
+              "--random-covar", f"{in_root}.kin",
+              "--bayes", model,
+              "--maf", "0",
+              "--p-value", "1",
+              "--out", os.path.join(out_dir, f"{model}.{trait}")]
+            popen(
+              task_id,
+              command)
+
+            assoc_process(
+              genome,
+              assoc_dir,
+              f"{model}.{trait}.snpRes",
+              f"{model}.{trait}",
+              out_dir,
+              ch_col="Chrom",
+              pos_col="Position",
+              pval_col="A1Effect",
+              sep="\s+",
+              eff_main=True,
+              eff_col=None)
+
+            # Save parameters
+            run_params = [
+              ["Markers", "Samples", "PCs", "Kinship", "K/Q source"],
+              [sum(1 for l in open(f"{in_root}.bim")),
+               phe_df.loc[samples][trait].dropna().shape[0],
+               params["q_num"] if params["q"] else 0,
+               "No",
+               params["kq_from"] or markers]]
+            with open(
+              os.path.join(
+                out_dir,
+                f"{model}.{trait}.params"),
+              "w") as params_out:
+                json.dump(run_params, params_out)
+
+        for ext in ("covRes", "parRes", "randCovRes"):
+            os.remove(os.path.join(out_dir, f"{model}.{trait}.{ext}"))        
+
     else:
         # GEMMA cannot accept row or column names in phenotype file
         # phenotype file rewritten each time to keep only selected traits
@@ -1637,7 +1806,7 @@ def run_assoc(genome, params, task_id):
 
         progress(task_id, "Running analysis")
         if model == "mtmlm":
-            traits = params["trait_groups"]
+            traits = params["traits_group"]
         else:
             traits = [([t], t) for t in params["traits"]]
         for trait, trait_name in traits:
@@ -1669,7 +1838,10 @@ def run_assoc(genome, params, task_id):
               ch_col="chr",
               pos_col="ps",
               pval_col="p_wald",
-              eff_col="beta" if model == "mlm" else None,
+              eff_col=(
+                ["beta"] if model == "mlm"
+                else ["beta_" + str(i) for i in range(1, len(n)+1)] if model == "mtmlm"
+                else None),
               se_col="se" if model == "mlm" else None)
 
             # Save parameters
@@ -1701,6 +1873,8 @@ def assoc_process(
   ch_col,
   pos_col,
   pval_col,
+  sep="\t",
+  eff_main=False,
   eff_col=None,
   se_col=None):
     gdata = load_gdata(genome)
@@ -1709,7 +1883,7 @@ def assoc_process(
       out_dir,
       assoc_fn)
     processed_out = os.path.join(out_dir, out_root)
-    columns = [c for c in (ch_col, pos_col, pval_col)]#, eff_col, se_col) if c]
+    columns = [c for c in (ch_col, pos_col, pval_col, *eff_col) if c] #, se_col
 
     # Output files
     mqplot_fn   = f"{processed_out}.mqplot.png"
@@ -1723,7 +1897,7 @@ def assoc_process(
       pd
         .read_csv(
           assoc_out,
-          sep="\t",
+          sep=sep,
           header=[0],
           index_col=None)
         .loc[:, columns]
@@ -1746,7 +1920,10 @@ def assoc_process(
       end_col=1,
       line_skip=1, force=True)
 
-    res[pval_col] = -np.log10(res[pval_col])
+    if eff_main:
+        res[pval_col] = abs(res[pval_col])
+    else:
+        res[pval_col] = -np.log10(res[pval_col])
     # Save results for MP visualisation
     with open(os.path.join(assoc_dir, "stats", "params")) as params_in:
         is_hap = json.load(params_in)[1][10] == "Yes"
@@ -1806,6 +1983,11 @@ def assoc_finemap(
       tool_dir,
       "pimass",
       "pimass-lin")
+    gctb_path = os.path.join(
+      tool_dir,
+      "gctb",
+      "gctb_2.5.2_Linux",
+      "gctb")
     gt_dir = os.path.join(
       data_dir,
       genome,
@@ -1848,168 +2030,58 @@ def assoc_finemap(
             else:
                 end = start
             _ = coord_out.write("\t".join((chrom, start, end)) + "\n")
-    popen(
-      task_id,
-      [plink2_path,
-       "--bfile", gt_root,
-       "--extract", "bed1", f"{out_root}.bed1",
-       "--export", "Av",
-       "--allow-extra-chr",
-       "--out", out_root])
 
-    if params["fm_method"] == "rf":
-        if params["optimize"]:
-            progress(task_id, "Running optimization")
-        else:
-            progress(task_id, "Fine-mapping with Random forest")
-        phe_df = phe_df.loc[samples, trait]
-        gt_df = (pd
-          .read_csv(
-            f"{out_root}.traw",
-            sep="\t",
-            header=0,
-            index_col=None))
-
-        gt = (gt_df
-          .drop(
-            ["CHR", "SNP", "(C)M", "POS", "COUNTED", "ALT"],
-            axis=1)
-          .set_axis(
-            samples,
-            axis=1)
-          .loc[:, phe_df.dropna().index]
-          .transpose())
-        phe_df = phe_df.dropna()
-
-        if params["optimize"]:
-            mtryvals = [
-              int(v.strip())
-              for v in params["mtryvals"].split(", ")]
-            ntreevals = [
-              int(v.strip())
-              for v in params["ntreevals"].split(", ")]
-            res = optim_rf(
-              task_id,
-              gt,
-              phe_df,
-              mtryvals,
-              ntreevals)
-            optim_path = os.path.join(
-              tmp_dir,
-              f"{task_id}.rfopt")
-            with open(optim_path, "w") as optim_out:
-                json.dump([mtryvals, ntreevals, res], optim_out)
-            return
-
-        res = run_rf(
+    if params["fm_method"] in ("B", "C"):
+        popen(
           task_id,
-          gt,
-          phe_df,
-          params["mtry"],
-          params["ntree"],
-          params["niter"],
-          params["nperm"])
-        imp_out = os.path.join(
-          tmp_dir,
-          f"{task_id}.fm")
-        gt_map = gt_df[["CHR", "POS"]]
-        res["Chr"]  = gt_map["CHR"]
-        res["Pos"] = gt_map["POS"]
-        res["Imp"] = res["Imp"] / res["Imp"].max()
-        (res
-          .loc[:, ["Chr", "Pos", "Imp"]]
-          .set_axis(
-            ["chr", "pos", "val"],
-            axis=1)
-          .sort_values(
-            by="val",
-            ascending=False)
-          .head(5000)
-          .to_feather(
-            imp_out))
+          [plink2_path,
+           "--bfile", gt_root,
+           "--extract", "bed1", f"{out_root}.bed1",
+           "--make-bed",
+           "--allow-extra-chr",
+           "--out", out_root])
 
-        # Save parameters
-        run_params = [
-          ["Marker set", "Method", "Trait", "Loci",
-           "Markers", "Samples", "Test markers",
-           "Trees per forest", "Iterations", "Permutations"],
-          [markers, "Random forest", trait, 
-           "<br>".join(coord.split(", ")), len(gt.columns), phe_df.size,
-           params["mtry"], params["ntree"], params["niter"], params["nperm"]]]
-        with open(
-          os.path.join(
-            tmp_dir,
-            f"{task_id}.params"),
-          "w") as params_out:
-            json.dump(run_params, params_out)
-
-    elif params["fm_method"] == "pm":
-        (phe_df
-          .loc[samples, trait]
-          .fillna("NA")
+        fam_path = f"{out_root}.fam"
+        fam_df = pd.read_csv(
+          fam_path,
+          sep="\t",
+          header=None,
+          index_col=None)
+        (fam_df
+          .assign(IID = samples.tolist())
+          .loc[:, ["IID"] + fam_df.columns.tolist()[1:]]
           .to_csv(
-            f"{out_root}.phe",
-            sep="\t",
+            fam_path,
+            sep=" ",
             header=False,
             index=False))
+
         num_samples = (phe_df
           .loc[samples, trait]
           .dropna()
           .size)
+        num_vars = sum(1 for _ in open(f"{out_root}.bim"))
 
-        # Create a BIMBAM-format genotype file
-        gt = (pd
-          .read_csv(
-            f"{out_root}.traw",
-            sep="\t",
-            header=[0],
-            index_col=None)
-          .drop(
-            ["CHR", "(C)M", "POS"],
-            axis=1))
-        samp_cols = gt.columns.tolist()[3:]
-        allele_cnt = len(samp_cols) * 2
-        marker_cnt = gt.shape[0]
-        gt["AF"] = gt.iloc[:, 3:].sum(axis=1) / allele_cnt
-        switch_mask = gt["AF"] > 0.5
-        gt.loc[switch_mask, samp_cols] = (gt.loc[switch_mask, samp_cols] - 2).abs()
-        gt["COUNTED"] = "T"
-        gt["ALT"] = "A"
-        (gt
-          .drop(["AF"], axis=1)
+        (phe_df
+          .assign(IID = phe_df.index.tolist())
+          .loc[:,
+            ["IID", trait]]
           .to_csv(
-            f"{out_root}.bimbam",
-            sep="\t",
+            f"{out_root}.txt",
             header=False,
-            index=False))
+            sep=" "))
 
-        progress(task_id, "Calculating marker PIP")
         popen(
           task_id,
-          [pimass_path,
-           "-g", f"{out_root}.bimbam",
-           "-p", f"{out_root}.phe",
-           "-o", task_id,
-           #"-r", "0",
-           # MCMC sampling parameters
-           "-w", str(params["pm_w"] or marker_cnt),
-           "-s", str(params["pm_s"] or marker_cnt * 10),
-           "-num", str(params["pm_num"] or 10),
-           # Min / max expected heritability
-           "-hmin", str(params["pm_hmin"] or 0.3),
-           "-hmax", str(params["pm_hmax"] or 0.8),
-           # Min / max expected causal SNPs
-           "-pmin", str(params["pm_pmin"] or n_loci // 3),
-           "-pmax", str(params["pm_pmax"] or n_loci * 3),
-           # Number of causal SNPs to start with
-           "-nstart", str(params["pm_nstart"] or n_loci),
-           # Min / max number of SNPs to include in model
-           "-smin", str(params["pm_smin"] or marker_cnt // 10),
-           "-smax", str(params["pm_smax"] or marker_cnt // 2),
-           ])
-        pip_in = os.path.join(
-          "output",
-          f"{task_id}.mcmc.txt")
+          [gctb_path,
+           "--bfile", f"{out_root}",
+           "--pheno", f"{out_root}.txt",
+           "--bayes", params["fm_method"],
+           "--maf", "0",
+           "--p-value", "1",
+           "--out", out_root])
+
+        pip_in = f"{out_root}.snpRes"
         pip_out = os.path.join(
           tmp_dir,
           f"{task_id}.fm")
@@ -2019,12 +2091,8 @@ def assoc_finemap(
             pip_in,
             sep="\s+",
             header=0,
-            index_col=0,
-            usecols=[0,4])
-          .assign(
-            chr=lambda df: df.index.str.split(":").str[0],
-            pos=lambda df: df.index.str.split(":").str[1].astype(int))
-          [["chr", "pos", "postrb"]]
+            index_col=None,
+            usecols=[2,3,10])
           .set_axis(
             ["chr", "pos", "val"],
             axis=1)
@@ -2032,31 +2100,232 @@ def assoc_finemap(
             by="val",
             ascending=False)
           .head(5000)
+          .reset_index(drop=True)
           .to_feather(
             pip_out))
 
         # Save parameters
         run_params = [
-          ["Marker set", "Method", "Trait", "Loci", "Markers", "Samples", 
-           "Burn-in steps", "Sampling steps", "Thinning", "Min heritability",
-           "Max heritability", "Min causal SNPs", "Max causal SNPs", 
-           "Init causal SNPs", "Model min SNPs", "Model max SNPs"],
-          [markers, "PiMASS", trait,
-           "<br>".join(coord.split(", ")), gt.shape[0], num_samples,
-           params["pm_w"] or marker_cnt,
-           params["pm_s"] or marker_cnt * 10,
-           params["pm_num"] or 10,
-           float(params["pm_hmin"] or 0.3),
-           float(params["pm_hmax"] or 0.8),
-           params["pm_pmin"] or n_loci // 3,
-           params["pm_pmax"] or n_loci * 3,
-           params["pm_nstart"] or n_loci,
-           params["pm_smin"] or marker_cnt // 10,
-           params["pm_smax"] or marker_cnt // 2,
-           ]]
+          ["Marker set", "Method", "Trait", "Loci", "Markers", "Samples"],
+          [markers, "Bayes" + params["fm_method"], trait,
+           "<br>".join(coord.split(", ")), num_vars, num_samples]]
         with open(
           os.path.join(
             tmp_dir,
             f"{task_id}.params"),
           "w") as params_out:
             json.dump(run_params, params_out)
+
+    else:
+        popen(
+          task_id,
+          [plink2_path,
+           "--bfile", gt_root,
+           "--extract", "bed1", f"{out_root}.bed1",
+           "--export", "Av",
+           "--allow-extra-chr",
+           "--out", out_root])
+
+        if params["fm_method"] == "rf":
+            if params["optimize"]:
+                progress(task_id, "Running optimization")
+            else:
+                progress(task_id, "Fine-mapping with Random forest")
+            phe_df = phe_df.loc[samples, trait]
+            gt_df = (pd
+              .read_csv(
+                f"{out_root}.traw",
+                sep="\t",
+                header=0,
+                index_col=None))
+
+            gt = (gt_df
+              .drop(
+                ["CHR", "SNP", "(C)M", "POS", "COUNTED", "ALT"],
+                axis=1)
+              .set_axis(
+                samples,
+                axis=1)
+              .loc[:, phe_df.dropna().index]
+              .transpose())
+            phe_df = phe_df.dropna()
+
+            if params["optimize"]:
+                mtryvals = [
+                  int(v.strip())
+                  for v in params["mtryvals"].split(", ")]
+                ntreevals = [
+                  int(v.strip())
+                  for v in params["ntreevals"].split(", ")]
+                res = optim_rf(
+                  task_id,
+                  gt,
+                  phe_df,
+                  mtryvals,
+                  ntreevals)
+                optim_path = os.path.join(
+                  tmp_dir,
+                  f"{task_id}.rfopt")
+                with open(optim_path, "w") as optim_out:
+                    json.dump([mtryvals, ntreevals, res], optim_out)
+                return
+
+            res = run_rf(
+              task_id,
+              gt,
+              phe_df,
+              params["mtry"],
+              params["ntree"],
+              params["niter"],
+              params["nperm"])
+            imp_out = os.path.join(
+              tmp_dir,
+              f"{task_id}.fm")
+            gt_map = gt_df[["CHR", "POS"]]
+            res["Chr"]  = gt_map["CHR"]
+            res["Pos"] = gt_map["POS"]
+            res["Imp"] = res["Imp"] / res["Imp"].max()
+            (res
+              .loc[:, ["Chr", "Pos", "Imp"]]
+              .set_axis(
+                ["chr", "pos", "val"],
+                axis=1)
+              .sort_values(
+                by="val",
+                ascending=False)
+              .head(5000)
+              .to_feather(
+                imp_out))
+
+            # Save parameters
+            run_params = [
+              ["Marker set", "Method", "Trait", "Loci",
+               "Markers", "Samples", "Test markers",
+               "Trees per forest", "Iterations", "Permutations"],
+              [markers, "Random forest", trait, 
+               "<br>".join(coord.split(", ")), len(gt.columns), phe_df.size,
+               params["mtry"], params["ntree"], params["niter"], params["nperm"]]]
+            with open(
+              os.path.join(
+                tmp_dir,
+                f"{task_id}.params"),
+              "w") as params_out:
+                json.dump(run_params, params_out)
+
+        elif params["fm_method"] == "pm":
+            (phe_df
+              .loc[samples, trait]
+              .fillna("NA")
+              .to_csv(
+                f"{out_root}.phe",
+                sep="\t",
+                header=False,
+                index=False))
+            num_samples = (phe_df
+              .loc[samples, trait]
+              .dropna()
+              .size)
+
+            # Create a BIMBAM-format genotype file
+            gt = (pd
+              .read_csv(
+                f"{out_root}.traw",
+                sep="\t",
+                header=[0],
+                index_col=None)
+              .drop(
+                ["CHR", "(C)M", "POS"],
+                axis=1))
+            samp_cols = gt.columns.tolist()[3:]
+            allele_cnt = len(samp_cols) * 2
+            marker_cnt = gt.shape[0]
+            gt["AF"] = gt.iloc[:, 3:].sum(axis=1) / allele_cnt
+            switch_mask = gt["AF"] > 0.5
+            gt.loc[switch_mask, samp_cols] = (gt.loc[switch_mask, samp_cols] - 2).abs()
+            gt["COUNTED"] = "T"
+            gt["ALT"] = "A"
+            (gt
+              .drop(["AF"], axis=1)
+              .to_csv(
+                f"{out_root}.bimbam",
+                sep="\t",
+                header=False,
+                index=False))
+
+            progress(task_id, "Calculating marker PIP")
+            popen(
+              task_id,
+              [pimass_path,
+               "-g", f"{out_root}.bimbam",
+               "-p", f"{out_root}.phe",
+               "-o", task_id,
+               #"-r", "0",
+               # MCMC sampling parameters
+               "-w", str(params["pm_w"] or marker_cnt),
+               "-s", str(params["pm_s"] or marker_cnt * 10),
+               "-num", str(params["pm_num"] or 10),
+               # Min / max expected heritability
+               "-hmin", str(params["pm_hmin"] or 0.3),
+               "-hmax", str(params["pm_hmax"] or 0.8),
+               # Min / max expected causal SNPs
+               "-pmin", str(params["pm_pmin"] or n_loci // 3),
+               "-pmax", str(params["pm_pmax"] or n_loci * 3),
+               # Number of causal SNPs to start with
+               "-nstart", str(params["pm_nstart"] or n_loci),
+               # Min / max number of SNPs to include in model
+               "-smin", str(params["pm_smin"] or marker_cnt // 10),
+               "-smax", str(params["pm_smax"] or marker_cnt // 2),
+               ])
+            pip_in = os.path.join(
+              "output",
+              f"{task_id}.mcmc.txt")
+            pip_out = os.path.join(
+              tmp_dir,
+              f"{task_id}.fm")
+
+            (pd
+              .read_csv(
+                pip_in,
+                sep="\s+",
+                header=0,
+                index_col=0,
+                usecols=[0,4])
+              .assign(
+                chr=lambda df: df.index.str.split(":").str[0],
+                pos=lambda df: df.index.str.split(":").str[1].astype(int))
+              [["chr", "pos", "postrb"]]
+              .set_axis(
+                ["chr", "pos", "val"],
+                axis=1)
+              .sort_values(
+                by="val",
+                ascending=False)
+              .head(5000)
+              .to_feather(
+                pip_out))
+
+            # Save parameters
+            run_params = [
+              ["Marker set", "Method", "Trait", "Loci", "Markers", "Samples", 
+               "Burn-in steps", "Sampling steps", "Thinning", "Min heritability",
+               "Max heritability", "Min causal SNPs", "Max causal SNPs", 
+               "Init causal SNPs", "Model min SNPs", "Model max SNPs"],
+              [markers, "PiMASS", trait,
+               "<br>".join(coord.split(", ")), gt.shape[0], num_samples,
+               params["pm_w"] or marker_cnt,
+               params["pm_s"] or marker_cnt * 10,
+               params["pm_num"] or 10,
+               float(params["pm_hmin"] or 0.3),
+               float(params["pm_hmax"] or 0.8),
+               params["pm_pmin"] or n_loci // 3,
+               params["pm_pmax"] or n_loci * 3,
+               params["pm_nstart"] or n_loci,
+               params["pm_smin"] or marker_cnt // 10,
+               params["pm_smax"] or marker_cnt // 2,
+               ]]
+            with open(
+              os.path.join(
+                tmp_dir,
+                f"{task_id}.params"),
+              "w") as params_out:
+                json.dump(run_params, params_out)

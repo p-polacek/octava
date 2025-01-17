@@ -1036,14 +1036,14 @@
             maxallowed: 1,
           },
           yaxis2: {
-            title: "-log10(p-value)",
+            title: "-log10(p-value) / Importance / Effect", //title: "-log10(p-value)",
             //rangemode: "tozero",
-            range: [0, Math.ceil(yMax + 1)],
+            range: [0, yMax * 1.05],
             autorange: false,
             ticklen: 5,
             domain: [0, 0.95],
             minallowed: 0,
-            maxallowed: Math.ceil(yMax + 1),
+            maxallowed: yMax * 1.05,
           },
           yaxis3: {
             range: [0, 1.1],

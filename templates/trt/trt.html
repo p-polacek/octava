@@ -15,7 +15,7 @@
     {% elif errors %}
       <div class="padded-left">
         <h2 class="padded-left">
-          Warnings: {{ errors }}
+          Warnings:
         </h2>
         {% for error in errors %}
           <h3 class="padded-left mini-padded-top taller-line">
@@ -488,6 +488,7 @@
     }
     var gtSamples = {{ gt_samples|tojson }};
     var dataTransform;
+    var bestL;
 
     function copyPheSamples() {
       var trait = document.getElementById("trait_sgl-field").value;
@@ -1190,7 +1191,6 @@
           return (n * data.reduce((sum, val) => sum + Math.pow((val - mean) / stdDev, 3), 0)) / ((n - 1) * (n - 2));
         }
 
-        let bestL = null;
         let minSkew = Infinity;
         let lRange = [-5, 5];
         let step = 0.1;
@@ -1202,9 +1202,14 @@
                 bestL = l;
             }
         }
-        console.log(bestL);
+        //console.log(bestL);
         dataTransform = bcTransform(plotData, bestL);
 
+      } else if (t === "zs") {
+        plotData = plotData.filter( v => !isNaN(v) );
+        var mean = plotData.reduce((s, v) => s + v, 0) / plotData.length;
+        var std = Math.sqrt(plotData.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / plotData.length);
+        dataTransform = plotData.map(v => (v - mean) / std);
       } else if (t === "bin") {
         var thresh = parseFloat(document.getElementById("binthr").value);
         if (isNaN(thresh)) {

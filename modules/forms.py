@@ -22,6 +22,8 @@ models = [
   ("mlm", "MLM"),
   ("mtmlm", "Multi-trait MLM"),
   ("blink", "BLINK"),
+  ("B", "BayesB"),
+  ("C", "BayesC"),
   ("rf", "Random forest")]
 
 types = [
@@ -257,8 +259,9 @@ class TraitViewForm(FlaskForm):
       "Method:",
       choices=[
         ("log", "Log(e) transform"),
-        #("bc", "Box-cox transform"),
+        ("bc", "Box-cox transform"),
         ("pca", "PCA transform"),
+        ("zs", "Z-score normalization"),
         ("bin", "Make binary")])
     num_pc = IntegerField(
       "Number of PCs:",
@@ -484,6 +487,8 @@ class AssocResForm(RegionForm, PlotForm):
       choices=[
         ("", "(none)"),
         ("pm", "PiMASS"),
+        ("B", "BayesB"),
+        ("C", "BayesC"),
         ("rf", "Random forest")])
     mrk  = StringField(
       "")

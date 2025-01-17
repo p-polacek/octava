@@ -27,6 +27,7 @@ def optim_rf(
   phe,
   mtryvals,
   ntreevals):
+
     #repnum = 1
     #std = np.zeros((len(ntreevals), len(mtryvals)))
     pves = np.zeros((len(ntreevals), len(mtryvals)))
@@ -46,9 +47,7 @@ def optim_rf(
               #n_jobs=os.cpu_count()-1
               n_jobs=-1
               )
-            rf.fit(
-              gt,
-              phe)
+            rf.fit(gt, phe)
             #run.append(rf.oob_score_)
             #pves[i, j] = np.mean(run)
             #std[i, j] = np.std(run)
@@ -68,7 +67,6 @@ def run_rf(
   ntree,
   niter,
   nperm):
-
 
 ################################################################################
 ### Run RandomForest with iterations based on correlation
@@ -124,10 +122,12 @@ def run_rf(
           task_id,
           f"\rIteration {idx + 1} of {niter}",
           newline=False)
+
         rf = RangerForestRegressor(
           n_estimators=ntree,
           mtry=mtry,
           oob_error=True,
+          #min_node_size=5,
           importance="permutation",
           scale_permutation_importance=True,
           seed=random.randint(0, 2**32 - 1),
@@ -181,6 +181,7 @@ def run_rf(
 ### Run permutation for given n of iterations
 ################################################################################
 
+    nperm = nperm or 0
     perm_incmse = np.zeros((gt.shape[1], nperm))
     for idx in range(nperm):
         progress(
@@ -205,10 +206,17 @@ def run_rf(
 ################################################################################
 
     meanincmse = np.mean(real_incmse, axis=1)
-    permquant = np.percentile(perm_incmse, 99, axis=1)
-    #incmse_thresh = meanincmse > permquant
-    #incmse_ratio = meanincmse / permquant
-    incmse_corrected = meanincmse - permquant
+    if nperm == 0:
+        incmse_final = meanincmse
+    else:
+        permquant = np.percentile(perm_incmse, 99, axis=1)
+        #incmse_thresh = meanincmse > permquant
+        #incmse_ratio = meanincmse / permquant
+        incmse_final = meanincmse - permquant
+
+#        print(meanincmse.tolist())
+#        print(incmse_final.tolist())
+#        print(np.corrcoef(meanincmse, incmse_final))
 
     # Save results
     output_df = pd.DataFrame({
@@ -216,6 +224,6 @@ def run_rf(
 #      "permquant": permquant,
 #      "incmse_thresh": incmse_thresh,
 #      "incmse_ratio": incmse_ratio,
-      "Imp": incmse_corrected
+      "Imp": incmse_final
     })
     return output_df
