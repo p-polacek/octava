@@ -216,7 +216,7 @@ def run_rf(
 
 #        print(meanincmse.tolist())
 #        print(incmse_final.tolist())
-#        print(np.corrcoef(meanincmse, incmse_final))
+        print(np.corrcoef(meanincmse, incmse_final))
 
     # Save results
     output_df = pd.DataFrame({
