@@ -1247,6 +1247,7 @@ def run_assoc(genome, params, task_id):
           "--gwas",
           "--file", in_root,
           "--plink",
+          #"--bin_size", "5", "10", "2", "0.3",
           "--out", os.path.join(out_dir, "BLINK"),
           "--trait", "0"]
         popen(
@@ -1262,8 +1263,7 @@ def run_assoc(genome, params, task_id):
               out_dir,
               ch_col="chr",
               pos_col="pos",
-              pval_col="p_value",
-              eff_col=None)
+              pval_col="p_value")
 
             # Save parameters
             run_params = [
@@ -1656,7 +1656,7 @@ def run_assoc(genome, params, task_id):
           "gctb")
         progress(task_id, "Running analysis")
         for idx, trait in enumerate(params["traits"], start=1):
-            command = [
+            cmd = [
               gctb_path,
               "--bfile", f"{in_root}.gctb",
               "--pheno", f"{in_root}.txt",
@@ -1667,9 +1667,12 @@ def run_assoc(genome, params, task_id):
               "--maf", "0",
               "--p-value", "1",
               "--out", os.path.join(out_dir, f"{model}.{trait}")]
+            cmd = cmd + ["--burn-in", str(params["b_burn"])] if params["b_burn"] else cmd
+            cmd = cmd + ["--chain-length", str(params["b_chain"])] if params["b_chain"] else cmd
+            cmd = cmd + ["--thin", str(params["b_thin"])] if params["b_thin"] else cmd
             popen(
               task_id,
-              command)
+              cmd)
 
             assoc_process(
               genome,
@@ -1681,8 +1684,7 @@ def run_assoc(genome, params, task_id):
               pos_col="Position",
               pval_col="A1Effect",
               sep="\s+",
-              eff_main=True,
-              eff_col=None)
+              eff_main=True)
 
             # Save parameters
             run_params = [
@@ -1875,7 +1877,7 @@ def assoc_process(
   pval_col,
   sep="\t",
   eff_main=False,
-  eff_col=None,
+  eff_col=[],
   se_col=None):
     gdata = load_gdata(genome)
     config = load_config(genome)
@@ -2071,15 +2073,20 @@ def assoc_finemap(
             header=False,
             sep=" "))
 
+        cmd = [
+          gctb_path,
+          "--bfile", f"{out_root}",
+          "--pheno", f"{out_root}.txt",
+          "--bayes", params["fm_method"],
+          "--maf", "0",
+          "--p-value", "1",
+          "--out", out_root]
+        cmd = cmd + ["--burn-in", str(params["b_burn"])] if params["b_burn"] else cmd
+        cmd = cmd + ["--chain-length", str(params["b_chain"])] if params["b_chain"] else cmd
+        cmd = cmd + ["--thin", str(params["b_thin"])] if params["b_thin"] else cmd
         popen(
           task_id,
-          [gctb_path,
-           "--bfile", f"{out_root}",
-           "--pheno", f"{out_root}.txt",
-           "--bayes", params["fm_method"],
-           "--maf", "0",
-           "--p-value", "1",
-           "--out", out_root])
+          cmd)
 
         pip_in = f"{out_root}.snpRes"
         pip_out = os.path.join(

@@ -434,6 +434,13 @@ class AssocResForm(RegionForm, PlotForm):
       "Permutations:",
       default = 100)
 
+    b_burn = IntegerField(
+      "Burn-in iterations:")
+    b_chain = IntegerField(
+      "Total iterations:")
+    b_thin = IntegerField(
+      "Thinning:")
+
     pm_w = IntegerField(
       "Burn-in steps:")
     pm_s = IntegerField(

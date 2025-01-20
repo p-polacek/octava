@@ -200,7 +200,7 @@
                      onchange="
                       updateTracker(this.parentElement.parentElement);
                       setKQ(this.value);
-                      setRF(this.value);")}}
+                      setModelParams(this.value);")}}
                     {{ choice.label(
                      class="checkbox-label") }}
                   </div>
@@ -283,6 +283,25 @@
                   </button>
                 </div>
             {% endif %} #}
+{# ======================================================= Bayes parameters #}
+            <span id="bayes-params" class="collapsed padded-top small-padded-bottom">
+              <div class="row-div">
+                <h2>
+                  Bayes options:
+                </h2>
+                <img
+                 class="aux-button clickable collapsed"
+                 src="{{ url_for('serve_button', button='help') }}"
+                 onclick="showHelp(event, 'bayes-options');" />
+              </div>
+              {% for field in ("b_burn", "b_chain", "b_thin") %}
+                <div class="row-input-div justified small-padded-top">
+                  {{ form[field].label(
+                   class="default-label bold") }}
+                  {{ form[field](class="small-num-input") }}
+                </div>
+              {% endfor %}
+            </span>
 {# ========================================================== RF parameters #}
             <span id="rf-params" class="collapsed padded-top small-padded-bottom">
               <div class="row-div">
@@ -307,7 +326,7 @@
                 </div>
               {% endfor %}
               {{ form.optimize(id="optimize", class="collapsed") }}
-           </span>
+            </span>
 {# ======================================================== Limit to region #}
 {#            <div class="row-div padded-top">
               <h2>
@@ -614,12 +633,18 @@
       }
     }
 
-    function setRF(model) {
+    function setModelParams(model) {
       var rfParams = document.getElementById("rf-params");
+      var bayesParams = document.getElementById("bayes-params");
       if (model === "rf") {
         rfParams.classList.remove("collapsed");
+        bayesParams.classList.add("collapsed");
+      } else if (model === "B" || model === "C") {
+        rfParams.classList.add("collapsed");
+        bayesParams.classList.remove("collapsed");
       } else {
         rfParams.classList.add("collapsed");
+        bayesParams.classList.add("collapsed");
       }
     }
     function RFOptimize() {      var form = document.querySelector("form");      document.getElementById("optimize").checked = "checked";      form.target = "_blank";      form.submit();    }    function setAction() {      var form = document.querySelector("form");      document.getElementById("optimize").checked = "";      form.target = "";      form.submit();    }
@@ -673,7 +698,7 @@
         model = "mlm";
       }
       setKQ(model);
-      setRF(model);
+      setModelParams(model);
 
       // Prevent hiding help popup when clicked within
       const helpPopup = document.getElementById("help-popup");

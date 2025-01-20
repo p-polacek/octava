@@ -414,9 +414,9 @@
                 </div>
                 {% for field in ("mtryvals", "ntreevals") %}
                   <div class="row-input-div justified small-padded-top">
-                      {{ form[field].label(
-                       class="default-label bold") }}
-                      {{ form[field](class="small-num-input") }}
+                    {{ form[field].label(
+                     class="default-label bold") }}
+                    {{ form[field](class="small-num-input") }}
                   </div>
                 {% endfor %}
                 <div class="row-input-div justified padded-top">
@@ -436,9 +436,9 @@
                 </div>
                 {% for field in ("mtry", "ntree", "niter", "nperm") %}
                   <div class="row-input-div justified small-padded-top">
-                      {{ form[field].label(
-                       class="default-label bold") }}
-                      {{ form[field](class="small-num-input") }}
+                    {{ form[field].label(
+                     class="default-label bold") }}
+                    {{ form[field](class="small-num-input") }}
                   </div>
                 {% endfor %}
                 {{ form.optimize(id="optimize", class="collapsed") }}
@@ -455,9 +455,27 @@
                 </div>
                 {% for field in ("pm_w", "pm_s", "pm_num", "pm_hmin", "pm_hmax", "pm_pmin", "pm_pmax", "pm_nstart", "pm_smin", "pm_smax") %}
                   <div class="row-input-div justified small-padded-top">
-                      {{ form[field].label(
-                       class="default-label bold") }}
-                      {{ form[field](class="small-num-input") }}
+                    {{ form[field].label(
+                     class="default-label bold") }}
+                    {{ form[field](class="small-num-input") }}
+                  </div>
+                {% endfor %}
+              </span>
+              <span id="bayes-params" class="collapsed">
+                <div class="row-div padded-top">
+                  <h2>
+                    Bayes options:
+                  </h2>
+                  <img
+                    class="aux-button clickable collapsed"
+                    src="{{ url_for('serve_button', button='help') }}"
+                    onclick="showHelp(event, 'bayes-options');" />
+                </div>
+                {% for field in ("b_burn", "b_chain", "b_thin") %}
+                  <div class="row-input-div justified small-padded-top">
+                    {{ form[field].label(
+                     class="default-label bold") }}
+                    {{ form[field](class="small-num-input") }}
                   </div>
                 {% endfor %}
               </span>
@@ -1565,12 +1583,19 @@
       if (method == null || method.value === "") {
         document.getElementById("pm-params").classList.add("collapsed");
         document.getElementById("rf-params").classList.add("collapsed");
+        document.getElementById("bayes-params").classList.add("collapsed");
       } else if (method.value === "rf") {
         document.getElementById("rf-params").classList.remove("collapsed");
         document.getElementById("pm-params").classList.add("collapsed");
+        document.getElementById("bayes-params").classList.add("collapsed");
       } else if (method.value === "pm") {
         document.getElementById("pm-params").classList.remove("collapsed");
-        document.getElementById("rf-params").classList.add("collapsed");        
+        document.getElementById("rf-params").classList.add("collapsed");
+        document.getElementById("bayes-params").classList.add("collapsed");
+      } else if (method.value === "B" || method.value === "C") {
+        document.getElementById("pm-params").classList.add("collapsed");
+        document.getElementById("rf-params").classList.add("collapsed");
+        document.getElementById("bayes-params").classList.remove("collapsed");
       }
     }
 
