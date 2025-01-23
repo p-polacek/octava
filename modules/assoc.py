@@ -669,18 +669,19 @@ def filt_qc(
                 os.rename(
                   plink_filt + ext,
                   plink_out + ".full" + ext)
+            #plink_filt = plink_out + ".full"
     else:
         if data["imp"]:
-            if not os.path.exists(plink_filt + ".bim"):
+            for ext in (".bed", ".bim", ".fam", ".vcf.gz"):
                 os.link(
-                  plink_in + ".bim",
-                  plink_filt + ".bim")
+                  plink_in + ext,
+                  plink_filt + ext)
         else:
+            plink_filt = plink_in
             for ext in (".bed", ".bim", ".fam", ".vcf.gz"):
                 os.link(
                   plink_filt + ext,
                   plink_out + ".full" + ext)
-        plink_filt = plink_in
 
     full_root = os.path.join(
       filt_dir,
@@ -751,7 +752,7 @@ def filt_qc(
         popen(task_id,
           [plink2_path,
           "--vcf", full_vcf,
-          "--indep-pairphase", data["window"], str(data["prune"]),
+          "--indep-pairwise", data["window"], str(data["prune"]),
           "--allow-extra-chr",
           "--out", plink_out])
         prune_in = plink_out + ".prune.in"
@@ -1324,8 +1325,9 @@ def run_assoc(genome, params, task_id):
                 header=[0],
                 index_col=[0,1])
               .droplevel(0)
-              .assign(I=1))
-            q_matr = q_matr.loc[:, ["I"] + q_matr.columns.tolist()[:int(params["q_num"])]]
+              #.assign(I=1)
+              )
+            q_matr = q_matr.loc[:, q_matr.columns.tolist()[:int(params["q_num"])]] # ["I"] + 
             if not samples.isin(q_matr.index).all():
                 raise OSError(
                   "<b>Dataset selected for K/Q correction does not contain " +
@@ -1380,13 +1382,14 @@ def run_assoc(genome, params, task_id):
             progress(task_id, "Running optimization")
         else:
             progress(task_id, "Running analysis")
+
         for trait in params["traits"]:
             phe = phe_df[trait]
             phe_samples = phe[~pd.isna(phe)].index
             phe = phe.loc[phe_samples]
             phe_gt = gt[np.isin(samples, phe_samples), :]
 
-            if params["q"] and params["q_num"] > 0:
+            if (params["q"] and params["q_num"] > 0) or params["cov"]:
                 phe_q = q_matr.loc[phe_samples]
                 phe_q = sm.add_constant(phe_q)
                 if params["k"]:
@@ -1661,12 +1664,12 @@ def run_assoc(genome, params, task_id):
               "--bfile", f"{in_root}.gctb",
               "--pheno", f"{in_root}.txt",
               "--mpheno", str(idx),
-              "--covar", f"{in_root}.cov",
-              "--random-covar", f"{in_root}.kin",
               "--bayes", model,
               "--maf", "0",
               "--p-value", "1",
               "--out", os.path.join(out_dir, f"{model}.{trait}")]
+            cmd = cmd + ["--covar", f"{in_root}.cov"] if params["q"] and params["q_num"] > 0 else cmd
+            cmd = cmd + ["--random-covar", f"{in_root}.kin"] if params["k"] else cmd
             cmd = cmd + ["--burn-in", str(params["b_burn"])] if params["b_burn"] else cmd
             cmd = cmd + ["--chain-length", str(params["b_chain"])] if params["b_chain"] else cmd
             cmd = cmd + ["--thin", str(params["b_thin"])] if params["b_thin"] else cmd
@@ -1841,7 +1844,7 @@ def run_assoc(genome, params, task_id):
               pos_col="ps",
               pval_col="p_wald",
               eff_col=(
-                ["beta"] if model == "mlm"
+                ["beta"] if model in ("mlm", "glm")
                 else ["beta_" + str(i) for i in range(1, len(n)+1)] if model == "mtmlm"
                 else None),
               se_col="se" if model == "mlm" else None)
