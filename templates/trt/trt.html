@@ -640,7 +640,8 @@
         showlegend: legend,
         hoverlabel: {
           bgcolor: "white",
-        }
+        },
+        visible: true,
       };
       traces.push(trace);
 
@@ -664,7 +665,8 @@
           showlegend: legend,
           hoverlabel: {
             bgcolor: "white",
-          }
+          },
+          visible: true,
         };
         traces.push(trace);
       }
@@ -693,6 +695,7 @@
           marker: {
             color: plotColors[idx],
           },
+          visible: true,
         };
         traces.push(trace);        
       }
@@ -766,6 +769,7 @@
         x: plotData,
         type: "histogram",
         marker: { color: plotColorAll },
+        visible: true,
       };
       var layout = {
         showlegend: false,
@@ -823,6 +827,7 @@
           namelength: 0,
           bgcolor: "white",
         },
+        visible: true,
       };
       traces.push(trace);
 
@@ -862,6 +867,7 @@
             namelength: 0,
             bgcolor: "white",
           },
+          visible: true,
         };
         traces.push(trace);
       }
@@ -907,6 +913,7 @@
             namelength: 0,
             bgcolor: "white",
           },
+          visible: true,
         };
         traces.push(trace);
       }
@@ -1045,7 +1052,15 @@
           };
         }
 
-        Plotly.newPlot("plot-div", traces, layout);
+        var config = {
+          editable: false,
+          modeBarButtonsToAdd: 
+            ["legend", "edit", "recolor", "move_down", "_delete"]
+            .map(key => buttonsToAdd[key]),
+          modeBarButtonsToRemove: [],
+        };
+
+        Plotly.newPlot("plot-div", traces, layout, config);
 
         // Allow zoomimg into a part of the subplot by double-clicking
         var plotDiv = document.getElementById("plot-div");
@@ -1297,10 +1312,11 @@
         hoverlabel: {
           namelength: 0,
           bgcolor: "white",
-         },
-         marker: {
-           size: 4,
-         }
+        },
+        marker: {
+          size: 4,
+        },
+        visible: true,
       }
       if (numPCs > 2) {
         trace["z"] = PC3Vals;
@@ -1349,11 +1365,12 @@
             hoverlabel: {
               namelength: 0,
               bgcolor: "white",
-             },
-             marker: {
-               color: plotColors[idx],
-               size: 4,
-             }
+            },
+            marker: {
+              color: plotColors[idx],
+              size: 4,
+            },
+            visible: true,
           }
           if (numPCs > 2) {
             trace["z"] = PC3Vals.filter((_, idx) => members.includes(plottedSamples[idx]));
@@ -1479,7 +1496,16 @@
 //        },
 //      }
 //
-      Plotly.newPlot("plot-div", traces, layout);
+
+      var config = {
+        editable: false,
+        modeBarButtonsToAdd: 
+          ["legend", "edit", "recolor", "move_down", "_delete"]
+          .map(key => buttonsToAdd[key]),
+        modeBarButtonsToRemove: [],
+      };
+
+      Plotly.newPlot("plot-div", traces, layout, config);
     }
 {# ========================================================= Save transform #}
     function saveTransform(buttonVal) {

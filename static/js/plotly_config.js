@@ -114,10 +114,7 @@ var buttonsToAdd = {
     click: function(gd) {
       var visibleIdxs = [];
       gd.data.forEach( function(trace, idx) {
-        if (
-         trace.showlegend !== false &&
-         (!trace.hasOwnProperty("visible") ||
-          trace.visible !== "legendonly")) {
+        if (trace.visible === true) {
           visibleIdxs.push(idx);
         }
       });
@@ -138,10 +135,7 @@ var buttonsToAdd = {
     click: function(gd) {
       var visibleIdxs = [];
       gd.data.forEach( function(trace, idx) {
-        if (
-         trace.showlegend !== false &&
-         (!trace.hasOwnProperty("visible") ||
-          trace.visible !== "legendonly")) {
+        if (trace.visible === true) {
           visibleIdxs.push(idx);
         }
       });

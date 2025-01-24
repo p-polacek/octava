@@ -1117,6 +1117,8 @@ def assoc_run(genome):
 
         else:
             errors = ["Results already exist for all selected traits."]
+            flash(errors)
+            return redirect(url_for("assoc_res", genome=genome))
     else:
         if data["traits"]:
             pass
@@ -1183,6 +1185,8 @@ def assoc_run(genome):
                   form      = data)
             else:
                 errors = ["Results already exist for all selected groups."]
+                flash(errors)
+                return redirect(url_for("assoc_res", genome=genome))
 
 ###############################################################################
 ### Association analysis results
