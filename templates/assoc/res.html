@@ -1457,76 +1457,88 @@
     }
 {# ============================================================= Save locus #}
     function addLocus(locus) {
-      if (locus == null) {
-        var locus = validateLocus();
-        if (locus == null) {
-          showHelp(event, null, "Select a range within a single chromosome.");
-          event.preventDefault();
-          return;
-        }
-        var [chrom, start, end] = locus;
-        var chrIdx = chrNames.indexOf(chrom);
-        if (document.getElementById("add-window").checked) {
-          var window = parseInt(document.getElementById("window").value)*1000;
-          start -= window;
-          start = Math.max(1, start);
-          end += window;
-          end = Math.min(end, chrSizes[chrIdx]);
-        }
-        start = start.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-        end = end.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-        var locusString = `${chrom}:${start}-${end}`;
+//      if (locus == null) {
+//        var locus = validateLocus();
+//        if (locus == null) {
+//          showHelp(event, null, "Select a range within a single chromosome.");
+//          event.preventDefault();
+//          return;
+//        }
+//        var [chrom, start, end] = locus;
+//        var chrIdx = chrNames.indexOf(chrom);
+//        if (document.getElementById("add-window").checked) {
+//          var window = parseInt(document.getElementById("window").value)*1000;
+//          start -= window;
+//          start = Math.max(1, start);
+//          end += window;
+//          end = Math.min(end, chrSizes[chrIdx]);
+//        }
+//        start = start.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+//        end = end.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+//        var locusString = `${chrom}:${start}-${end}`;
+//      } else {
+//        var [chrom, pos] = locus.split(":");
+//        var chrIdx = chrNames.indexOf(chrom);
+//        if (document.getElementById("add-window").checked) {
+//          var window = parseInt(document.getElementById("window").value)*1000;
+//          pos = parseInt(pos.replaceAll(",", ""));
+//          start = pos - window;
+//          start = Math.max(1, start);
+//          end = pos + window;
+//          end = Math.min(end, chrSizes[chrIdx]);
+//
+//          start = start.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+//          end = end.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+//          var locusString = `${chrom}:${start}-${end}`;
+//        } else {
+//          var locusString = `${chrom}:${pos}`;
+//        }
+//      }
+//
+//      var dropdown = document.getElementById("loci-dropdown");
+//
+//      var loci = [...dropdown.querySelectorAll(".dropdown-tag")];
+//      var savedLoci = loci.map(x => x.id);
+//      if (!savedLoci.includes(locusString)) {
+//        var locusRow = document.createElement("div");
+//        locusRow.classList.add("row-div");
+//
+//        var locusButton = document.createElement("div");
+//        locusButton.id = locusString;
+//        locusButton.className = "dropdown-tag";
+//
+//        var deleteButton = document.createElement("img");
+//        deleteButton.classList.add("aux-button", "clickable");
+//        deleteButton.style.marginLeft = "0px";
+//        deleteButton.style.marginRight = "8px";
+//        deleteButton.src = "{{ url_for('serve_button', button='delete') }}";
+//        deleteButton.title = "Delete locus";
+//        deleteButton.addEventListener("click", function() {
+//          removeTag(this);
+//        });
+//
+//        var locusTitle = document.createElement("span");
+//        locusTitle.innerHTML = locusString;
+//
+//        locusButton.appendChild(deleteButton);
+//        locusButton.appendChild(locusTitle);
+//        locusRow.appendChild(locusButton);
+//
+//        dropdown.appendChild(locusRow);
+//        updateCount(dropdown);
+//      }
+      var locusField = document.getElementById("assoc-locus-field");
+      var currLocus = locusField.value;
+      if (currLocus === "" || currLocus.includes("-")) {
+        locusField.value = locus;
       } else {
-        var [chrom, pos] = locus.split(":");
-        var chrIdx = chrNames.indexOf(chrom);
-        if (document.getElementById("add-window").checked) {
-          var window = parseInt(document.getElementById("window").value)*1000;
-          pos = parseInt(pos.replaceAll(",", ""));
-          start = pos - window;
-          start = Math.max(1, start);
-          end = pos + window;
-          end = Math.min(end, chrSizes[chrIdx]);
-
-          start = start.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-          end = end.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-          var locusString = `${chrom}:${start}-${end}`;
-        } else {
-          var locusString = `${chrom}:${pos}`;
-        }
+        locusField.value += ", " + locus;
       }
-
-      var dropdown = document.getElementById("loci-dropdown");
-
-      var loci = [...dropdown.querySelectorAll(".dropdown-tag")];
-      var savedLoci = loci.map(x => x.id);
-      if (!savedLoci.includes(locusString)) {
-        var locusRow = document.createElement("div");
-        locusRow.classList.add("row-div");
-
-        var locusButton = document.createElement("div");
-        locusButton.id = locusString;
-        locusButton.className = "dropdown-tag";
-
-        var deleteButton = document.createElement("img");
-        deleteButton.classList.add("aux-button", "clickable");
-        deleteButton.style.marginLeft = "0px";
-        deleteButton.style.marginRight = "8px";
-        deleteButton.src = "{{ url_for('serve_button', button='delete') }}";
-        deleteButton.title = "Delete locus";
-        deleteButton.addEventListener("click", function() {
-          removeTag(this);
-        });
-
-        var locusTitle = document.createElement("span");
-        locusTitle.innerHTML = locusString;
-
-        locusButton.appendChild(deleteButton);
-        locusButton.appendChild(locusTitle);
-        locusRow.appendChild(locusButton);
-
-        dropdown.appendChild(locusRow);
-        updateCount(dropdown);
-      }
+      //locusField.focus();
+      //setTimeout(() => {
+      //  locusField.blur();
+      //}, 100)
+      locusField.setSelectionRange(locusField.value.length, locusField.value.length);
     }
 
     function removeTag(element) {
