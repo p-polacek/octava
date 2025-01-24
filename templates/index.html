@@ -42,11 +42,19 @@
 {% endblock %}
 
 {% block content %}
-  <div class="back-button collapsed" id="back-button">
-  <button onclick="back();">
-    Back to genome selection
-  </button>
+  <div id="manual" class="collapsed">
+    <img
+      class="manual-button clickable"
+      src="{{ url_for('serve_button', button='back') }}"
+      title="Back to genome selection"
+      onclick="back();" />
+    <img
+      class="manual-button clickable"
+      src="{{ url_for('serve_button', button='help') }}"
+      title="Open the manual"
+      onclick="openManual();" />
   </div>
+
   <div class="page">
     <div
      class="centered-div clickable"
@@ -129,18 +137,23 @@
     function showTools(name) {
       document.getElementById("genome-sel-div").classList.add("collapsed");
       document.getElementById("tool-sel-div").classList.remove("collapsed");
-      //document.getElementById("back-button").classList.remove("collapsed");
       window.genome = name;
       document.getElementById("genome-title").innerHTML = name;
       document.getElementById("logo-sep").classList.remove("collapsed");
+
+      document.getElementById("manual").classList.remove("collapsed");
+    }
+
+    function openManual() {
+      window.open("{{ url_for('static', filename='manual.pdf') }}", "_blank");
     }
 
     function back() {
       document.getElementById("tool-sel-div").classList.add("collapsed");
       document.getElementById("genome-sel-div").classList.remove("collapsed");
-      //document.getElementById("back-button").classList.add("collapsed");
       window.genome = "";
       document.getElementById("genome-title").innerHTML = "";
+      document.getElementById("manual").classList.add("collapsed");
     }
 
     function loadAnalysis(tool) {
