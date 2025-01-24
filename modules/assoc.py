@@ -1654,7 +1654,6 @@ def run_assoc(genome, params, task_id):
 
         gctb_path = os.path.join(
           tool_dir,
-          "gctb",
           "gctb_2.5.2_Linux",
           "gctb")
         progress(task_id, "Running analysis")
