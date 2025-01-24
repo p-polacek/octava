@@ -1241,7 +1241,7 @@ def run_assoc(genome, params, task_id):
         blink_path = os.path.join(
           tool_dir,
           "BLINK",
-          "blink")
+          "blink_linux")
         progress(task_id, "Running analysis")
         command = [
           blink_path,
