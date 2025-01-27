@@ -147,11 +147,19 @@ def index():
         "assoc": url_for("assoc", genome=genome),
         "edit": url_for("edit", genome=genome)}
       for genome in genomes}
+
+    if os.path.exists(".noupdate"):
+        no_update = True
+        os.remove(".noupdate")
+    else:
+        no_update = False
+
     return render_template(
       "index.html",
       genomes = genomes,
       links   = links,
-      genome  = "")
+      genome  = "",
+      no_update = no_update)
 
 ###############################################################################
 ### Error page

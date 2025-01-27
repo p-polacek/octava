@@ -42,17 +42,18 @@
 {% endblock %}
 
 {% block content %}
-  <div id="manual" class="collapsed">
+  <div id="index-buttons">
     <img
-      class="manual-button clickable"
-      src="{{ url_for('serve_button', button='back') }}"
-      title="Back to genome selection"
-      onclick="back();" />
+     id="back-button"
+     class="manual-button clickable collapsed"
+     src="{{ url_for('serve_button', button='back') }}"
+     title="Back to genome selection"
+     onclick="back();" />
     <img
-      class="manual-button clickable"
-      src="{{ url_for('serve_button', button='help') }}"
-      title="Open the manual"
-      onclick="openManual();" />
+     class="manual-button clickable"
+     src="{{ url_for('serve_button', button='help') }}"
+     title="Open the manual"
+     onclick="openManual();" />
   </div>
 
   <div class="page">
@@ -130,6 +131,8 @@
 {% block script %}
   <script>
     var links = {{ links|tojson }};
+    var noUpdate = {{ no_update|tojson }};
+    
     function addNew() {
       window.location.href = "{{ url_for('new') }}";
     }
@@ -141,7 +144,7 @@
       document.getElementById("genome-title").innerHTML = name;
       document.getElementById("logo-sep").classList.remove("collapsed");
 
-      document.getElementById("manual").classList.remove("collapsed");
+      document.getElementById("back-button").classList.remove("collapsed");
     }
 
     function openManual() {
@@ -153,7 +156,7 @@
       document.getElementById("genome-sel-div").classList.remove("collapsed");
       window.genome = "";
       document.getElementById("genome-title").innerHTML = "";
-      document.getElementById("manual").classList.add("collapsed");
+      document.getElementById("back-button").classList.add("collapsed");
     }
 
     function loadAnalysis(tool) {
@@ -162,6 +165,12 @@
 
     // Remove bottom spacer that is only used for other pages
     document.getElementById("empty").classList.add("collapsed");
+
+    document.addEventListener("DOMContentLoaded", function() {
+      if (noUpdate) {
+        alert("Automatic update failed.");
+      }
+    });
 
   </script>
 
