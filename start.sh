@@ -3,7 +3,7 @@
 # Pull the latest code from GitHub
 echo "Pulling the latest code from GitHub"
 
-if git pull; then
+if git pull origin main; then
     echo "Update done"
 else
     echo "Update failed"
