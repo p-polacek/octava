@@ -143,7 +143,6 @@
       window.genome = name;
       document.getElementById("genome-title").innerHTML = name;
       document.getElementById("logo-sep").classList.remove("collapsed");
-
       document.getElementById("back-button").classList.remove("collapsed");
     }
 
@@ -156,6 +155,7 @@
       document.getElementById("genome-sel-div").classList.remove("collapsed");
       window.genome = "";
       document.getElementById("genome-title").innerHTML = "";
+      document.getElementById("logo-sep").classList.add("collapsed");
       document.getElementById("back-button").classList.add("collapsed");
     }
 
