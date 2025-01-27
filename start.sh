@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Pull the latest code from GitHub
+git reset --hard
 echo "Pulling the latest code from GitHub"
 git pull || touch .noupdate
 
