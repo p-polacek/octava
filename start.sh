@@ -1,13 +1,14 @@
 #!/bin/bash
 
 # Pull the latest code from GitHub
-git reset --hard
 echo "Pulling the latest code from GitHub"
-git pull || touch .noupdate
 
-roudgpi || touch .noupdate
-
-chmod +x start.sh
+if git pull; then
+    echo "Update done"
+else
+    echo "Update failed"
+    touch .noupdate
+fi
 
 # Set the FLASK_APP environment variable
 export FLASK_APP=flask_app.py

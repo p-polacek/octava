@@ -4,32 +4,38 @@ FROM openjdk:11-jre-slim
 
 ENV PYTHONUNBUFFERED=1
 
+COPY . .
+COPY requirements.txt .
+COPY id_rsa /root/.ssh/id_rsa
+
 WORKDIR /octava
 
-COPY . .
-
-COPY requirements.txt .
-
 # Download external tools
-RUN apt-get update &&\
+RUN chmod 600 /root/.ssh/id_rsa &&\
+    apt-get update &&\
+    apt-get install -y git wget tar unzip openssh-client &&\
+    ssh-keyscan -H github.com >> /root/.ssh/known_hosts &&\
+    git clone git@github.com:p-polacek/octava.git . &&\
+    chmod +x start.sh &&\
     apt-get install -y python3.10 python3-pip &&\
     pip install --upgrade pip &&\
-    pip install -r requirements.txt &&\
+    pip install -r ../requirements.txt &&\
     apt-get update &&\
-    apt-get install -y git wget tar unzip &&\
     mkdir data/ &&\
     mkdir tmp/ &&\
     mkdir ./modules/tools &&\
     cd ./modules/tools/ &&\
+    wget https://cnsgenomics.com/software/gctb/download/gctb_2.5.2_Linux.zip -O gctb.zip &&\
+    unzip gctb.zip &&\
     wget https://s3.amazonaws.com/plink1-assets/plink_linux_x86_64_20241022.zip -O plink1.9.zip &&\
     unzip plink1.9.zip &&\
-    wget https://s3.amazonaws.com/plink2-assets/plink2_linux_x86_64_20241020.zip -O plink2.zip &&\
+    wget https://s3.amazonaws.com/plink2-assets/alpha6/plink2_linux_x86_64_20241124.zip -O plink2.zip &&\
     unzip plink2.zip &&\
     wget http://faculty.washington.edu/browning/beagle/beagle.06Aug24.a91.jar -O beagle.jar &&\
     wget https://www.haplotype.org/download/pimass-latest.tar.gz -O pimass.tar.gz &&\
     tar -zxf pimass.tar.gz &&\
     git clone https://github.com/Menggg/BLINK.git &&\
-    unzip BLINK/bin.zip -d BLINK/ &&\
+    unzip BLINK/blink_linux.zip -d BLINK/ &&\
     apt-get update &&\
     apt-get install -y emboss gemma
 
@@ -52,4 +58,6 @@ RUN apt-get update &&\
 
 EXPOSE 5101
 
-ENTRYPOINT FLASK_APP=flask_app.py flask run --host=0.0.0.0 --port 5101
+# ENTRYPOINT FLASK_APP=flask_app.py flask run --host=0.0.0.0 --port 5101
+
+ENTRYPOINT ["/bin/bash", "./start.sh"]
