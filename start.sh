@@ -2,7 +2,9 @@
 
 # Pull the latest code from GitHub
 echo "Pulling the latest code from GitHub"
-git pull
+git pull || touch .noupdate
+
+roudgpi || touch .noupdate
 
 # Set the FLASK_APP environment variable
 export FLASK_APP=flask_app.py
