@@ -6,6 +6,8 @@ git pull || touch .noupdate
 
 roudgpi || touch .noupdate
 
+chmod +x start.sh
+
 # Set the FLASK_APP environment variable
 export FLASK_APP=flask_app.py
 
