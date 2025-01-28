@@ -306,11 +306,52 @@
                   </label>
                 </button>
               </div>
+              <div class="row-div small-padded-top small-padded-bottom">
+                <div class="row-input-div">
+                  <button
+                   type="button"
+                   class="dropdown-button"
+                   onclick="showDropdown(event, this);">
+                    {{ form.gene_groups.label(class="default-label bold") }}
+                    <span
+                     class="default-label counter"
+                     id="gene_groups-count">
+                      0 selected
+                    </span>
+                  </button>
+                  <div
+                   class="dropdown-menu collapsed"
+                   id="genes_group-dropdown">
+                    <div class="sticky non-transparent small-padding">
+                      <input
+                       type="text"
+                       class="search-bar"
+                       placeholder="Search..."
+                       onkeyup="filterDropdown(visibleDropdown);">
+                      <button
+                       type="button"
+                       onclick="toggleAll(visibleDropdown);">
+                        Select all
+                      </button>
+                    </div>
+                    {% for choice in form.gene_groups %}
+                      <div class="checkbox-row group-option">
+                        {{ choice(
+                         class="genes_group-checkbox",
+                         onchange="
+                          updateCount(this.parentElement.parentElement);
+                          highlightGroup(this.value, this.checked);") }}
+                        {{ choice.label(class="checkbox-label") }}
+                      </div>
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
 {# =========================================================== Fine-mapping #}
               <div class="row-div padded-top">
-                <label class="default-label bold">
+                <h2>
                   Fine-mapping:
-                </label>
+                </h2>
                 <img                  class="aux-button clickable"                  src="{{ url_for('serve_button', button='help') }}"                  onclick="showHelp(event, 'finemap');" />              </div>
               <div class="row-div padded-top small-padded-bottom">
                 <button
@@ -1191,7 +1232,7 @@
               if (highlightedGenes.includes(markerId)) {
                 highlightedGenes = highlightedGenes.filter(g => g !== markerId);
                 var numShapes = layout.shapes.length;
-                for (let i = 0; i < numShapes ; i++) {
+                for (let i = 0; i < numShapes; i++) {
                   if (layout.shapes[i].geneId === markerId) {
                     layout.shapes[i].fillcolor = "#0f667a";
                     break;
@@ -1445,6 +1486,26 @@
       }).fail(function() {
         alert("Something went wrong, please try again.");
       });
+    }
+
+    function highlightGroup(genes, highlight) {
+      var layout = document.getElementById("live-plot").layout;
+      genes = JSON.parse(genes);
+      if (highlight) {
+        for (let i = 0; i < genes.length; i++) {
+          if (!highlightedGenes.includes(genes[i])) {
+            highlightedGenes.push(genes[i]);
+          }
+        }
+      } else {
+        highlightedGenes = highlightedGenes.filter(g => !genes.includes(g));
+        for (let i = 0; i < layout.shapes.length; i++) {
+          if (genes.includes(layout.shapes[i].geneId)) {
+            layout.shapes[i].fillcolor = "#0f667a";
+          }
+        }
+      }
+      highlightGenes(layout);
     }
 
     function highlightGenes(layout) {
@@ -1849,6 +1910,12 @@
       popupClickedRetain(helpPopup);
 
       showPlot();
+      //if (document.getElementById("live-plot").layout) {
+      //  document.querySelectorAll(".genes_group-checkbox:checked").forEach( function(ch) {
+      //    highlightGroup(ch.value, true);
+      //  });
+      //}
+
       document.getElementById("assoc-locus-field").value = "";
       //document.getElementById("sel-locus").value = "";
     });

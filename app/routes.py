@@ -1265,6 +1265,10 @@ def assoc_res(genome):
       [json.dumps(group[0]), group[1]]
       for group in gdata["groups"].get("assoc-locus", [])]
 
+    form.gene_groups.choices = [
+      (json.dumps(group[0]), group[1])
+       for group in gdata["groups"].get("genes", [])]
+
     chroms  = gdata["chr_names"]
     sizes   = gdata["chr_sizes"]
     offsets = gdata["chr_offsets"]

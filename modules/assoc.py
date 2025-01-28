@@ -1409,6 +1409,10 @@ def run_assoc(genome, params, task_id):
             else:
                 phe_corr = phe
 
+            #print(lmm)
+            #print(dir(lmm))
+            #eruoghi
+
             if params["optimize"]:
                 mtryvals = [
                   int(v.strip())
@@ -1807,6 +1811,16 @@ def run_assoc(genome, params, task_id):
                 sep="\t",
                 header=False,
                 index=False))
+
+#        k_matr = k_matr.loc[k_lab.isin(samples), k_lab.isin(samples)]
+#        eigenvalues, eigenvectors = np.linalg.eigh(k_matr)
+#        y = phe_df.loc[samples, params["traits"][0]]
+#        sigma_g2 = np.var(eigenvalues)
+#        sigma_e2 = np.var(y.dropna()) - sigma_g2
+#        print(y)
+#        print(sigma_g2 / (sigma_g2 + sigma_e2))
+
+#        urgdobnfxm
 
         progress(task_id, "Running analysis")
         if model == "mtmlm":

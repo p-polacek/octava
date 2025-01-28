@@ -472,6 +472,9 @@ class AssocResForm(RegionForm, PlotForm):
     assoc_loci = MultiCheckboxField(
       "Saved loci:",
       choices=[])
+    gene_groups = MultiCheckboxField(
+      "Gene group:",
+      choices = [])
 
     k = BooleanField(
       "Kinship (K) correction",
