@@ -946,15 +946,15 @@
                 text: data.map(i => {
                   if (1 || i[2] >= thresh) {
                     if (isHap) {
-                      return `${visName}<br>${i[0]}:${i[1]
+                      return `${i[0]}:${i[1]
                        .toString()
                        .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}-${i[3]
                        .toString()
-                       .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}_${i[4]}`;
+                       .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}_${i[4]}<br>${visName}`;
                     } else {
-                      return `${visName}<br>${i[0]}:${i[1]
+                      return `${i[0]}:${i[1]
                        .toString()
-                       .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+                       .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}<br>${visName}`;
                      }
                    } else {
                      return null;
@@ -1238,7 +1238,7 @@
 
           plotDiv.on("plotly_click", function(data) {
             var marker = data.points[0];
-            var markerId = marker.text.split("<br>")[1];
+            var markerId = marker.text.split("<br>")[0];
             if (marker.data.traceType === "__genes__") {
               if (highlightedGenes.includes(markerId)) {
                 highlightedGenes = highlightedGenes.filter(g => g !== markerId);
