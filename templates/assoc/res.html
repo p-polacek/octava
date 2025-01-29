@@ -38,8 +38,7 @@
         <form
          method="POST"
          onkeydown="
-          if(event.keyCode === 13) { event.target.blur();
-          showPlot(); }">
+          if(event.keyCode === 13) { event.target.blur();}">
 {# ========================================================= Run parameters #}
           <div class="scrollable results-subcontainer flex">
             <div class="object-div param-div-flexheight">
@@ -118,6 +117,7 @@
                  type="number"
                  class="small-num-input"
                  id="thresh"
+                 onchange="updateThresh(this.value);"
                  min="0"
                  step="any"
                  value="8" />
@@ -925,9 +925,11 @@
               }
   
               var traceName = key;
+              var visName = traceName.join(", ");
+              var thresh = document.getElementById("thresh").value;
               traceName[1] = modelsDict[traceName[1]];
               const trace = {
-                name: traceName.join(", "),
+                name: visName,
                 legendgroup: traceName.join(", "),
                 Id: key,
                 mode: "markers",
@@ -942,20 +944,24 @@
                 }),
                 y: data.map(i => i[2]),
                 text: data.map(i => {
-                  if (isHap) {
-                    return `${i[0]}:${i[1]
-                     .toString()
-                     .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}-${i[3]
-                     .toString()
-                     .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}_${i[4]}`;
-                  } else {
-                    return `${i[0]}:${i[1]
-                     .toString()
-                     .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+                  if (1 || i[2] >= thresh) {
+                    if (isHap) {
+                      return `${visName}<br>${i[0]}:${i[1]
+                       .toString()
+                       .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}-${i[3]
+                       .toString()
+                       .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}_${i[4]}`;
+                    } else {
+                      return `${visName}<br>${i[0]}:${i[1]
+                       .toString()
+                       .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+                     }
+                   } else {
+                     return null;
                    }
                 }),
-                hoverinfo: "text+y",
-                hovertemplate: "%{text}<br>log10(p): %{y}",
+                hoverinfo: "text",
+                hovertemplate: "%{text}<br>Value: %{y}",
                 hoverlabel: {
                   namelength: 0,
                   bgcolor: "white",
@@ -1161,22 +1167,23 @@
         layout.shapes = spanShapes;
 
         var thresh = document.getElementById("thresh").value;
-        if (thresh != null) {
-          layout.shapes.push({
-            type: "line",
-            x0: 0,
-            x1: 1,
-            y0: thresh,
-            y1: thresh,
-            yaxis: "y2",
-            xref: "paper",
-            yref: "y2",
-            line: {
-              color: "red",
-              width: 2,
-            },
-          });
+        if (thresh == null) {
+          thresh = -1;
         }
+        layout.shapes.push({
+          type: "line",
+          x0: 0,
+          x1: 1,
+          y0: thresh,
+          y1: thresh,
+          yaxis: "y2",
+          xref: "paper",
+          yref: "y2",
+          line: {
+            color: "red",
+            width: 2,
+          },
+        });
 
       var config = {
         editable: false,
@@ -1186,48 +1193,52 @@
         modeBarButtonsToRemove: [],
       };
 
-        if (traces.length > 0) {
-          Plotly.newPlot("live-plot", traces, layout, config);
+      for (i of ["hoverclosest", "hovercompare"]) {
+        config.modeBarButtonsToAdd.push(i);
+      }
+
+      if (traces.length > 0) {
+        Plotly.newPlot("live-plot", traces, layout, config);
 {# ======================================================== Event listeners #}
-          var traceLabels = document.querySelectorAll(".legendtoggle");
-          traceLabels.forEach( function(label) {
-            label.addEventListener("contextmenu", function(event) {
-              event.preventDefault();
-              //event.stopPropagation();
-            });
+        var traceLabels = document.querySelectorAll(".legendtoggle");
+        traceLabels.forEach( function(label) {
+          label.addEventListener("contextmenu", function(event) {
+            event.preventDefault();
+            //event.stopPropagation();
           });
-  
-          var plotDiv = document.getElementById("live-plot");
-          var pval = plotDiv.layout.yaxis2.range[1];
-          document.getElementById("pval-field").value  = pval;
-  
-          plotDiv.on("plotly_legendclick", function(data) {
-            if (data.event.button === 2) {
-              var traces = plotDiv.data;
-              var traceId = traces[data.curveNumber].Id;
-              if (traceId != null) {
-                var taskId = traces[data.curveNumber].taskId;
-                if (taskId != null) {
-                  var [markers, model, trait] = traceId;
-                  contextMenu(event, 
-                    {action: "fm_run",
-                     task_id: taskId});
-                } else {
-                  var [markers, model, trait] = traceId;
-                  contextMenu(event, 
-                    {action: "gwas_run",
-                     markers: markers,
-                     model:   model,
-                     trait:   trait});
-                }
-                return false;
+        });
+
+        var plotDiv = document.getElementById("live-plot");
+        var pval = plotDiv.layout.yaxis2.range[1];
+        document.getElementById("pval-field").value  = pval;
+
+        plotDiv.on("plotly_legendclick", function(data) {
+          if (data.event.button === 2) {
+            var traces = plotDiv.data;
+            var traceId = traces[data.curveNumber].Id;
+            if (traceId != null) {
+              var taskId = traces[data.curveNumber].taskId;
+              if (taskId != null) {
+                var [markers, model, trait] = traceId;
+                contextMenu(event, 
+                  {action: "fm_run",
+                   task_id: taskId});
+              } else {
+                var [markers, model, trait] = traceId;
+                contextMenu(event, 
+                  {action: "gwas_run",
+                   markers: markers,
+                   model:   model,
+                   trait:   trait});
               }
+              return false;
             }
-          });
-  
+          }
+        });
+
           plotDiv.on("plotly_click", function(data) {
             var marker = data.points[0];
-            var markerId = marker.text.split("<br>")[0];
+            var markerId = marker.text.split("<br>")[1];
             if (marker.data.traceType === "__genes__") {
               if (highlightedGenes.includes(markerId)) {
                 highlightedGenes = highlightedGenes.filter(g => g !== markerId);
@@ -1378,11 +1389,7 @@
 
             var viewStart = Math.max(0, Math.floor(event["xaxis.range[0]"]));
             var viewEnd = Math.min(Math.ceil(event["xaxis.range[1]"], chrSizes.reduce((a, b) => a + b, 0)));
-            var numShapes = Math.ceil(plotNames.length / 2);
-            var thresh = document.getElementById("thresh").value;
-            if (thresh != null) {
-              numShapes ++;
-            }
+            var numShapes = Math.ceil(plotNames.length / 2) + 1;
             var shapes = layout.shapes.slice(0, numShapes) || [];
 
             if (isNaN(viewStart) && isNaN(event["yaxis.autorange"])) {
@@ -1516,6 +1523,13 @@
           shapes[i].fillcolor = "#de3416";
         }
       }
+      Plotly.update("live-plot", {}, {shapes: shapes});
+    }
+
+    function updateThresh(thresh) {
+      var shapes = document.getElementById("live-plot").layout.shapes;
+      var numChrs = Math.ceil(plotNames.length / 2);
+      shapes[numChrs].y0 = shapes[numChrs].y1 = thresh;
       Plotly.update("live-plot", {}, {shapes: shapes});
     }
 {# ============================================================= Save locus #}
