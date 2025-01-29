@@ -44,6 +44,7 @@ def optim_rf(
               max_features=mtry,
               oob_score=True,
               #max_depth=5,
+              min_samples_leaf=5,
               #n_jobs=os.cpu_count()-1
               n_jobs=-1
               )
@@ -127,7 +128,7 @@ def run_rf(
           n_estimators=ntree,
           mtry=mtry,
           oob_error=True,
-          #min_node_size=5,
+          min_node_size=5,
           importance="permutation",
           scale_permutation_importance=True,
           seed=random.randint(0, 2**32 - 1),
