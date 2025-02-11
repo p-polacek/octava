@@ -273,6 +273,7 @@ def genome_setup(
           sep="\t",
           header=[0],
           index_col=[0])
+        samp_df.index = samp_df.index.map(str)
 
         miss_samples = [s for s in samples if s not in samp_df.index]
         miss_df = pd.DataFrame(
