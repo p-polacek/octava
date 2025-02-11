@@ -9,10 +9,6 @@ import matplotlib.pyplot as plt
 
 from sklearn.utils import shuffle
 from sklearn.ensemble import RandomForestRegressor
-from scipy.stats import pearsonr, scoreatpercentile
-from sklearn.inspection import permutation_importance
-from sklearn.metrics import r2_score, explained_variance_score
-
 from skranger.ensemble import RangerForestRegressor
 
 from app.task_worker import progress

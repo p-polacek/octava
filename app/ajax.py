@@ -175,7 +175,7 @@ def fetch_locus_ld():
        "--bfile", gt_root,
        "--extract", "bed1", f"{out_root}.bed1",
        #"--thin-count", "1000",
-       "--bp-space", str(span // 2000),
+       "--bp-space", str(max(1, span // 2000)),
        "--r2-unphased", "square0",
        #"--silent",
        "--out", out_root],
@@ -184,10 +184,10 @@ def fetch_locus_ld():
       stdout=subprocess.PIPE)
     output = pr.stdout
     try:
-        total, final = re.search(
+        rm, rt = map(int, re.search(
           "\-\-bp\-space\: (\d+) variants removed \((\d+) remaining\)\.",
-          output).groups()
-        num_markers = f"LD of {final} of {total} markers in region"
+          output).groups())
+        num_markers = f"LD for {rt} of {rm + rt} markers in region"
     except:
         num_markers = "(Could not determine marker number)"
 

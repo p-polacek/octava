@@ -586,7 +586,6 @@
         }
       }
 
-      // Apply filters based on runs-table selection
       var samplesTable = document.getElementById("samples-table");
       var sampleRows = samplesTable.querySelector("tbody").querySelectorAll("tr");
       for (let i = 0; i < sampleRows.length; i++) {
@@ -646,7 +645,7 @@
       traces.push(trace);
 
       // Histogram of individually selected samples
-      if (sampleChoice.length > 0) {
+      if (sampleChoice.length > 0 && sampleGroups.length == 0) {
         var plotData = [];
         sampleChoice.forEach(function(key) {
           plotData.push(pheData[key][pheCols[trait]]);
@@ -787,18 +786,18 @@
     }
 {# ======================================================= Plot correlation #}
     function scatterPlot(traitA, traitB, allSamples, sampleChoice, sampleGroups, xaxis, yaxis, legend) {
+      var traitAData;
+      var traitBAData;
       var opacity = 1;
       if (sampleChoice.length > 0 || sampleGroups.length > 0) {
         opacity = 0.5;
       }
       var traces = [];
       // Scatter plot of all samples
-      var traitAData = [];
+      traitAData = [];
+      traitBData = [];
       allSamples.forEach(function(key) {
         traitAData.push(pheData[key][pheCols[traitA]]);
-      });
-      var traitBData = [];
-      allSamples.forEach(function(key) {
         traitBData.push(pheData[key][pheCols[traitB]]);
       });
       var trace = {
@@ -821,8 +820,8 @@
         },
         showlegend: legend,
         text: allSamples,
-        hoverinfo: "text+y",
-        hovertemplate: "%{text}<br>%{y}",
+        hoverinfo: "text",
+        hovertemplate: "%{text}",
         hoverlabel: {
           namelength: 0,
           bgcolor: "white",
@@ -832,13 +831,11 @@
       traces.push(trace);
 
       // Scatter plot of individually selected samples
-      if (sampleChoice.length > 0) {
-        var traitAData = [];
+      if (sampleChoice.length > 0 && sampleGroups.length == 0) {
+        traitAData = [];
+        traitBData = [];
         sampleChoice.forEach(function(key) {
           traitAData.push(pheData[key][pheCols[traitA]]);
-        });
-        var traitBData = [];
-        sampleChoice.forEach(function(key) {
           traitBData.push(pheData[key][pheCols[traitB]]);
         });
         var trace = {
@@ -860,9 +857,9 @@
             },
           },
           showlegend: legend,
-          text: allSamples,
-          hoverinfo: "text+y",
-          hovertemplate: "%{text}<br>%{y}",
+          text: sampleChoice,
+          hoverinfo: "text",
+          hovertemplate: "%{text}",
           hoverlabel: {
             namelength: 0,
             bgcolor: "white",
@@ -875,13 +872,13 @@
       // Scatter plots for each sample group
       for (var [idx, sampleGroup] of sampleGroups.entries()) {
         var [groupSamples, groupName] = sampleGroup;
-        var traitAData = [];
+        traitAData = [];
+        traitBData = [];
         groupSamples.forEach(function(key) {
           if (Object.keys(pheData).includes(key)) {
             traitAData.push(pheData[key][pheCols[traitA]]);
           }
         });
-        var traitBData = [];
         groupSamples.forEach(function(key) {
           if (Object.keys(pheData).includes(key)) {
             traitBData.push(pheData[key][pheCols[traitB]]);
@@ -906,9 +903,9 @@
             },
           },
           showlegend: legend,
-          text: allSamples,
-          hoverinfo: "text+y",
-          hovertemplate: "%{text}<br>%{y}",
+          text: groupSamples,
+          hoverinfo: "text",
+          hovertemplate: "%{text}",
           hoverlabel: {
             namelength: 0,
             bgcolor: "white",

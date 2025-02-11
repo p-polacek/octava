@@ -18,7 +18,7 @@ def mqplot(
   concat,
   ch_col="Chr",
   pos_col="Pos",
-  pval_col="P.value",
+  sig_col="P.value",
   thresh=True,
   qqplot=True,
   end_col=None):
@@ -55,14 +55,14 @@ def mqplot(
         color = next(colors)
         ax1.scatter(
           x      = data[pos_col],
-          y      = data[pval_col],
+          y      = data[sig_col],
           color  = color,
           label  = ch,
           s      = 4,
           zorder = 10)
         if end_col:
             ax1.hlines(
-              y     = data[pval_col],
+              y     = data[sig_col],
               xmin  = data[start_col],
               xmax  = data[end_col],
               color = color,
@@ -94,7 +94,7 @@ def mqplot(
     # QQ plot
     if qqplot:
         in_df = in_df.sort_values(
-          by=pval_col)
+          by=sig_col)
         num_tests = in_df.shape[0]
         theor_quant = -np.log10(
                         np.linspace(
@@ -103,7 +103,7 @@ def mqplot(
                           num = num_tests))
         ax2.scatter(
           x     = theor_quant,
-          y     = in_df[pval_col],
+          y     = in_df[sig_col],
           color = "#014e60",
           s     = 4)
         ax2.plot(

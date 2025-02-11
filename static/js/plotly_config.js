@@ -47,6 +47,7 @@ var buttonsToAdd = {
     click: function(gd) {
       var clickEvent = event;
       var traceColors;
+      var colorGradients;
       var traceIdxs = [];
       var traceIds = [];
       gd.data.forEach(function(trace, idx) {
@@ -62,6 +63,7 @@ var buttonsToAdd = {
       document.getElementById("colorPicker").addEventListener("input", function() {
         var colorChoice = this.value;
         traceColors = [];
+        colorGradients = [];
         gd.data.forEach(function(trace, idx) {
           if (trace.visible === true) {
             traceColors.push(colorChoice);
@@ -72,7 +74,40 @@ var buttonsToAdd = {
         Plotly.restyle(
           gd, {
             "marker.color": traceColors,
-            "line.color": traceColors},
+            "line.color": traceColors,
+            "fillcolor": traceColors,
+            },
+          traceIdxs);
+      });
+    },
+  },
+  opacity: {
+    name: "Change transparency of visible traces",
+    icon: {
+      "width": 100,
+      "height": 100,
+      "path": "M 50 6 C 26 6 6 26 6 50 C 6 73 26 93 50 93 C 73 93 93 73 93 50 C 93 26 73 6 50 6 z M 50 19 C 66 19 80 33 80 50 C 80 66 66 80 50 80 C 33 80 19 66 19 50 C 19 33 33 19 50 19 z M 60 28 A 5 5 0 0 0 56 30 L 30 56 A 5 5 0 0 0 30 64 A 5 5 0 0 0 38 64 L 64 37 A 5 5 0 0 0 64 30 A 5 5 0 0 0 60 28 z M 66 49 A 5 5 0 0 0 62 51 L 51 63 A 5 5 0 0 0 51 70 A 5 5 0 0 0 59 70 L 70 59 A 5 5 0 0 0 70 51 A 5 5 0 0 0 66 49 z",
+    },
+    click: function(gd) {
+      var clickEvent = event;
+      var traceIdxs = [];
+      var traceIds = [];
+      gd.data.forEach(function(trace, idx) {
+        if (trace.visible === true) {
+          traceIdxs.push(idx);
+          traceIds.push(trace.Id || "");
+        }
+      });
+
+      showHelp(clickEvent, null, '<input type="range" id="opacitySlider" min="0" max="1" step="0.01" value="1" />');
+      document.getElementById("opacitySlider").addEventListener("input", function() {
+        var opacityChoice = this.value;
+        Plotly.restyle(
+          gd,
+          {opacity: opacityChoice,
+           line: {
+             opacity: opacityChoice},
+          },
           traceIdxs);
       });
     },

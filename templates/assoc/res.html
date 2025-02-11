@@ -226,7 +226,10 @@
                   <label for="assoc-locus-field" class="default-label bold">
                     Current:
                   </label>
-                  <input id="assoc-locus-field" class="default-input" />
+                  <input
+                   id="assoc-locus-field"
+                   class="default-input"
+                   onchange="goToLocus(JSON.stringify([this.value]));" />
                 </div>
                 <img
                   class="aux-button clickable"
@@ -967,8 +970,9 @@
                   bgcolor: "white",
                 },
                 marker: {
+                  color: colorCycle[traces.length % 10],
                   size: 6,
-                  opacity: 1,
+                  opacity: null,
                 },
                 visible: true,
               };
@@ -1020,6 +1024,7 @@
               name: name,
               yaxis: "y4",
               marker: {
+                color: colorCycle[traces.length % 10],
                 symbol: "triangle-up",
                 size: 8,
               },
@@ -1140,9 +1145,9 @@
             //gridcolor: "blue",
             griddash: "dash",
             side: "right",
-            range: [0, 1.1], //yPipMax + 1],
+            range: [0, yPipMax * 1.05],
             minallowed: 0,
-            maxallowed: 1.1, //Math.ceil(yPipMax + 1),
+            maxallowed: yPipMax * 1.05,
           };
         }
 {# ======================================================= Chromosome spans #}
@@ -1285,6 +1290,7 @@
                     //Plotly.deleteTraces("live-plot", ldTrace[0].idx);
                   }
 
+                  var ldColor = colorCycle[(ldTraces.length + 3) % 10];
                   const trace = {
                     name: "LD to " + markerId,
                     legendgroup: "LD to " + markerId,
@@ -1294,17 +1300,20 @@
                     type: "scatter",
                     yaxis: "y3",
                     fill: "tozeroy",
-                    fillgradient: {
-                      type: "vertical",
-                      colorscale: [
-                        [0,"rgba(208,208,208,0.5)"],
-                        //[1,"rgba(208,0,0,0.5)"]],
-                        [1, colorCycle[(ldTraces.length + 3) % 10] + "80"]],
-                      start: 0,
-                      stop: 1,
-                    },
+                    fillcolor: ldColor,
+                    //opacity: 0.3,
+                    //fillgradient: {
+                    //  type: "vertical",
+                    //  colorscale: [
+                    //    [0,"rgba(208,208,208,0.5)"],
+                    //    //[1,"rgba(208,0,0,0.5)"]],
+                    //    [1, colorCycle[(ldTraces.length + 3) % 10] + "80"]],
+                    //  start: 0,
+                    //  stop: 1,
+                    //},
                     line: {
-                      width: 0,
+                      color: ldColor,
+                      width: 0.5,
                     },
                     x: ldData.map(i => {
                       if (isHap) {
@@ -1352,7 +1361,7 @@
                   };
                   traces.push(trace);
 
-                  Plotly.addTraces("live-plot", traces);
+                  Plotly.addTraces("live-plot", traces, 0);
                   
                 }
               });

@@ -438,7 +438,7 @@ def ts(genome):
                         columns=columns))
                 elif params["transform"] == "bin":
                     transform = ((
-                      phe_df[[params["trait_sgl"]]] >= float(params["binthr"]))
+                      phe_df[[params["trait_sgl"]]].dropna() >= float(params["binthr"]))
                       .astype(int))
                     transform = transform.set_axis([params["t_name"]], axis=1)
                 elif params["transform"] == "zs":
@@ -1078,9 +1078,9 @@ def assoc_run(genome):
                 if os.path.exists(trait_out):
                     data["traits"].remove(trait)
                     existing_traits.append(trait)
-            if existing_traits:
-                errors.append("Results already exist for:")
-                errors.append(", ".join(existing_traits))
+        if existing_traits:
+            errors.append("Results already exist for:")
+            errors.append(", ".join(existing_traits))
         # Skip queued runs
         queued_traits = list()
         for task_spec in task_status["specs"]:

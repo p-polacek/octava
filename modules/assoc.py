@@ -1264,7 +1264,7 @@ def run_assoc(genome, params, task_id):
               out_dir,
               ch_col="chr",
               pos_col="pos",
-              pval_col="p_value")
+              sig_col="p_value")
 
             # Save parameters
             run_params = [
@@ -1409,10 +1409,6 @@ def run_assoc(genome, params, task_id):
             else:
                 phe_corr = phe
 
-            #print(lmm)
-            #print(dir(lmm))
-            #eruoghi
-
             if params["optimize"]:
                 mtryvals = [
                   int(v.strip())
@@ -1441,6 +1437,7 @@ def run_assoc(genome, params, task_id):
               params["ntree"],
               params["niter"],
               params["nperm"])
+#            res = pd.read_csv("raw_out_uncorr.txt", sep="\t", index_col=0)
 
             # Output files
             processed_out = os.path.join(out_dir, f"{model}.{trait}")
@@ -1471,12 +1468,12 @@ def run_assoc(genome, params, task_id):
               out_tsv,
               out_gz,
               force=True)
-            pysam.tabix_index(
-              out_gz,
-              seq_col=0,
-              start_col=1,
-              end_col=1,
-              line_skip=1, force=True)
+            #pysam.tabix_index(
+            #  out_gz,
+            #  seq_col=0,
+            #  start_col=1,
+            #  end_col=1,
+            #  line_skip=1, force=True)
 
             with open(os.path.join(assoc_dir, "stats", "params")) as params_in:
                 is_hap = json.load(params_in)[1][10] == "Yes"
@@ -1514,7 +1511,7 @@ def run_assoc(genome, params, task_id):
               json.loads(config["concat"]),
               ch_col="Chr",
               pos_col="Pos",
-              pval_col="Imp",
+              sig_col="Imp",
               thresh=False,
               qqplot=False,
               end_col="end" if is_hap else None)
@@ -1670,12 +1667,12 @@ def run_assoc(genome, params, task_id):
               "--bayes", model,
               "--maf", "0",
               "--p-value", "1",
+              "--burn-in", (str(params["b_burn"]) if params["b_burn"] else "1000"),
+              "--chain-length", (str(params["b_chain"]) if params["b_chain"] else "3000"),
+              "--thin", (str(params["b_thin"]) if params["b_thin"] else "10"),
               "--out", os.path.join(out_dir, f"{model}.{trait}")]
             cmd = cmd + ["--covar", f"{in_root}.cov"] if params["q"] and params["q_num"] > 0 else cmd
             cmd = cmd + ["--random-covar", f"{in_root}.kin"] if params["k"] else cmd
-            cmd = cmd + ["--burn-in", str(params["b_burn"])] if params["b_burn"] else cmd
-            cmd = cmd + ["--chain-length", str(params["b_chain"])] if params["b_chain"] else cmd
-            cmd = cmd + ["--thin", str(params["b_thin"])] if params["b_thin"] else cmd
             popen(
               task_id,
               cmd)
@@ -1688,18 +1685,22 @@ def run_assoc(genome, params, task_id):
               out_dir,
               ch_col="Chrom",
               pos_col="Position",
-              pval_col="A1Effect",
-              sep="\s+",
-              eff_main=True)
+              sig_col="PIP",
+              eff_col="A1Effect",
+              sep="\s+")
 
             # Save parameters
             run_params = [
-              ["Markers", "Samples", "PCs", "Kinship", "K/Q source"],
+              ["Markers", "Samples", "PCs", "Kinship", "K/Q source",
+               "Burn-in iterations", "Total iterations", "Thinning"],
               [sum(1 for l in open(f"{in_root}.bim")),
                phe_df.loc[samples][trait].dropna().shape[0],
                params["q_num"] if params["q"] else 0,
                "No",
-               params["kq_from"] or markers]]
+               params["kq_from"] or markers,
+               params["b_burn"] if params["b_burn"] else 1000,
+               params["b_chain"] if params["b_chain"] else 3000,
+               params["b_thin"] if params["b_thin"] else 10]]
             with open(
               os.path.join(
                 out_dir,
@@ -1843,6 +1844,7 @@ def run_assoc(genome, params, task_id):
                 command += ["-k", f"{in_root}.kin"]
             if params["q"] and params["q_num"] > 0:
                 command += ["-c", f"{in_root}.cov"]
+            progress(task_id, trait_name, bold=False)
             popen(
               task_id,
               command)
@@ -1855,7 +1857,7 @@ def run_assoc(genome, params, task_id):
               out_dir,
               ch_col="chr",
               pos_col="ps",
-              pval_col="p_wald",
+              sig_col="p_wald",
               eff_col=(
                 ["beta"] if model in ("mlm", "glm")
                 else ["beta_" + str(i) for i in range(1, len(n)+1)] if model == "mtmlm"
@@ -1890,9 +1892,8 @@ def assoc_process(
   out_dir,
   ch_col,
   pos_col,
-  pval_col,
+  sig_col,
   sep="\t",
-  eff_main=False,
   eff_col=[],
   se_col=None):
     gdata = load_gdata(genome)
@@ -1901,7 +1902,7 @@ def assoc_process(
       out_dir,
       assoc_fn)
     processed_out = os.path.join(out_dir, out_root)
-    columns = [c for c in (ch_col, pos_col, pval_col, *eff_col) if c] #, se_col
+    columns = [c for c in (ch_col, pos_col, sig_col, *eff_col) if c] #, se_col
 
     # Output files
     mqplot_fn   = f"{processed_out}.mqplot.png"
@@ -1920,6 +1921,7 @@ def assoc_process(
           index_col=None)
         .loc[:, columns]
         .assign(**{ch_col: lambda x: x[ch_col].map(chr_rename)}))
+
     #res = res[~pd.isna(res[ch_col])]
     #if eff_col:
     #    res[eff_col] = res[eff_col].abs()
@@ -1931,17 +1933,14 @@ def assoc_process(
       out_tsv,
       out_gz,
       force=True)
-    pysam.tabix_index(
-      out_gz,
-      seq_col=0,
-      start_col=1,
-      end_col=1,
-      line_skip=1, force=True)
+    #pysam.tabix_index(
+    #  out_gz,
+    #  seq_col=0,
+    #  start_col=1,
+    #  end_col=1,
+    #  line_skip=1, force=True)
 
-    if eff_main:
-        res[pval_col] = abs(res[pval_col])
-    else:
-        res[pval_col] = -np.log10(res[pval_col])
+    res[sig_col] = -np.log10(res[sig_col])
     # Save results for MP visualisation
     with open(os.path.join(assoc_dir, "stats", "params")) as params_in:
         is_hap = json.load(params_in)[1][10] == "Yes"
@@ -1958,7 +1957,7 @@ def assoc_process(
             axis=1))
         (res
           .sort_values(
-            by=pval_col,
+            by=sig_col,
             ascending=False)
           .head(5000)
           .reset_index(drop=True)
@@ -1966,7 +1965,7 @@ def assoc_process(
     else:
         (res
           .sort_values(
-            by=pval_col,
+            by=sig_col,
             ascending=False)
           .head(5000)
           .reset_index(drop=True)
@@ -1978,7 +1977,7 @@ def assoc_process(
       json.loads(config["concat"]),
       ch_col=ch_col,
       pos_col=pos_col,
-      pval_col=pval_col,
+      sig_col=sig_col,
       end_col="end" if is_hap else None)
 
     os.remove(out_tsv)
@@ -2207,7 +2206,7 @@ def assoc_finemap(
             gt_map = gt_df[["CHR", "POS"]]
             res["Chr"]  = gt_map["CHR"]
             res["Pos"] = gt_map["POS"]
-            res["Imp"] = res["Imp"] / res["Imp"].max()
+            #res["Imp"] = res["Imp"] / res["Imp"].max()
             (res
               .loc[:, ["Chr", "Pos", "Imp"]]
               .set_axis(
