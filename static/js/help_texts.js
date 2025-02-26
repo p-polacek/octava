@@ -6,6 +6,8 @@ var helpTexts = {
   "Double-click a subplot to zoom in/out.",
  "transform":
   "<table><tr><th>Log(e) transform</th><td>Values must be positive</td></tr><tr><th>PCA transform</th><td>Only considers samples that are phenotyped for all selected traits<br>Number of PCs cannot be larger than number of selected traits<br>PCs saved as (name)_PC(number)</td></tr><tr><th>Make binary</th><td>Values at or above threshold converted to 1, below converted to 0</td></tr></table>",
+ "trt-corr":
+  "Correct phenotype values for sample relatedness<br>Values regressed with kinship (random effect) and principal compponents (fixed effect),<br> residuals from the model are saved as corrected values",
 
  "fa-input":
   "<table><tr><th>Coding regions</th><td>Start to end of each gene in query</td></tr>" +
@@ -42,10 +44,10 @@ var helpTexts = {
    "<td style='width:45px; background-color: rgba(8, 204, 0, 0.65);'><0.001%</td></tr></table>" +
   "Misingness and heterozygosity by value: <br>" +
    "<table><tr class='center-text'><td style='width:45px; background-color: rgba(0, 204, 0, 0.65);'>0</td>" +
-   "<td style='width:45px; background-color: rgba(102, 204, 0, 0.65);'>0.25</td>" +
-   "<td style='width:45px; background-color: rgba(204, 204, 0, 0.65);'>0.5</td>" +
-   "<td style='width:45px; background-color: rgba(204, 102, 0, 0.65);'>0.75</td>" +
-   "<td style='width:45px; background-color: rgba(204, 0, 0, 0.65);'>1</td></tr></table>" +
+   "<td style='width:45px; background-color: rgba(102, 204, 0, 0.65);'>0.05</td>" +
+   "<td style='width:45px; background-color: rgba(204, 204, 0, 0.65);'>0.1</td>" +
+   "<td style='width:45px; background-color: rgba(204, 102, 0, 0.65);'>0.15</td>" +
+   "<td style='width:45px; background-color: rgba(204, 0, 0, 0.65);'>>=0.2</td></tr></table>" +
   "Minor allele frequency by value: <br>" +
    "<table><tr class='center-text'><td style='width:45px; background-color: rgba(204, 0, 0, 0.65);'>0</td>" +
    "<td style='width:45px; background-color: rgba(204, 102, 0, 0.65);'>0.125</td>" +

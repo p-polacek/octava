@@ -635,9 +635,9 @@ def am_pipeline(genome, form):
                 het = het_c / gen_c
                 maf = min(min_c / gen_c, 1 - min_c / gen_c)
             if (gen_c == 0 and query["mis"]) or (
-              (query["mis"] and mis > query["mis"]) or 
-              (query["het"] and het > query["het"]) or
-              (query["maf"] and maf < query["maf"])):
+              (query["mis"] is not None and mis > query["mis"]) or 
+              (query["het"] is not None and het > query["het"]) or
+              (query["maf"] is not None and maf < query["maf"])):
                 _ = anns.pop()
                 gts = [gt[:-1] for gt in gts]
             else:

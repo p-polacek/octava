@@ -344,13 +344,65 @@
               </div>
               <div
                id="numpc-div"
-               class="row-input-div justified small-padded-top small-padded-bottom collapsed">
+               class="row-input-div justified small-padded-bottom collapsed">
                   {{ form.num_pc.label(class="default-label bold") }}
                   {{ form.num_pc(id="num-pc", class="promsize-div", size=4) }}
               </div>
+              <div id="kq-div" class="collapsed small-padded-bottom">
+                <div class="row-div small-padded-bottom">
+                  <div class="row-input-div">
+                    <button
+                     type="button"
+                     class="dropdown-button"
+                     onclick="showDropdown(event, this);">
+                      {{ form.kq_from.label(
+                       class="default-label bold") }}
+                      <span
+                       class="default-label tracker">
+                      </span>
+                    </button>
+                    <div class="dropdown-menu collapsed">
+                      <div class="sticky non-transparent small-padding">
+                        <input
+                         type="text"
+                         class="search-bar"
+                         placeholder="Search..."
+                         onkeyup="filterDropdown(visibleDropdown);">
+                        <button
+                         type="button"
+                         disabled">
+                          Select all
+                        </button>
+                      </div>
+                      {% for choice in form.kq_from %}
+                        <div
+                         class="checkbox-row"
+                         oncontextmenu="contextMenu(
+                          event,
+                          {'action': 'markers',
+                           'markers': this.querySelector('label').textContent});">
+                          {{ choice(
+                           onchange="updateTracker(this.parentElement.parentElement);")}}
+                          {{ choice.label(
+                           class="checkbox-label") }}
+                        </div>
+                      {% endfor %}
+                    </div>
+                  </div>
+                  <img
+                    class="aux-button clickable"
+                    src="{{ url_for('serve_button', button='help') }}"
+                    onclick="showHelp(event, 'trt-corr');" />
+                </div>
+                <div class="row-input-div justified">
+                  {{ form.q_num.label(
+                   class="default-label bold") }}
+                  {{ form.q_num(class="small-num-input") }}
+                </div>
+              </div>
               <div
                id="binthr-div"
-               class="row-input-div justified small-padded-top small-padded-bottom collapsed">
+               class="row-input-div justified small-padded-bottom collapsed">
                   {{ form.binthr.label(class="default-label bold") }}
                   {{ form.binthr(id="binthr", class="promsize-div", size=4) }}
               </div>
@@ -1181,6 +1233,15 @@
         plotData.push(pheData[key][pheCols[trait]]);
       });
       plotData = plotData.map( v => parseFloat(v));
+      if (t === "corr") {
+        if (document.querySelector("input[name='kq_from']:checked") != null) {
+          showHelp(event, this, "Save transform to view.");
+        } else {
+          showHelp(event, this, "Choose a marker set for correction.");
+        }
+        dataTransform = "";
+        return;
+      }
       if (t === "log" || t === "bc") {
         var dataMin = Math.min(...plotData.filter(v => !isNaN(v)));
         if (dataMin <= 0) {
@@ -1557,12 +1618,19 @@
       if (transform != null && transform.value == "pca") {
         document.getElementById("numpc-div").classList.remove("collapsed");
         document.getElementById("binthr-div").classList.add("collapsed");
+        document.getElementById("kq-div").classList.add("collapsed");
       } else if (transform != null && transform.value == "bin") {
         document.getElementById("numpc-div").classList.add("collapsed");
         document.getElementById("binthr-div").classList.remove("collapsed");
+        document.getElementById("kq-div").classList.add("collapsed");
+      } else if (transform != null && transform.value == "corr") {
+        document.getElementById("kq-div").classList.remove("collapsed");
+        document.getElementById("numpc-div").classList.add("collapsed");
+        document.getElementById("binthr-div").classList.add("collapsed");
       } else {
         document.getElementById("numpc-div").classList.add("collapsed");
         document.getElementById("binthr-div").classList.add("collapsed");
+        document.getElementById("kq-div").classList.add("collapsed");
       }
     }
 
@@ -1580,6 +1648,9 @@
       createTable({{ samp_info|tojson }}, table);
       table.classList.add("collapsed");
       updateTableCount("samples-table");
+
+      var radioBtn = document.getElementsByName("kq_from")[0];
+      updateTracker(radioBtn.parentElement.parentElement);
 
       // Trigger Gene_ID dropdown to use for filtering
       var geneHeader = table.querySelector("th");

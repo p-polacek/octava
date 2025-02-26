@@ -26,8 +26,11 @@ import numpy as np
 import pandas as pd
 
 from time import time
+import statsmodels.api as sm
 from scipy.stats import boxcox
+from glimix_core.lmm import LMM
 from sklearn.decomposition import PCA
+from numpy_sugar.linalg import economic_qs_linear
 
 from flask import (
   flash,
@@ -421,7 +424,6 @@ def ts(genome):
             if params["t_type"] == "tr":
                 if params["transform"] == "log":
                     transform = np.log(phe_df[[params["trait_sgl"]]])
-                    transform = transform.set_axis([params["t_name"]], axis=1)
                 elif params["transform"] == "pca":
                     traits = params["traits"]
                     for group in params["traits_group"]:
@@ -440,15 +442,70 @@ def ts(genome):
                     transform = ((
                       phe_df[[params["trait_sgl"]]].dropna() >= float(params["binthr"]))
                       .astype(int))
-                    transform = transform.set_axis([params["t_name"]], axis=1)
                 elif params["transform"] == "zs":
                     data = phe_df[[params["trait_sgl"]]].dropna()
-                    transform = ((data - np.mean(data)) / np.std(data)).set_axis([params["t_name"]], axis=1)
+                    transform = ((data - np.mean(data)) / np.std(data))
                 elif params["transform"] == "bc":
                     transform = phe_df[[params["trait_sgl"]]][phe_df[params["trait_sgl"]] > 0]
                     transform[params["trait_sgl"]] = boxcox(transform[params["trait_sgl"]])[0]
-                    transform = transform.set_axis([params["t_name"]], axis=1)
-                    print(transform)
+                elif params["transform"] == "corr":
+
+
+
+
+                    kq_root = os.path.join(
+                      data_dir,
+                      genome,
+                      "assoc",
+                      params["kq_from"],
+                      "gt",
+                      "gt")
+
+                    q_matr = (pd
+                      .read_csv(
+                        f"{kq_root}.eigenvec",
+                        sep="\t",
+                        header=[0],
+                        index_col=[0,1])
+                      .droplevel(0))
+                    q_matr = q_matr.loc[:, q_matr.columns.tolist()[:int(params["q_num"])]]
+
+                    k_matr = pd.read_csv(
+                      f"{kq_root}.rel",
+                      sep="\t",
+                      index_col=None,
+                      header=None)
+                    k_lab = pd.read_csv(
+                      f"{kq_root}.rel.id",
+                      sep="\t",
+                      usecols=[1],
+                      skiprows=[0],
+                      header=None,
+                      index_col=None)[1]
+                    k_matr = (k_matr
+                      .set_axis(k_lab, axis=0)
+                      .set_axis(k_lab, axis=1))
+
+                    phe = phe_df[params["trait_sgl"]]
+                    phe_samples = phe[~pd.isna(phe)].index.intersection(q_matr.index)
+                    phe = phe.loc[phe_samples]
+
+                    phe_q = q_matr.loc[phe_samples]
+                    phe_q = sm.add_constant(phe_q)
+                    phe_k = k_matr.loc[phe_samples, phe_samples]
+                    QS = economic_qs_linear(phe_k)
+                    lmm = LMM(
+                      phe,
+                      phe_q,
+                      QS=QS)
+                    lmm.fit()
+                    phe_corr = phe - lmm.mean()
+                    transform = pd.DataFrame(phe_corr).set_index(phe_samples)
+
+
+
+                transform = transform.set_axis([params["t_name"]], axis=1)
+
             elif params["t_type"] == "sel":
                 samples = json.loads(params["samples_sel"])
                 transform = phe_df.loc[samples, [params["trait_sgl"]]]
@@ -519,6 +576,15 @@ def ts(genome):
     form.traits_group.choices = [
       [json.dumps(group[0]), group[1]]
       for group in gdata["groups"].get("traits", [])]
+
+    markers_root = os.path.join(
+      data_dir,
+      genome,
+      "assoc")
+    for m in os.listdir(markers_root):
+        init_path = os.path.join(markers_root, m, "init")
+        if os.path.exists(init_path):
+            form.kq_from.choices.append(m)
 
     return render_template(
       "trt/trt.html",
@@ -1312,6 +1378,10 @@ def assoc_res(genome):
               os.path.splitext(run_fn)[0],
               run_name))
     form.fm_runs.choices = saved_runs
+    is_hap = dict()
+    for marker_set in form.markers.choices:
+        with open(os.path.join(markers_root, marker_set, "stats", "params")) as params_in:
+            is_hap[marker_set] = json.load(params_in)[1][10] == "Yes"
 
     return render_template(
       "assoc/res.html",
@@ -1323,6 +1393,7 @@ def assoc_res(genome):
       offsets = offsets,
       models  = models_dict,
       concat  = concat,
+      is_hap  = is_hap,
       fm_data = fm_data)
 
 ###############################################################################

@@ -615,6 +615,7 @@
     const chrOffsets = {{ offsets|tojson }};
     const modelsDict = {{ models|tojson }};
     const FMData = {{ fm_data|tojson }};
+    const isHapDict = {{ is_hap|tojson }};
     var highlightedGenes = [];
 
     var chrTicks = [];
@@ -921,16 +922,13 @@
             var stringKey = JSON.stringify(key);
             if (mplotData[stringKey] != null) {
               var data = mplotData[stringKey];
-              yMax = Math.max(yMax, data[0][2]);
-              var isHap = false;
-              if (data.length > 0 && data[0].length === 5) {
-                isHap = true;
-              }
-  
-              var traceName = key;
-              var visName = traceName.join(", ");
+              yMax = Math.max(yMax, data[0][0]);
+              var isHap = isHapDict[key[0]];
+
+              var traceName = [...key];
               var thresh = document.getElementById("thresh").value;
               traceName[1] = modelsDict[traceName[1]];
+              var visName = traceName.join(", ");
               const trace = {
                 name: visName,
                 legendgroup: traceName.join(", "),
@@ -940,22 +938,22 @@
                 yaxis: "y2",
                 x: data.map(i => {
                   if (isHap) {
-                    return i[1] + (i[3] - i[1]) / 2 + offsetDict[i[0]];
+                    return i[2] + (i[3] - i[2]) / 2 + offsetDict[i[1]];
                   } else {
-                    return i[1] + offsetDict[i[0]];
+                    return i[2] + offsetDict[i[1]];
                   }
                 }),
-                y: data.map(i => i[2]),
+                y: data.map(i => i[0]),
                 text: data.map(i => {
-                  if (1 || i[2] >= thresh) {
+                  if (1 || i[0] >= thresh) {
                     if (isHap) {
-                      return `${i[0]}:${i[1]
+                      return `${i[1]}:${i[2]
                        .toString()
                        .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}-${i[3]
                        .toString()
                        .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}_${i[4]}<br>${visName}`;
                     } else {
-                      return `${i[0]}:${i[1]
+                      return `${i[1]}:${i[2]
                        .toString()
                        .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}<br>${visName}`;
                      }
@@ -981,8 +979,8 @@
                 var xLines = [];
                 var yLines = [];
                 data.forEach(point => {
-                  xLines.push(point[1] + offsetDict[point[0]], point[3] + offsetDict[point[0]], null);
-                  yLines.push(point[2], point[2], null);
+                  xLines.push(point[2] + offsetDict[point[1]], point[3] + offsetDict[point[1]], null);
+                  yLines.push(point[0], point[0], null);
                 });
                 traces.push({
                   x: xLines,
@@ -1204,303 +1202,305 @@
 
       if (traces.length > 0) {
         Plotly.newPlot("live-plot", traces, layout, config);
-{# ======================================================== Event listeners #}
-        var traceLabels = document.querySelectorAll(".legendtoggle");
-        traceLabels.forEach( function(label) {
-          label.addEventListener("contextmenu", function(event) {
-            event.preventDefault();
-            //event.stopPropagation();
-          });
-        });
-
-        var plotDiv = document.getElementById("live-plot");
-        var pval = plotDiv.layout.yaxis2.range[1];
-        document.getElementById("pval-field").value  = pval;
-
-        plotDiv.on("plotly_legendclick", function(data) {
-          if (data.event.button === 2) {
-            var traces = plotDiv.data;
-            var traceId = traces[data.curveNumber].Id;
-            if (traceId != null) {
-              var taskId = traces[data.curveNumber].taskId;
-              if (taskId != null) {
-                var [markers, model, trait] = traceId;
-                contextMenu(event, 
-                  {action: "fm_run",
-                   task_id: taskId});
-              } else {
-                var [markers, model, trait] = traceId;
-                contextMenu(event, 
-                  {action: "gwas_run",
-                   markers: markers,
-                   model:   model,
-                   trait:   trait});
-              }
-              return false;
-            }
-          }
-        });
-
-          plotDiv.on("plotly_click", function(data) {
-            var marker = data.points[0];
-            var markerId = marker.text.split("<br>")[0];
-            if (marker.data.traceType === "__genes__") {
-              if (highlightedGenes.includes(markerId)) {
-                highlightedGenes = highlightedGenes.filter(g => g !== markerId);
-                var numShapes = layout.shapes.length;
-                for (let i = 0; i < numShapes; i++) {
-                  if (layout.shapes[i].geneId === markerId) {
-                    layout.shapes[i].fillcolor = "#0f667a";
-                    break;
-                  }
-                }
-              } else {
-                highlightedGenes.push(markerId);
-              }
-              highlightGenes(layout);
-            } else {
-              var markers = marker.data.Id[0];
-              if (data.event.button === 1) {
-                addLocus(markerId);
-              } else if (data.event.button === 0) {
-              var window = document.getElementById("window").value;
-              var request = $.ajax({
-                url: "{{ url_for('fetch_ld') }}",
-                method: "POST",
-                data: {
-                  genome: genome,
-                  markers: markers,
-                  marker_id: markerId,
-                  window: window,
-                },
-                success: function(ldData) {
-                  var isHap = false;
-                  if (ldData.length > 0 && ldData[0].length === 5) {
-                    isHap = true;
-                  }
-                  ldData = ldData.slice(0, -1);
-                  var ldVals = ldData.map(i => i[2]);
-                  var traces = [];
-
-                  var currTraces = document.getElementById("live-plot").data;
-                  var ldTraces = currTraces
-                    .map((trace, idx) => ({ trace, idx }))
-                    .filter(v => v.trace.traceType === "__ld__");
-                  if (ldTraces.length !== 0) {
-                    //Plotly.deleteTraces("live-plot", ldTrace[0].idx);
-                  }
-
-                  var ldColor = colorCycle[(ldTraces.length + 3) % 10];
-                  const trace = {
-                    name: "LD to " + markerId,
-                    legendgroup: "LD to " + markerId,
-                    Id: [markers],
-                    traceType: "__ld__",
-                    mode: "lines",
-                    type: "scatter",
-                    yaxis: "y3",
-                    fill: "tozeroy",
-                    fillcolor: ldColor,
-                    //opacity: 0.3,
-                    //fillgradient: {
-                    //  type: "vertical",
-                    //  colorscale: [
-                    //    [0,"rgba(208,208,208,0.5)"],
-                    //    //[1,"rgba(208,0,0,0.5)"]],
-                    //    [1, colorCycle[(ldTraces.length + 3) % 10] + "80"]],
-                    //  start: 0,
-                    //  stop: 1,
-                    //},
-                    line: {
-                      color: ldColor,
-                      width: 0.5,
-                    },
-                    x: ldData.map(i => {
-                      if (isHap) {
-                        return [i[1] + offsetDict[i[0]], i[3] + offsetDict[i[0]]];
-                      } else {
-                        return i[1] + offsetDict[i[0]];
-                      }
-                    }).flat(),
-                    y: ldVals.map(i => {
-                      if (isHap) {
-                        return [i, i];
-                      } else {
-                        return i;
-                      }
-                    }).flat(),
-                    text: ldData.map(i => {
-                      if (isHap) {
-                        var txt = `${i[0]}:${i[1]
-                         .toString()
-                         .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}-${i[3]
-                         .toString()
-                         .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}_${i[4]}`;
-                        return [txt, txt];
-                      } else {
-                        return `${i[0]}:${i[1]
-                         .toString()
-                         .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
-                       }
-                    }).flat(),
-                    hoverinfo: "text+y",
-                    hovertemplate: "%{text}<br>LD: %{y}",
-                    hoverlabel: {
-                      namelength: 0,
-                      bgcolor: "white",
-                    },
-                    marker: {
-                      size: 6,
-                      opacity: 1,
-                      color: ldVals,
-                    },
-                    colorscale: [
-                     [0, "rgb(208,208,208)"],
-                     [1, "rgb(208,0,0)"]],
-                    visible: true,
-                  };
-                  traces.push(trace);
-
-                  Plotly.addTraces("live-plot", traces, 0);
-                  
-                }
-              });
-  
-              } else if (data.event.button === 2) {
-                var traces = plotDiv.data;
-                var traceId = traces[data.points[0].curveNumber].Id;
-                if (traceId != null) {
-                  var [markers, model, trait] = traceId;
-                  contextMenu(
-                    event,
-                    {action: "pve",
-                     markers: markers,
-                     model: model,
-                     trait: trait,
-                     pos: markerId});
-                  return false;
-                } else {
-                  showHelp(event, null, "PVE calculation is only supported for single traits.");
-                }
-              }
-            }
-          });
-  
-          plotDiv.on("plotly_relayout", function(event) {
-            var locusField = document.getElementById("assoc-locus-field");
-            var currLocus = validateLocus();
-            if (currLocus != null) {
-              var [c,s,e] = currLocus;
-              locusField.value = `${c}:${s.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}-${e.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
-            } else {
-              locusField.value = "";
-            }
-
-            var viewStart = Math.max(0, Math.floor(event["xaxis.range[0]"]));
-            var viewEnd = Math.min(Math.ceil(event["xaxis.range[1]"], chrSizes.reduce((a, b) => a + b, 0)));
-            var numShapes = Math.ceil(plotNames.length / 2) + 1;
-            var shapes = layout.shapes.slice(0, numShapes) || [];
-
-            if (isNaN(viewStart) && isNaN(event["yaxis.autorange"])) {
-              return;
-            }
-
-            if (!isNaN(event["yaxis.autorange"]) || viewEnd - viewStart > 5000000) {
-              var currTraces = document.getElementById("live-plot").data;
-              var genesTrace = currTraces
-                .map((trace, idx) => ({ trace, idx }))
-                .filter(v => v.trace.traceType === "__genes__");
-              if (genesTrace.length !== 0) {
-                Plotly.deleteTraces("live-plot", genesTrace[0].idx);
-              }
-              Plotly.update("live-plot", {}, {shapes: shapes});
-              return;
-            }
-            var ranges = [];
-            function getRanges(ch, start, end) {
-              for (let i = ch; i < chrNames.length; i++) {
-                if (start <= chrSizes[i] + chrOffsets[i]) {
-                  if (end <= chrSizes[i] + chrOffsets[i]) {
-                    ranges.push([
-                      chrNames[i],
-                      start - chrOffsets[i],
-                      end - chrOffsets[i]]);
-                    break;
-                  } else {
-                    ranges.push([
-                      chrNames[i],
-                      start - chrOffsets[i],
-                      chrSizes[i]]);
-                    getRanges(i+1, chrOffsets[i+1], end);
-                    break;
-                  }
-                }
-              }
-            }
-            getRanges(0, viewStart, viewEnd);
-  
-            var request = $.ajax({
-              url: "{{ url_for('fetch_genes') }}",
-              method: "POST",
-              data: {
-                genome: genome,
-                ranges: JSON.stringify(ranges),
-              },
-              success: function(geneData) {
-                geneData.forEach(gene => {
-                  shapes.push({
-                    type: "rect",
-                    xref: "x",
-                    yref: "y",
-                    yaxis: "y",
-                    geneId: gene[0],
-                    x0: offsetDict[gene[1]] + gene[2],
-                    y0: 0,
-                    x1: offsetDict[gene[1]] + gene[3],
-                    y1: 1,
-                    fillcolor: "#0f667a",
-                    line: { width: 0 },
-                  });
-                });
-                var trace = {
-                  x: geneData.map(v => offsetDict[v[1]] + v[3] - (v[3] - v[2]) / 2),
-                  y: geneData.map(v => 0.5),
-                  traceType: "__genes__",
-                  mode: "markers",
-                  yaxis: "y",
-                  text: geneData.map(v => v[0]),
-                  hoverinfo: "text",
-                  hoverlabel: {
-                    namelength: 0,
-                    bgcolor: "white",
-                  },
-                  marker: { opacity: 0 },
-                  showlegend: false,
-                  visible: true,
-                };
-  
-                var currTraces = document.getElementById("live-plot").data;
-                var genesTrace = currTraces
-                  .map((trace, idx) => ({ trace, idx }))
-                  .filter(v => v.trace.traceType === "__genes__");
-                if (genesTrace.length !== 0) {
-                  Plotly.deleteTraces("live-plot", genesTrace[0].idx);
-                }
-                Plotly.update("live-plot", {}, {shapes: shapes});
-                highlightGenes(layout);
-                Plotly.addTraces("live-plot", [trace]);
-              }
-            });
-          });
-  
-          plotDiv.oncontextmenu = (event => {
-            event.preventDefault();
-            event.stopPropagation();
-          });
+        setPlotEventListeners();
         }
 
       }).fail(function() {
         alert("Something went wrong, please try again.");
+      });
+    }
+
+{# ======================================================== Event listeners #}
+    function setPlotEventListeners() {
+      var traceLabels = document.querySelectorAll(".legendtoggle");
+      traceLabels.forEach( function(label) {
+        label.addEventListener("contextmenu", function(event) {
+          event.preventDefault();
+          //event.stopPropagation();
+        });
+      });
+
+      var plotDiv = document.getElementById("live-plot");
+      var pval = plotDiv.layout.yaxis2.range[1];
+      document.getElementById("pval-field").value  = pval;
+      var layout = plotDiv.layout;
+
+      plotDiv.on("plotly_legendclick", function(data) {
+        if (data.event.button === 2) {
+          var traces = plotDiv.data;
+          var traceId = traces[data.curveNumber].Id;
+          if (traceId != null) {
+            var taskId = traces[data.curveNumber].taskId;
+            if (taskId != null) {
+              var [markers, model, trait] = traceId;
+              contextMenu(event, 
+                {action: "fm_run",
+                 task_id: taskId});
+            } else {
+              var [markers, model, trait] = traceId;
+              contextMenu(event, 
+                {action: "gwas_run",
+                 markers: markers,
+                 model:   model,
+                 trait:   trait});
+            }
+            return false;
+          }
+        }
+      });
+
+      plotDiv.on("plotly_click", function(data) {
+        var marker = data.points[0];
+        var markerId = marker.text.split("<br>")[0];
+        if (marker.data.traceType === "__genes__") {
+          if (highlightedGenes.includes(markerId)) {
+            highlightedGenes = highlightedGenes.filter(g => g !== markerId);
+            var numShapes = layout.shapes.length;
+            for (let i = 0; i < numShapes; i++) {
+              if (layout.shapes[i].geneId === markerId) {
+                layout.shapes[i].fillcolor = "#0f667a";
+                break;
+              }
+            }
+          } else {
+            highlightedGenes.push(markerId);
+          }
+          highlightGenes(layout);
+        } else {
+          var markers = marker.data.Id[0];
+          if (data.event.button === 1) {
+            addLocus(markerId);
+          } else if (data.event.button === 0) {
+          var window = document.getElementById("window").value;
+          var request = $.ajax({
+            url: "{{ url_for('fetch_ld') }}",
+            method: "POST",
+            data: {
+              genome: genome,
+              markers: markers,
+              marker_id: markerId,
+              window: window,
+            },
+            success: function(ldData) {
+              var isHap = isHapDict[markers];
+              ldData = ldData.slice(0, -1);
+              var ldVals = ldData.map(i => i[2]);
+              var traces = [];
+
+              var currTraces = document.getElementById("live-plot").data;
+              var ldTraces = currTraces
+                .map((trace, idx) => ({ trace, idx }))
+                .filter(v => v.trace.traceType === "__ld__");
+              if (ldTraces.length !== 0) {
+                //Plotly.deleteTraces("live-plot", ldTrace[0].idx);
+              }
+
+              var ldColor = colorCycle[(ldTraces.length + 3) % 10];
+              const trace = {
+                name: "LD to " + markerId,
+                //legendgroup: "LD to " + markerId,
+                Id: [markers],
+                traceType: "__ld__",
+                mode: "lines",
+                type: "scatter",
+                yaxis: "y3",
+                fill: "tozeroy",
+                fillcolor: ldColor,
+                //opacity: 0.3,
+                //fillgradient: {
+                //  type: "vertical",
+                //  colorscale: [
+                //    [0,"rgba(208,208,208,0.5)"],
+                //    //[1,"rgba(208,0,0,0.5)"]],
+                //    [1, colorCycle[(ldTraces.length + 3) % 10] + "80"]],
+                //  start: 0,
+                //  stop: 1,
+                //},
+                line: {
+                  color: ldColor,
+                  width: 0.5,
+                },
+                x: ldData.map(i => {
+                  if (isHap) {
+                    return [i[1] + offsetDict[i[0]], i[3] + offsetDict[i[0]]];
+                  } else {
+                    return i[1] + offsetDict[i[0]];
+                  }
+                }).flat(),
+                y: ldVals.map(i => {
+                  if (isHap) {
+                    return [i, i];
+                  } else {
+                    return i;
+                  }
+                }).flat(),
+                text: ldData.map(i => {
+                  if (isHap) {
+                    var txt = `${i[0]}:${i[1]
+                     .toString()
+                     .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}-${i[3]
+                     .toString()
+                     .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}_${i[4]}`;
+                    return [txt, txt];
+                  } else {
+                    return `${i[0]}:${i[1]
+                     .toString()
+                     .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+                   }
+                }).flat(),
+                hoverinfo: "text+y",
+                hovertemplate: "%{text}<br>LD: %{y}",
+                hoverlabel: {
+                  namelength: 0,
+                  bgcolor: "white",
+                },
+                marker: {
+                  size: 6,
+                  opacity: 1,
+                  color: ldVals,
+                },
+                colorscale: [
+                 [0, "rgb(208,208,208)"],
+                 [1, "rgb(208,0,0)"]],
+                visible: true,
+              };
+              traces.push(trace);
+
+              Plotly.addTraces("live-plot", traces, 0);
+              
+            }
+          });
+
+          } else if (data.event.button === 2) {
+            var traces = plotDiv.data;
+            var traceId = traces[data.points[0].curveNumber].Id;
+            if (traceId != null) {
+              var [markers, model, trait] = traceId;
+              contextMenu(
+                event,
+                {action: "pve",
+                 markers: markers,
+                 model: model,
+                 trait: trait,
+                 pos: markerId});
+              return false;
+            } else {
+              showHelp(event, null, "PVE calculation is only supported for single traits.");
+            }
+          }
+        }
+      });
+
+      plotDiv.on("plotly_relayout", function(event) {
+        var locusField = document.getElementById("assoc-locus-field");
+        var currLocus = validateLocus();
+        if (currLocus != null) {
+          var [c,s,e] = currLocus;
+          locusField.value = `${c}:${s.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}-${e.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+        } else {
+          locusField.value = "";
+        }
+
+        var viewStart = Math.max(0, Math.floor(event["xaxis.range[0]"]));
+        var viewEnd = Math.min(Math.ceil(event["xaxis.range[1]"], chrSizes.reduce((a, b) => a + b, 0)));
+        var numShapes = Math.ceil(plotNames.length / 2) + 1;
+        var shapes = layout.shapes.slice(0, numShapes) || [];
+
+        if (isNaN(viewStart) && isNaN(event["yaxis.autorange"])) {
+          return;
+        }
+
+        if (!isNaN(event["yaxis.autorange"]) || viewEnd - viewStart > 5000000) {
+          var currTraces = document.getElementById("live-plot").data;
+          var genesTrace = currTraces
+            .map((trace, idx) => ({ trace, idx }))
+            .filter(v => v.trace.traceType === "__genes__");
+          if (genesTrace.length !== 0) {
+            Plotly.deleteTraces("live-plot", genesTrace[0].idx);
+          }
+          Plotly.update("live-plot", {}, {shapes: shapes});
+          return;
+        }
+        var ranges = [];
+        function getRanges(ch, start, end) {
+          for (let i = ch; i < chrNames.length; i++) {
+            if (start <= chrSizes[i] + chrOffsets[i]) {
+              if (end <= chrSizes[i] + chrOffsets[i]) {
+                ranges.push([
+                  chrNames[i],
+                  start - chrOffsets[i],
+                  end - chrOffsets[i]]);
+                break;
+              } else {
+                ranges.push([
+                  chrNames[i],
+                  start - chrOffsets[i],
+                  chrSizes[i]]);
+                getRanges(i+1, chrOffsets[i+1], end);
+                break;
+              }
+            }
+          }
+        }
+        getRanges(0, viewStart, viewEnd);
+
+        var request = $.ajax({
+          url: "{{ url_for('fetch_genes') }}",
+          method: "POST",
+          data: {
+            genome: genome,
+            ranges: JSON.stringify(ranges),
+          },
+          success: function(geneData) {
+            geneData.forEach(gene => {
+              shapes.push({
+                type: "rect",
+                xref: "x",
+                yref: "y",
+                yaxis: "y",
+                geneId: gene[0],
+                x0: offsetDict[gene[1]] + gene[2],
+                y0: 0,
+                x1: offsetDict[gene[1]] + gene[3],
+                y1: 1,
+                fillcolor: "#0f667a",
+                line: { width: 0 },
+              });
+            });
+            var trace = {
+              x: geneData.map(v => offsetDict[v[1]] + v[3] - (v[3] - v[2]) / 2),
+              y: geneData.map(v => 0.5),
+              traceType: "__genes__",
+              mode: "markers",
+              yaxis: "y",
+              text: geneData.map(v => v[0]),
+              hoverinfo: "text",
+              hoverlabel: {
+                namelength: 0,
+                bgcolor: "white",
+              },
+              marker: { opacity: 0 },
+              showlegend: false,
+              visible: true,
+            };
+
+            var currTraces = document.getElementById("live-plot").data;
+            var genesTrace = currTraces
+              .map((trace, idx) => ({ trace, idx }))
+              .filter(v => v.trace.traceType === "__genes__");
+            if (genesTrace.length !== 0) {
+              Plotly.deleteTraces("live-plot", genesTrace[0].idx);
+            }
+            Plotly.update("live-plot", {}, {shapes: shapes});
+            highlightGenes(layout);
+            Plotly.addTraces("live-plot", [trace]);
+          }
+        });
+      });
+
+      plotDiv.oncontextmenu = (event => {
+        event.preventDefault();
+        event.stopPropagation();
       });
     }
 

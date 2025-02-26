@@ -17,6 +17,7 @@ import statsmodels.api as sm
 from collections import Counter
 from glimix_core.lmm import LMM
 import matplotlib.pyplot as plt
+from numpy_sugar.linalg import economic_qs_linear
 
 from flask import (
   url_for,
@@ -673,15 +674,17 @@ def filt_qc(
     else:
         if data["imp"]:
             for ext in (".bed", ".bim", ".fam", ".vcf.gz"):
-                os.link(
-                  plink_in + ext,
-                  plink_filt + ext)
+                if not os.path.exists(plink_filt + ext):
+                    os.link(
+                      plink_in + ext,
+                      plink_filt + ext)
         else:
             plink_filt = plink_in
             for ext in (".bed", ".bim", ".fam", ".vcf.gz"):
-                os.link(
-                  plink_filt + ext,
-                  plink_out + ".full" + ext)
+                if not os.path.exists(plink_out + ".full" + ext):
+                    os.link(
+                      plink_filt + ext,
+                      plink_out + ".full" + ext)
 
     full_root = os.path.join(
       filt_dir,
@@ -1312,7 +1315,7 @@ def run_assoc(genome, params, task_id):
         if params["k"] and ((not params["q"] or params["q_num"] == 0) and not params["cov"]):
             raise OSError(
               "<b>Kiship correction must be used " +
-              "together with PCA correction.<b>")
+              "together with covariate or PCA correction.<b>")
 
         q_list = list()
         if params["q"] and params["q_num"] > 0:
@@ -1384,6 +1387,7 @@ def run_assoc(genome, params, task_id):
             progress(task_id, "Running analysis")
 
         for trait in params["traits"]:
+            progress(task_id, trait, bold=False)
             phe = phe_df[trait]
             phe_samples = phe[~pd.isna(phe)].index
             phe = phe.loc[phe_samples]
@@ -1394,16 +1398,13 @@ def run_assoc(genome, params, task_id):
                 phe_q = sm.add_constant(phe_q)
                 if params["k"]:
                     phe_k = k_matr.loc[phe_samples, phe_samples]
-                    S, Q = np.linalg.eigh(phe_k)
+                    QS = economic_qs_linear(phe_k)
                     lmm = LMM(
                       phe,
                       phe_q,
-                      QS=(
-                        (Q,
-                         np.array((phe.size, 0))),
-                        S))
+                      QS=QS)
                     lmm.fit()
-                    phe_corr = lmm.mean()
+                    phe_corr = phe - lmm.mean()
                 else:
                     phe_corr = sm.OLS(phe, phe_q).fit().resid
             else:
@@ -1437,7 +1438,7 @@ def run_assoc(genome, params, task_id):
               params["ntree"],
               params["niter"],
               params["nperm"])
-#            res = pd.read_csv("raw_out_uncorr.txt", sep="\t", index_col=0)
+            #res = pd.read_csv(f"data/{trait}_corr.txt", sep="\t", index_col=0)
 
             # Output files
             processed_out = os.path.join(out_dir, f"{model}.{trait}")
@@ -1478,17 +1479,25 @@ def run_assoc(genome, params, task_id):
             with open(os.path.join(assoc_dir, "stats", "params")) as params_in:
                 is_hap = json.load(params_in)[1][10] == "Yes"
             if is_hap:
-                endmap = (pd
+                blockmap = (pd
                   .read_csv(
-                    os.path.join(assoc_dir, "gt", "gt.endmap"),
+                    os.path.join(assoc_dir, "gt", "gt.blockmap"),
                     sep="\t",
                     header=0,
                     index_col=None))
                 res = (pd
-                  .concat(
-                    [res, endmap],
+                  .merge(
+                    res,
+                    blockmap,
+                    left_on=["Chr", "Pos"],
+                    right_on=["chr", "start"],
+                    how="left")
+                  .drop(
+                    ["start"],
                     axis=1))
-                (res
+                res["idx"] = res.groupby(["Chr", "Pos"]).cumcount() + 1
+                c = res.columns.tolist()
+                (res[c[2:3] + c[:2] + c[-2:]]
                   .sort_values(
                     by="Imp",
                     ascending=False)
@@ -1496,7 +1505,8 @@ def run_assoc(genome, params, task_id):
                   .reset_index(drop=True)
                   .to_feather(out_feather))
             else:
-                (res
+                c = res.columns.tolist()
+                (res[c[2:3] + c[:2]]
                   .sort_values(
                     by="Imp",
                     ascending=False)
@@ -1821,8 +1831,6 @@ def run_assoc(genome, params, task_id):
 #        print(y)
 #        print(sigma_g2 / (sigma_g2 + sigma_e2))
 
-#        urgdobnfxm
-
         progress(task_id, "Running analysis")
         if model == "mtmlm":
             traits = params["traits_group"]
@@ -1836,7 +1844,11 @@ def run_assoc(genome, params, task_id):
               "-p", f"{in_root}.txt",
               "-n", *n,
               "-o", f"{model}.{trait_name}",
-              "-outdir", out_dir]
+              "-outdir", out_dir,
+              "-miss", "1",
+              "-maf", "0",
+              "-r2", "1",
+              "-hwe", "0"]
             if model == "glm":
                 command += ["-lm", "1"]
             else:
@@ -1882,7 +1894,9 @@ def run_assoc(genome, params, task_id):
               "w") as params_out:
                 json.dump(run_params, params_out)
 
-            os.remove(os.path.join(out_dir, f"{model}.{trait_name}.log.txt"))
+            log_file = os.path.join(out_dir, f"{model}.{trait_name}.log.txt")
+            if os.path.exists(log_file):
+                os.remove(log_file)
 
 def assoc_process(
   genome,
@@ -1945,17 +1959,25 @@ def assoc_process(
     with open(os.path.join(assoc_dir, "stats", "params")) as params_in:
         is_hap = json.load(params_in)[1][10] == "Yes"
     if is_hap:
-        endmap = (pd
+        blockmap = (pd
           .read_csv(
-            os.path.join(assoc_dir, "gt", "gt.endmap"),
+            os.path.join(assoc_dir, "gt", "gt.blockmap"),
             sep="\t",
             header=0,
             index_col=None))
         res = (pd
-          .concat(
-            [res, endmap],
+          .merge(
+            res,
+            blockmap,
+            left_on=[ch_col, pos_col],
+            right_on=["chr", "start"],
+            how="left")
+          .drop(
+            ["start"],
             axis=1))
-        (res
+        res["idx"] = res.groupby([ch_col, pos_col]).cumcount() + 1
+        c = res.columns.tolist()
+        (res[c[2:3] + c[:2] + c[-2:] + eff_col]
           .sort_values(
             by=sig_col,
             ascending=False)
@@ -1963,7 +1985,8 @@ def assoc_process(
           .reset_index(drop=True)
           .to_feather(out_feather))
     else:
-        (res
+        c = res.columns.tolist()
+        (res[c[2:3] + c[:2] + eff_col]
           .sort_values(
             by=sig_col,
             ascending=False)

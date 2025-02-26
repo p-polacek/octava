@@ -172,8 +172,8 @@
                   <div>
                     <span style="display: inline-block;">{{ ann[6] }}</span>
                     <span style="background-color: rgba(
-                     {{ [255, ann[6] * 510]|min *0.8 }},
-                     {{ (255 - [0, (ann[6] * 510) - 255]|max) *0.8 }},
+                     {{ [255, ann[6] * 510 * 5]|min *0.8 }},
+                     {{ (255 - [0, (ann[6] * 510 * 5) - 255]|max) *0.8 }},
                      0,
                      0.65); position: absolute; right: 0; width: 13px; height: 13px; margin-right: 5px; border-radius: 50%;"></span>
                   </div>
@@ -181,8 +181,8 @@
                     <span style="display: inline-block;">{{ ann[7] }}</span>
                     {% if ann[7] != "—" %}
                       <span style="background-color: rgba(
-                       {{ [255, ann[7] * 510]|min *0.8 }},
-                       {{ (255 - [0, (ann[7] * 510) - 255]|max) *0.8 }},
+                       {{ [255, ann[7] * 510 * 5]|min *0.8 }},
+                       {{ (255 - [0, (ann[7] * 510 * 5) - 255]|max) *0.8 }},
                        0,
                        0.65); position: absolute; right: 0; width: 13px; height: 13px; margin-right: 5px; border-radius: 50%;"></span>
                     {% endif %}
@@ -1351,6 +1351,8 @@
           title: "Expression quantile",
           tickformat: ".2f",
           range: [0,1],
+          minallowed: 0,
+          maxallowed: 1,
           autorange: false,
         },
         xaxis: {

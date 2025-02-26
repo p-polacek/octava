@@ -35,6 +35,7 @@ var buttonsToAdd = {
         gd.data,
         gd.layout,
         { ...gd._context, editable: !gd._context.editable});
+      setPlotEventListeners();
     }
   },
   recolor: {
@@ -75,7 +76,7 @@ var buttonsToAdd = {
           gd, {
             "marker.color": traceColors,
             "line.color": traceColors,
-            "fillcolor": traceColors,
+            //"fillcolor": traceColors,
             },
           traceIdxs);
       });

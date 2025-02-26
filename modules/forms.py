@@ -262,7 +262,14 @@ class TraitViewForm(FlaskForm):
         ("bc", "Box-cox transform"),
         ("pca", "PCA transform"),
         ("zs", "Z-score normalization"),
+        ("corr", "Relatedness correction"),
         ("bin", "Make binary")])
+    kq_from = RadioField(
+      "K/Q from:",
+      choices=[])
+    q_num = IntegerField(
+      "Number of PCs:",
+      default = 3)
     num_pc = IntegerField(
       "Number of PCs:",
       default=5)

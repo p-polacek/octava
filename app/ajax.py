@@ -244,7 +244,7 @@ def fetch_ld():
           "assoc",
           markers,
           "gt",
-          "gt")        
+          "gt.full")
     else:
 #        in_root = os.path.join(
 #          data_dir,
@@ -727,7 +727,7 @@ def contextmenu():
 
         elif action == "gwas_run":
             markers = request.form["markers"]
-            model   = models_dict[request.form["model"]]
+            model   = request.form["model"]
             trait   = request.form["trait"]
             fn = f"{model}.{trait}.params"
             params_json = os.path.join(
