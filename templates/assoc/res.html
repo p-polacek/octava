@@ -617,6 +617,7 @@
     const FMData = {{ fm_data|tojson }};
     const isHapDict = {{ is_hap|tojson }};
     var highlightedGenes = [];
+    var replaceLocus = true;
 
     var chrTicks = [];
     for (let i = 0; i < chrNames.length; i++) {
@@ -1202,6 +1203,7 @@
 
       if (traces.length > 0) {
         Plotly.newPlot("live-plot", traces, layout, config);
+        replaceLocus = true;
         setPlotEventListeners();
         }
 
@@ -1393,6 +1395,7 @@
 
       plotDiv.on("plotly_relayout", function(event) {
         var locusField = document.getElementById("assoc-locus-field");
+        replaceLocus = true;
         var currLocus = validateLocus();
         if (currLocus != null) {
           var [c,s,e] = currLocus;
@@ -1614,8 +1617,12 @@
 //        updateCount(dropdown);
 //      }
       var locusField = document.getElementById("assoc-locus-field");
+      if (locus.includes("_")) {
+        locus = locus.split("_")[0];
+      }
+
       var currLocus = locusField.value;
-      if (currLocus === "" || currLocus.includes("-")) {
+      if (replaceLocus) {
         locusField.value = locus;
       } else {
         locusField.value += ", " + locus;
@@ -1625,6 +1632,7 @@
       //  locusField.blur();
       //}, 100)
       locusField.setSelectionRange(locusField.value.length, locusField.value.length);
+      replaceLocus = false;
     }
 
     function removeTag(element) {
@@ -1670,9 +1678,20 @@
 
     function goToLocus(locus) {
       var [chrom, span] = JSON.parse(locus)[0].split(":");
+      if (chrom == null || span == null) {
+        document.getElementById("assoc-locus-field").value = "";
+        return;
+      }
       var [start, end] = span.replaceAll(",", "").split("-");
+      if (chrom == null || span == null) {
+        document.getElementById("assoc-locus-field").value = "";
+        return;
+      }
       var offset = offsetDict[chrom];
-      var locusRange = [parseInt(start) + offset, parseInt(end) + offset];
+      var locusRange = [
+        parseInt(start) + offset,
+        Math.min(chrSizes[chrNames.indexOf(chrom)] + offset, parseInt(end) + offset)];
+      console.log(locusRange);
       Plotly.relayout("live-plot", { "xaxis.range": locusRange });
     }
 
