@@ -169,6 +169,36 @@ var buttonsToAdd = {
       customOrder = traceIds.concat(customOrder.filter( i => !traceIds.includes(i) ));
     },
   },
+  group: {
+    name: "Combine visible traces",
+    icon: {
+      "width": 100,
+      "height": 100,
+      "path": "M 8 9 A 6 6 0 0 0 1 15 L 1 84 A 6 6 0 0 0 8 90 L 28 90 A 6 6 0 0 0 35 84 A 6 6 0 0 0 28 78 L 14 78 L 14 21 L 28 21 A 6 6 0 0 0 35 15 A 6 6 0 0 0 28 9 L 8 9 z M 71 9 A 6 6 0 0 0 64 15 A 6 6 0 0 0 71 21 L 85 21 L 85 78 L 71 78 A 6 6 0 0 0 64 84 A 6 6 0 0 0 71 90 L 91 90 A 6 6 0 0 0 98 84 L 98 15 A 6 6 0 0 0 91 9 L 71 9 z M 50 27 A 6 6 0 0 0 43 33 L 43 43 L 33 43 A 6 6 0 0 0 27 50 A 6 6 0 0 0 33 56 L 43 56 L 43 66 A 6 6 0 0 0 50 72 A 6 6 0 0 0 56 66 L 56 56 L 66 56 A 6 6 0 0 0 72 50 A 6 6 0 0 0 66 43 L 56 43 L 56 33 A 6 6 0 0 0 50 27 z",
+    },
+    click: function(gd) {
+      var visibleIdxs = [];
+      var visibleData = [];
+      gd.data.forEach( function(trace, idx) {
+        if (trace.visible === true) {
+          visibleIdxs.push(idx);
+          visibleData.push(trace);
+        }
+      });
+      // Create a combined trace
+      var cmb = visibleData[0];
+      for (let i = 1; i < visibleData.length; i++) {
+        console.log(visibleData[i]);
+        cmb.x = cmb.x.concat(visibleData[i].x);
+        cmb.y = cmb.y.concat(visibleData[i].y);
+        cmb.hovertext = cmb.hovertext.concat(visibleData[i].hovertext);
+      }
+      cmb.name = "Combined";
+
+      Plotly.deleteTraces(gd, visibleIdxs);
+      Plotly.addTraces(gd, cmb);
+    }
+  },
   _delete: {
     name: "Delete visible traces",
     icon: {
