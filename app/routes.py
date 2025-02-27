@@ -613,7 +613,8 @@ def fa_opts(genome):
       "assoc")
     form.dataset.choices += [
       (d, d) for d in os.listdir(markers_root)
-      if os.path.isdir(os.path.join(markers_root, d))]
+      if os.path.isdir(os.path.join(markers_root, d))
+      and os.path.exists(os.path.join(markers_root, d, "init"))]
 
     form.chrom.choices = gdata["chr_names"]
     samp_path = os.path.join(

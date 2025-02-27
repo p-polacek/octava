@@ -1106,7 +1106,7 @@
 
       var traces = [];
       var gts = ["—", "·", "·/var1", "var1"];
-      gts.concat(Object.keys(traceData).filter( e => {
+      gts = gts.concat(Object.keys(traceData).filter( e => {
         return !gts.includes(e)
       }));
 

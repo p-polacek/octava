@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import os
 import json
+import pysam
 import pgenlib
 import bed_reader
 import numpy as np
@@ -76,6 +77,7 @@ def block_genotype(
 #  transpose,
   maf,
   min_haps,
+  concat,
 #  group_minor,
 #  include_singles
   task_id):
@@ -93,7 +95,7 @@ def block_genotype(
     smiss, shet = {s: 0 for s in samples}, {s: 0 for s in samples}
     vmiss, vhet = list(), list()
     spans, mcnts, hcnts, fhcnts, afs =  list(), list(), list(), list(), dict()
-    blocks, bchrs, chrs, ps, ids, starts, ends = list(), list(), list(), list(), list(), list()
+    blocks, bchrs, chrs, ps, ids, starts, ends = list(), list(), list(), list(), list(), list(), list()
     # Load files
     in_b = open(f"{gt_root}.blocks")
     total = sum(1 for _ in open(f'{gt_root}.blocks'))
@@ -112,7 +114,15 @@ def block_genotype(
         header=None,
         usecols=[1])
       .to_records()}
-                                                                                        # CONSIDER INCLUDING SINGLES
+
+    vcf_out = pysam.BGZFile(gt_root + ".vcf.gz", "w")
+    _ = vcf_out.write("##fileformat=VCFv4.2\n".encode())
+    columns = [
+      "#CHROM", "POS", "ID", "REF", "ALT",
+      "QUAL", "FILTER", "INFO", "FORMAT"] + samples.tolist()
+    _ = vcf_out.write(("\t".join(columns) + "\n").encode())
+
+    #                                                                                     CONSIDER INCLUDING SINGLES
     progress(task_id, "Genotyping haplotype blocks")
     # Skip leading "*", split on space
     for block_idx, block in enumerate(in_b):
@@ -146,8 +156,8 @@ def block_genotype(
           return_counts=True)
         filt_haps = haps[cnts > allele_thresh]
         filt_cnts = cnts[cnts > allele_thresh]
-                                                                                    # CONSIDER GROUPING MINOR
-                                                                                    # IF SO, MAKE SURE GROUP PASSES MAF
+        #                                                                                 CONSIDER GROUPING MINOR
+        #                                                                                 IF SO, MAKE SURE GROUP PASSES MAF
         # Skip block if not enough haplotypes pass MAF threshold
         if len(filt_haps) < min_haps:
             continue
@@ -175,10 +185,18 @@ def block_genotype(
             # Save marker info
             chrs.append(ch)
             ps.append(first_pos)
-            ids.append(f"{m1}-{last_pos}_{idx+1}")
+            _id = f"{m1}-{last_pos}_{idx+1}"
+            ids.append(_id)
         bchrs.append(ch)
         starts.append(first_pos)
         ends.append(last_pos)
+
+        # Get haplotype block VCF entry
+        matches = (block_gt[:, None, :] == filt_haps[None, :, :]).all(axis=2)
+        idx_array = matches.argmax(axis=1) + 1
+        idx_array[~matches.any(axis=1)] = -1
+        idx_array = idx_array.reshape(-1, 2)
+        idx_array = np.where(idx_array == -1, ".", idx_array.astype(str))
 
         # Determine misingness and heterozygosity
         block_gts = np.stack(out_gt[-filt_haps.shape[0]:]).transpose()
@@ -197,6 +215,15 @@ def block_genotype(
             hap_gt = np.sum(hap_chromatids.reshape(-1, 2), axis=1)
             out_gt_allhaps.append(hap_gt)
 
+        # write VCF entry
+        _ = vcf_out.write((
+          "\t".join(
+            (ch, first_pos, _id, "A" * span, 
+             ",".join(["T" * span]*len(filt_haps)),
+             ".", "PASS", ".", "GT",
+             *[f"{a1}|{a2}" for a1, a2 in idx_array])
+          ) + "\n").encode())
+
     progress(task_id, f"\rProgress: 100%", bold=False)
     progress(task_id, "", bold=False)
     progress(task_id, "Saving genotyped blocks")
@@ -207,8 +234,8 @@ def block_genotype(
     alleles_2 = list()
     for (fhcnt, span) in zip(fhcnts, spans):
         for i in range(fhcnt):
-            alleles_1.append("A" * span)
-            alleles_2.append("T" * span)
+            alleles_1.append("A")
+            alleles_2.append("T")
 
     (pd
       .DataFrame(
@@ -268,14 +295,15 @@ def block_genotype(
 
     block_map = pd.DataFrame(data=blocks)
     for chrom, data in block_map.groupby(0):
-        data.loc[:, data.columns[1:]].to_csv(
-          os.path.join(
-            stats_dir,
-            f"{chrom}.bdist.gz"),
-          sep="\t",
-          index=False,
-          header=False,
-          compression="gzip")
+        if chrom not in concat:
+            data.loc[:, data.columns[1:]].to_csv(
+              os.path.join(
+                stats_dir,
+                f"{chrom}.bdist.gz"),
+              sep="\t",
+              index=False,
+              header=False,
+              compression="gzip")
     block_num = block_map.shape[0]
 
     smiss = {k: v/block_num for k, v in smiss.items()}

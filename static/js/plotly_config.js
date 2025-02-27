@@ -46,6 +46,9 @@ var buttonsToAdd = {
       "path": "m 11,11 c -3,0 -5,2 -5,5 v 19 c 0,3 2,5 5,5 H 68 c 3,0 5,-2 5,-5 v -5 h 7 V 48 L 41,62 c -1,0 -2,2 -2,4 v 25 c 3e-4,2 1,4 4,4 2,-3e-4 4,-1 4,-4 V 70 l 40,-13 c 1,-0 2,-2 2,-4 V 26 C 91,24 89,22 86,22 H 74 v -5 c 0,-3 -2,-5 -5,-5 z",
     },
     click: function(gd) {
+      if (gd.data.length === 0) {
+        return;
+      }
       var clickEvent = event;
       var traceColors;
       var colorGradients;
@@ -72,12 +75,17 @@ var buttonsToAdd = {
           }
         });
 
+        var recolor = {
+          "marker.color": traceColors,
+          "line.color": traceColors,
+        }
+        if (gd.data[0].type !== "box") {
+          recolor["fillcolor"] = traceColors;
+        }
+
         Plotly.restyle(
-          gd, {
-            "marker.color": traceColors,
-            "line.color": traceColors,
-            //"fillcolor": traceColors,
-            },
+          gd,
+          recolor,
           traceIdxs);
       });
     },

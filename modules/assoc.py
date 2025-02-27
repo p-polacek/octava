@@ -811,6 +811,9 @@ def filt_qc(
               data["bspan"],
               data["bstep"],
               task_id)
+
+        os.remove(full_vcf)
+        os.remove(plink_out + ".vcf.gz")
         # Genotype based on blocks
         maf = 0.05
         min_haps = 0
@@ -819,50 +822,9 @@ def filt_qc(
           gt_stats_dir,
           maf,
           min_haps,
+          json.loads(config["concat"]),
           task_id)
 
-        progress(task_id, "Making haplotype VCFs")
-        concat = json.loads(config["concat"])
-        for ch in gdata["chr_names"]:
-            if ch in concat:
-                continue
-            popen(
-              task_id,
-              [plink2_path,
-               "--bfile", plink_out,
-               "--chr", ch,
-               "--export", "vcf", "bgz",
-               "--allow-extra-chr",
-               "--out", plink_out + ch])
-        if concat:
-            popen(
-              task_id,
-              [plink2_path,
-               "--bfile", plink_out,
-               "--chr", *concat,
-               "--export", "vcf", "bgz",
-               "--allow-extra-chr",
-               "--out", plink_out + "other"])
-
-        progress(task_id, "Merging haplotype VCFs")
-        with pysam.BGZFile(plink_out + ".vcf.gz", "w") as vcf_out:
-            header_written = False
-            for ch in gdata["chr_names"]:
-                if ch in concat:
-                    continue
-                with gzip.open(plink_out + ch + ".vcf.gz", "rt") as vcf_in:
-                    for line in vcf_in:
-                        if line.startswith("#"):
-                            if not header_written:
-                                _ = vcf_out.write(line.encode())
-                        else:
-                            _ = vcf_out.write(line.encode())
-                header_written = True
-            if concat:
-                with gzip.open(plink_out + "other.vcf.gz", "rt") as vcf_in:
-                    for line in vcf_in:
-                        if not line.startswith("#"):
-                            _ = vcf_out.write(line.encode())
         #pysam.tabix_index(
         #  output_file,
         #  preset="vcf")
@@ -1069,16 +1031,6 @@ def filt_qc(
           fn)
         if os.path.exists(fn_path):
             os.remove(fn_path)
-
-    if data["hap"]:
-        for ch in gdata["chr_names"]:
-            if ch in concat:
-                continue
-            os.remove(plink_out + ch + ".vcf.gz")
-            os.remove(plink_out + ch + ".log")
-        if concat:
-            os.remove(plink_out + "other.vcf.gz")
-            os.remove(plink_out + "other.log")
 
     if data["hap"]:
         for ext in (
@@ -1965,6 +1917,7 @@ def assoc_process(
             sep="\t",
             header=0,
             index_col=None))
+        blockmap["chr"] = blockmap["chr"].astype(str)
         res = (pd
           .merge(
             res,
