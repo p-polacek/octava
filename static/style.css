@@ -649,6 +649,7 @@ table td {
 
 .wider-col {
 	min-width: 200px;
+	width: 200px;
 }
 
 .qc-col {

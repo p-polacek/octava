@@ -503,6 +503,7 @@ class AssocResForm(RegionForm, PlotForm):
       "Method:",
       choices=[
         ("", "(none)"),
+        ("glm", "GLM"),
         ("pm", "PiMASS"),
         ("B", "BayesB"),
         ("C", "BayesC"),

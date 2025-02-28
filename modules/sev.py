@@ -206,6 +206,9 @@ def annotate_sev(genome, markers, task_id):
             comment="#",
             header=None,
             index_col=[0,1,3,4]))
+    sev_info.index = sev_info.index.set_levels(
+      sev_info.index.levels[0].astype(str),
+      level=0)
     sev_lines = list()
     all_anns = list()
 

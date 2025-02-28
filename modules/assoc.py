@@ -2024,7 +2024,7 @@ def assoc_finemap(
                 end = start
             _ = coord_out.write("\t".join((chrom, start, end)) + "\n")
 
-    if params["fm_method"] in ("B", "C"):
+    if params["fm_method"] in ("B", "C", "glm"):
         popen(
           task_id,
           [plink2_path,
@@ -2034,85 +2034,151 @@ def assoc_finemap(
            "--allow-extra-chr",
            "--out", out_root])
 
-        fam_path = f"{out_root}.fam"
-        fam_df = pd.read_csv(
-          fam_path,
-          sep="\t",
-          header=None,
-          index_col=None)
-        (fam_df
-          .assign(IID = samples.tolist())
-          .loc[:, ["IID"] + fam_df.columns.tolist()[1:]]
-          .to_csv(
-            fam_path,
-            sep=" ",
-            header=False,
-            index=False))
-
         num_samples = (phe_df
           .loc[samples, trait]
           .dropna()
           .size)
         num_vars = sum(1 for _ in open(f"{out_root}.bim"))
 
-        (phe_df
-          .assign(IID = phe_df.index.tolist())
-          .loc[:,
-            ["IID", trait]]
-          .to_csv(
-            f"{out_root}.txt",
-            header=False,
-            sep=" "))
+        if params["fm_method"] in ("B", "C"):
+            fam_path = f"{out_root}.fam"
+            fam_df = pd.read_csv(
+              fam_path,
+              sep="\t",
+              header=None,
+              index_col=None)
+            (fam_df
+              .assign(IID = samples.tolist())
+              .loc[:, ["IID"] + fam_df.columns.tolist()[1:]]
+              .to_csv(
+                fam_path,
+                sep=" ",
+                header=False,
+                index=False))
 
-        cmd = [
-          gctb_path,
-          "--bfile", f"{out_root}",
-          "--pheno", f"{out_root}.txt",
-          "--bayes", params["fm_method"],
-          "--maf", "0",
-          "--p-value", "1",
-          "--out", out_root]
-        cmd = cmd + ["--burn-in", str(params["b_burn"])] if params["b_burn"] else cmd
-        cmd = cmd + ["--chain-length", str(params["b_chain"])] if params["b_chain"] else cmd
-        cmd = cmd + ["--thin", str(params["b_thin"])] if params["b_thin"] else cmd
-        popen(
-          task_id,
-          cmd)
+            (phe_df
+              .assign(IID = phe_df.index.tolist())
+              .loc[:,
+                ["IID", trait]]
+              .to_csv(
+                f"{out_root}.txt",
+                header=False,
+                sep=" "))
 
-        pip_in = f"{out_root}.snpRes"
-        pip_out = os.path.join(
-          tmp_dir,
-          f"{task_id}.fm")
+            progress(task_id, "Fine-mapping with Bayes" + params["fm_method"])
+            cmd = [
+              gctb_path,
+              "--bfile", f"{out_root}",
+              "--pheno", f"{out_root}.txt",
+              "--bayes", params["fm_method"],
+              "--maf", "0",
+              "--p-value", "1",
+              "--out", out_root]
+            cmd = cmd + ["--burn-in", str(params["b_burn"])] if params["b_burn"] else cmd
+            cmd = cmd + ["--chain-length", str(params["b_chain"])] if params["b_chain"] else cmd
+            cmd = cmd + ["--thin", str(params["b_thin"])] if params["b_thin"] else cmd
+            popen(
+              task_id,
+              cmd)
 
-        (pd
-          .read_csv(
-            pip_in,
-            sep="\s+",
-            header=0,
-            index_col=None,
-            usecols=[2,3,10])
-          .set_axis(
-            ["chr", "pos", "val"],
-            axis=1)
-          .sort_values(
-            by="val",
-            ascending=False)
-          .head(5000)
-          .reset_index(drop=True)
-          .to_feather(
-            pip_out))
+            pip_in = f"{out_root}.snpRes"
+            pip_out = os.path.join(
+              tmp_dir,
+              f"{task_id}.fm")
 
-        # Save parameters
-        run_params = [
-          ["Marker set", "Method", "Trait", "Loci", "Markers", "Samples"],
-          [markers, "Bayes" + params["fm_method"], trait,
-           "<br>".join(coord.split(", ")), num_vars, num_samples]]
-        with open(
-          os.path.join(
-            tmp_dir,
-            f"{task_id}.params"),
-          "w") as params_out:
-            json.dump(run_params, params_out)
+            (pd
+              .read_csv(
+                pip_in,
+                sep="\s+",
+                header=0,
+                index_col=None,
+                usecols=[2,3,10])
+              .set_axis(
+                ["chr", "pos", "val"],
+                axis=1)
+              .sort_values(
+                by="val",
+                ascending=False)
+              .head(5000)
+              .reset_index(drop=True)
+              .to_feather(
+                pip_out))
+
+            # Save parameters
+            run_params = [
+              ["Marker set", "Method", "Trait", "Loci", "Markers", "Samples"],
+              [markers, "Bayes" + params["fm_method"], trait,
+               "<br>".join(coord.split(", ")), num_vars, num_samples]]
+            with open(
+              os.path.join(
+                tmp_dir,
+                f"{task_id}.params"),
+              "w") as params_out:
+                json.dump(run_params, params_out)
+
+        else:
+            (phe_df
+              .fillna("NA")
+              # GEMMA treats -9 as a missing value                                    #################################
+              .replace(-9, -9.000000000001)
+              .replace("-9", "-9.000000000001")
+              .loc[samples, trait]
+              .to_csv(
+                f"{out_root}.txt",
+                sep="\t",
+                header=False,
+                index=False))
+
+            progress(task_id, "Fine-mapping with GLM")
+            command = [
+              "gemma",
+              "-bfile", out_root,
+              "-p", f"{out_root}.txt",
+              "-o", task_id,
+              "-outdir", "tmp",
+              "-miss", "1",
+              "-maf", "0",
+              "-r2", "1",
+              "-hwe", "0",
+              "-lm", "1"]
+            popen(
+              task_id,
+              command)
+
+            res_in = f"{out_root}.assoc.txt"
+            res_out = os.path.join(
+              tmp_dir,
+              f"{task_id}.fm")
+
+            (pd
+              .read_csv(
+                res_in,
+                sep="\t",
+                header=0,
+                index_col=None,
+                usecols=[0,2,10])
+              .set_axis(
+                ["chr", "pos", "val"],
+                axis=1)
+              .assign(val=lambda d: -np.log10(d["val"]))
+              .sort_values(
+                by="val",
+                ascending=False)
+              .head(5000)
+              .reset_index(drop=True)
+              .to_feather(
+                res_out))
+
+            # Save parameters
+            run_params = [
+              ["Marker set", "Method", "Trait", "Loci", "Markers", "Samples"],
+              [markers, "GLM", trait, "<br>".join(coord.split(", ")), num_vars, num_samples]]
+            with open(
+              os.path.join(
+                tmp_dir,
+                f"{task_id}.params"),
+              "w") as params_out:
+                json.dump(run_params, params_out)
 
     else:
         popen(
@@ -2129,7 +2195,9 @@ def assoc_finemap(
                 progress(task_id, "Running optimization")
             else:
                 progress(task_id, "Fine-mapping with Random forest")
-            phe_df = phe_df.loc[samples, trait]
+            phe_df = (phe_df
+              .loc[samples, trait]
+              .dropna())
             gt_df = (pd
               .read_csv(
                 f"{out_root}.traw",
@@ -2144,9 +2212,8 @@ def assoc_finemap(
               .set_axis(
                 samples,
                 axis=1)
-              .loc[:, phe_df.dropna().index]
+              .loc[:, phe_df.index]
               .transpose())
-            phe_df = phe_df.dropna()
 
             if params["optimize"]:
                 mtryvals = [
