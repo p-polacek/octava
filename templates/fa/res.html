@@ -348,7 +348,7 @@
                 {% endfor %}
               </div>
             </div>
-            <div class="row-input-div justified padded-bottom">
+            <div class="row-input-div justified small-padded-bottom">
               <label
                for="phe-jitter"
                class="default-label bold">
@@ -357,6 +357,16 @@
               <input
                type="checkbox"
                id="phe-jitter">
+            </div>
+            <div class="row-input-div justified padded-bottom">
+              <label
+               for="phe-cnts"
+               class="default-label bold">
+                Show genotype counts
+              </label>
+              <input
+               type="checkbox"
+               id="phe-cnts">
             </div>
             <div class="row-div padded-bottom padded-top">
               <button
@@ -1049,6 +1059,7 @@
       var plotDiv = document.getElementById("var-phe-plot");
       var table = document.getElementById("vars-table");
       var pheJitter = document.getElementById("phe-jitter").checked;
+      var pheCnts = document.getElementById("phe-cnts").checked;
       var field = document.querySelector('input[name="phe-choice"]:checked');
       if (field == null) {
         showHelp(event, "select-phe");
@@ -1113,11 +1124,50 @@
       gts.forEach( (key, idx) => {
         if (Object.keys(traceData).includes(key)) {
           var [positions, values, samples] = traceData[key];
+
+          if (pheCnts) {
+            var cnts = [];
+            var ticks = [];
+            for (let i = 0; i < varsArr.length; i++) {
+              var cnt = 0;
+              for (let j = 0; j < positions.length; j++) {
+                if (positions[j] == varsArr[i] && values[j] !== "") {
+                  cnt ++;
+                }
+              }
+              if (cnt > 0) {
+                cnts.push(cnt);
+                ticks.push(varsArr[i]);
+              }
+            }
+
+            var trace = {
+              x: ticks,
+              y: cnts,
+              yaxis: "y2",
+              type: "bar",
+              name: key,
+              legendgroup: key,
+              showlegend: false,
+              marker: {
+                color: colorCycle[idx] + "80",
+                line: {
+                  color: colorCycle[idx],
+                  width: 2,
+                },
+              },
+              hoverinfo: "y",
+              visible: true,
+            };
+            traces.push(trace);
+          }
+
           var trace = {
             x: positions,
-            y: values,
+            y: values.map(v => v === "" ? NaN : v),
             type: "box",
             name: key,
+            legendgroup: key,
             marker: {
               color: colorCycle[idx],
             },
@@ -1127,13 +1177,18 @@
             pointpos: 0,
             hovertext: samples,
             visible: true,
+            //width: 0.2,
           };
           traces.push(trace);
+
         }
       });
 
       var layout = {
         boxmode: "group",
+        barmode: "group",
+        bargap: 0.3,
+        bargroupgap: 0.3,
         showlegend: true,
         hoverdistance: 5,
         font: {
@@ -1142,6 +1197,14 @@
         yaxis: {
           title: "Phenotype",
           tickformat: ".2f",
+          domain: pheCnts ? [0, 0.85] : [0, 1],
+        },
+        yaxis2: {
+          title: "Counts",
+          //overlaying: "y",
+          //visible: false,
+          domain: pheCnts ? [0.85, 1] : [0, 0],
+          range: [0, samples.length * 1.05],
         },
         xaxis: {
           tickangle: 20,

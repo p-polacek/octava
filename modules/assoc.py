@@ -1635,9 +1635,9 @@ def run_assoc(genome, params, task_id):
               "--out", os.path.join(out_dir, f"{model}.{trait}")]
             cmd = cmd + ["--covar", f"{in_root}.cov"] if params["q"] and params["q_num"] > 0 else cmd
             cmd = cmd + ["--random-covar", f"{in_root}.kin"] if params["k"] else cmd
-            popen(
-              task_id,
-              cmd)
+            #popen(
+            #  task_id,
+            #  cmd)
 
             assoc_process(
               genome,
@@ -1648,7 +1648,7 @@ def run_assoc(genome, params, task_id):
               ch_col="Chrom",
               pos_col="Position",
               sig_col="PIP",
-              eff_col="A1Effect",
+              eff_col=["A1Effect"],
               sep="\s+")
 
             # Save parameters
@@ -1671,7 +1671,9 @@ def run_assoc(genome, params, task_id):
                 json.dump(run_params, params_out)
 
         for ext in ("covRes", "parRes", "randCovRes"):
-            os.remove(os.path.join(out_dir, f"{model}.{trait}.{ext}"))        
+            fn = os.path.join(out_dir, f"{model}.{trait}.{ext}")
+            if os.path.exists(fn):
+                os.remove(fn)
 
     else:
         # GEMMA cannot accept row or column names in phenotype file
@@ -1889,8 +1891,8 @@ def assoc_process(
         .assign(**{ch_col: lambda x: x[ch_col].map(chr_rename)}))
 
     #res = res[~pd.isna(res[ch_col])]
-    #if eff_col:
-    #    res[eff_col] = res[eff_col].abs()
+    if eff_col:
+        res[eff_col] = res[eff_col].abs()
     res.to_csv(
       out_tsv,
       sep="\t",
@@ -1906,7 +1908,8 @@ def assoc_process(
     #  end_col=1,
     #  line_skip=1, force=True)
 
-    res[sig_col] = -np.log10(res[sig_col])
+    if sig_col != "PIP":
+        res[sig_col] = -np.log10(res[sig_col])
     # Save results for MP visualisation
     with open(os.path.join(assoc_dir, "stats", "params")) as params_in:
         is_hap = json.load(params_in)[1][10] == "Yes"

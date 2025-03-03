@@ -1684,16 +1684,13 @@
     }
 
     function goToLocus(locus) {
-      var [chrom, span] = JSON.parse(locus)[0].split(":");
-      if (chrom == null || span == null) {
-        document.getElementById("assoc-locus-field").value = "";
+      locus = JSON.parse(locus)[0];
+      if (!/^\w+:\d{1,3}(,\d{3})*-\d{1,3}(,\d{3})*$/.test(locus)) {
         return;
       }
+      var [chrom, span] = locus.split(":");
       var [start, end] = span.replaceAll(",", "").split("-");
-      if (chrom == null || span == null) {
-        document.getElementById("assoc-locus-field").value = "";
-        return;
-      }
+
       var offset = offsetDict[chrom];
       var locusRange = [
         parseInt(start) + offset,
