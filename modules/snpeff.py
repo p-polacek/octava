@@ -1,13 +1,14 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
-genome_dir = "data"
 snpEff_url = "https://snpeff.blob.core.windows.net/versions/snpEff_latest_core.zip"
 
-
+import io
 import os
 import re
 import pysam
+import shutil
 import subprocess
+from Bio.bgzf import BgzfWriter
 
 from app.dirs import data_dir
 from app.task_worker import progress
@@ -27,6 +28,7 @@ def snpeff_annotate(
 ### Download snpEff
 ###############################################################################
 
+    genome_safe = re.sub("\W", "_", genome)
     if not os.path.exists("snpEff/"):
         progress(task_id, "Downloading snpEff")
         popen(
@@ -54,27 +56,27 @@ def snpeff_annotate(
     snpeff_root = os.path.join(
       "snpEff",
       "data",
-      genome)
-    seq_renamed = "sequences.fa"
-    gff_renamed = "genes"
-    cds_renamed = "cds.fa"
-    pep_renamed = "protein.fa"
-
+      genome_safe)
+    seq_renamed = seq_intmd = "sequences.fa"
+    gff_renamed = gff_intmd = "genes"
+    cds_renamed = cds_intmd = "cds.fa"
+    pep_renamed = pep_intmd = "protein.fa"
+    """
     if os.path.splitext(seq_file)[1] == ".gz":
-        seq_renamed += ".gz"
-    if cds_file:
-        if os.path.splitext(cds_file)[1] == ".gz":
-            cds_renamed += ".gz"
-    if pep_file:
-        if os.path.splitext(pep_file)[1] == ".gz":
-            pep_renamed += ".gz"
+        seq_intmd += ".gz"
+    if cds_file and os.path.splitext(cds_file)[1] == ".gz":
+        cds_intmd += ".gz"
+    if pep_file and os.path.splitext(pep_file)[1] == ".gz":
+        pep_intmd += ".gz"
 
     gff_root, gff_ext = os.path.splitext(re.sub("\.gz$", "", gff_file))
     gff_renamed += gff_ext
+    gff_intmd += gff_ext
     if gff_ext == ".gff3":
         gff_renamed, gff_ext = gff_renamed[:-1], gff_ext[:-1]
+        gff_intmd = gff_renamed
     if gff_file.endswith(".gz"):
-        gff_renamed += ".gz"
+        gff_intmd += ".gz"
 
     if not os.path.exists(snpeff_root):
         os.makedirs(snpeff_root)
@@ -82,12 +84,12 @@ def snpeff_annotate(
     with open(os.path.join("snpEff", "snpEff.config"), "r+") as database:
         for line in database.readlines():
             # Skip if database with given name is already present
-            if line.startswith(genome + ".genome"):
+            if line.startswith(genome_safe + ".genome"):
                 break
         else:
             progress(task_id, "Initializing snpEff database")
-            database.write(f"\n# {genome}, created by user via octava\n")
-            database.write(f"{genome}.genome : {genome}\n")
+            database.write(f"\n# {genome_safe}, created by user via octava\n")
+            database.write(f"{genome_safe}.genome : {genome_safe}\n")
 
 ###############################################################################
 ### Copy input files
@@ -95,16 +97,27 @@ def snpeff_annotate(
 
     progress(task_id, "Initializing files")
     for source, target in (
-      (gff_file, gff_renamed),
-      (seq_file, seq_renamed),
-      (cds_file, cds_renamed),
-      (pep_file, pep_renamed)):
+      (gff_file, gff_intmd),
+      (seq_file, seq_intmd),
+      (cds_file, cds_intmd),
+      (pep_file, pep_intmd)):
         if source:
             popen(
               task_id,
               ["cp",
                os.path.join(in_root, source), 
                os.path.join(snpeff_root, target)])
+            if target.endswith(".gz"):
+                popen(
+                  task_id,
+                  ["gunzip",
+                   "-f",
+                   os.path.join(snpeff_root, target)])
+    if os.path.exists(os.path.join(snpeff_root, vcf_file)):
+        os.remove(os.path.join(snpeff_root, vcf_file))
+    os.link(
+      os.path.join(in_root, vcf_file),
+      os.path.join(snpeff_root, vcf_file))
 
 ###############################################################################
 ### Create snpEff database
@@ -121,7 +134,7 @@ def snpeff_annotate(
       "snpEff",
       "build", gff_option,
       "-c", os.path.join("snpEff", "snpEff.config"),
-      "-v", genome]
+      "-v", genome_safe]
     if not cds_file:
         cmd.append("-noCheckCds")
     if not pep_file:
@@ -133,28 +146,31 @@ def snpeff_annotate(
 ###############################################################################
 ### Annotate and index VCF file
 ###############################################################################
-
-    progress(task_id, "Annotating VCF")
+    """
+    progress(task_id, "Annotating VCF file")
     pr = subprocess.Popen(
-      ["snpEff",
-       db_name,
+      ["java", "-jar",
+       "snpEff/snpEff.jar",
+       genome_safe,
        "-c", os.path.join("snpEff", "snpEff.config"),
-       os.path.join(genome_dir, db_name, vcf_file)],
-      stdout=subprocess.PIPE)
-    ann, _ = pr.communicate()
+       os.path.join(snpeff_root, vcf_file)],
+      stdout=subprocess.PIPE,
+      stderr=subprocess.PIPE,
+      text=True)
 
     ann_path = os.path.join(
       in_root,
       f"ann.{vcf_file}")
-    with open(ann_path, "wb") as ann_out:
-        with io.BytesIO(ann) as ann_io:
-            pysam.bgzip(ann_io, ann_out)
-    progress(task_id, "Indexing VCF")
+    ann_out = BgzfWriter(ann_path, "w")
+    for line in pr.stdout:
+        ann_out.write(line)
+    pr.wait()
+
+    progress(task_id, "Indexing VCF file")
     pysam.tabix_index(
       ann_path,
       preset="vcf",
       force=True)
 
     # Remove copies of genome and annotation files
-    # subprocess.run(f"rm snpEff/data/{db_name}/{gff_renamed}", shell=True)
-    # subprocess.run(f"rm snpEff/data/{db_name}/{seq_renamed}", shell=True)
+    #shutil.rmtree(snpeff_root)

@@ -9,10 +9,12 @@ import uuid
 import pysam
 import shutil
 import hashlib
+import gffutils
 import bed_reader
 import subprocess
 import numpy as np
 import pandas as pd
+from Bio import SeqIO
 from collections import Counter
 from scipy.stats import hypergeom
 
@@ -714,44 +716,87 @@ def contextmenu():
           [[[round(pve * 100, 2)], [round(pve2 * 100, 2)]],
           ["PVE"]])
 
-        
-    else:
-        if action == "markers":
-            params_json = os.path.join(
+    elif action == "gene_seq":
+        gene = request.form["gene"]
+        gff_db = gffutils.FeatureDB(os.path.join(data_dir, genome, "gff.db"))
+        transcripts = [
+          t.id for t in gff_db.children(gene)
+          if t.featuretype == "mRNA"]
+
+        ids = list()
+        seqs = list()
+        seq_types = list()
+        for transcript in transcripts:
+            cds_path = os.path.join(
               data_dir,
               genome,
-              "assoc",
-              request.form["markers"],
-              "stats",
-              "params")
+              "prot_db",
+              "cds",
+              f"{transcript}.fasta")
+            if os.path.exists(cds_path):
+                seq = next(SeqIO.parse(
+                  cds_path,
+                  "fasta"))
+                #seq = re.sub(r"(\w{1,60})", r"\1<br>", seq)
+                seqs.append(str(seq.seq))
+                seq_types.append("CDS")
+                ids.append(seq.id)
 
-        elif action == "gwas_run":
-            markers = request.form["markers"]
-            model   = request.form["model"]
-            trait   = request.form["trait"]
-            fn = f"{model}.{trait}.params"
-            params_json = os.path.join(
+            prot_path = os.path.join(
               data_dir,
               genome,
-              "assoc",
-              markers,
-              "res",
-              fn)
-        elif action == "fm_run":
-            task_id = request.form["task_id"]
-            fn = f"{task_id}.params"
-            params_json = os.path.join(
-              tmp_dir,
-              fn)
-        try:
-            with open(params_json, "r") as params_in:
-                params = json.load(params_in)
-            return jsonify([params[1:], params[0]])
+              "prot_db",
+              "prot",
+              f"{transcript}.fasta")
+            if os.path.exists(prot_path):
+                seq = next(SeqIO.parse(
+                  prot_path,
+                  "fasta"))
+                #seq = re.sub(r"(\w{1,60})", r"\1<br>", seq)
+                seqs.append(str(seq.seq))
+                seq_types.append("Protein")
+                ids.append(seq.id)
 
-        except:
-            return jsonify(
-            [[["Error fetching parameters."]],
-             []])
+        return jsonify(
+        [[seq_types, seqs],
+         ids])
+
+    elif action == "markers":
+        params_json = os.path.join(
+          data_dir,
+          genome,
+          "assoc",
+          request.form["markers"],
+          "stats",
+          "params")
+
+    elif action == "gwas_run":
+        markers = request.form["markers"]
+        model   = request.form["model"]
+        trait   = request.form["trait"]
+        fn = f"{model}.{trait}.params"
+        params_json = os.path.join(
+          data_dir,
+          genome,
+          "assoc",
+          markers,
+          "res",
+          fn)
+    elif action == "fm_run":
+        task_id = request.form["task_id"]
+        fn = f"{task_id}.params"
+        params_json = os.path.join(
+          tmp_dir,
+          fn)
+    try:
+        with open(params_json, "r") as params_in:
+            params = json.load(params_in)
+        return jsonify([params[1:], params[0]])
+
+    except:
+        return jsonify(
+        [[["Error fetching parameters."]],
+         []])
 
 @app.route("/group", methods=["POST"])
 def group():

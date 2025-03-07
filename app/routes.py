@@ -15,6 +15,7 @@ from app.dirs import (
 
 import os
 import re
+import glob
 import json
 import uuid
 import pysam
@@ -233,7 +234,7 @@ def setup_new(genome):
         (".fa", ".fasta", ".fna", ".faa", ".fa.gz", ".fasta.gz", ".fna.gz", ".faa.gz")))
     exts.update(
       dict.fromkeys(
-        ["phe", "exp", "run", "proj", "samp", "info", "blastp"],
+        ["phe", "exp", "run", "proj", "samp", "info", "sev"],
         (".txt", ".tsv", ".txt.gz", ".tsv.gz")))
     for ftype, ext in exts.items():
         form[ftype].choices = [""] + [
@@ -242,6 +243,22 @@ def setup_new(genome):
     form.bam.choices = [
           f for f in os.listdir(gdir)
           if f.endswith(".bam")]
+    prot_db_path = os.path.join(gdir, "prot_db")
+    if os.path.exists(prot_db_path):
+        form.db_prefix.choices = [""] + list(
+          set(
+            match.group(1)
+            for fn in os.listdir(prot_db_path)
+            if (match := re.match(
+              r"(.+)(\.\d+)?\.phr$", 
+              fn))))
+        form.db_fasta.choices = [""] + list(
+          set(
+            match.group(1)
+            for fn in os.listdir(prot_db_path)
+            if (match := re.match(
+              r"((.+)\.(fasta|fa)(.gz)?)$", 
+              fn))))
 
     return render_template(
       "new.html",
@@ -255,30 +272,6 @@ def setup_new(genome):
   methods=["POST"])
 def setup(genome):
     form = AddForm(request.form)
-    icon = request.files["icon"]
-    error = ""
-    if icon.filename:
-        icon.seek(0, os.SEEK_END)
-        file_size = icon.tell()
-        icon.seek(0)
-        if file_size > 1048576:
-            error = "Submitted icon is too large."
-        else:
-            mime_types = ["image/jpg", "image/jpeg", "image/png"]
-            ext = os.path.splitext(icon.filename)[-1]
-            if ext not in (".png", ".jpg", ".jpeg"):
-                error = "Icon is the wrong file type."
-            else:
-                icon.save(
-                  os.path.join(
-                    data_dir,
-                    genome,
-                    "icon" + ext))
-    if error:
-        return render_template(
-          "error.html",
-          error=error)
-
     task_id = str(uuid.uuid4())
     task_spec = ("setup", genome)
     task = (

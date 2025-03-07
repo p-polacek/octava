@@ -1806,6 +1806,16 @@
       if (table != null) {
         var genes = JSON.parse('{{ genes|tojson|safe }}');
         createTable(genes, table);
+        var tableData = table.querySelector("tbody");
+        tableData.querySelectorAll("tr").forEach( row => {
+          var geneCell = row.querySelector("td");
+          geneCell.addEventListener("contextmenu", event => {
+            var gene = geneCell.textContent;
+            contextMenu(
+              event, 
+              {action: "gene_seq", genome: genome, gene: gene});
+          });
+        });
       }
 
       // Trigger Gene_ID dropdown to use for filtering

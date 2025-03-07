@@ -65,7 +65,7 @@
     var form    = {{ form|tojson }};
     var redirectHref;
     if (task === "setup") {
-      redirectHref = "{{ url_for('assoc_qc', genome=genome) }}";
+      redirectHref = "{{ url_for('index') }}";
     } else if (task === "filt") {
       redirectHref = "{{ url_for('assoc_opts', genome=genome) }}";
     } else if (task === "assoc") {

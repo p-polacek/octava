@@ -59,7 +59,7 @@ mdbin = 1000000
 ### Open a command-line process
 ###############################################################################
 
-def popen(task_id, cmd):
+def popen(task_id, cmd, show_stdout=True):
     master_fd, slave_fd = pty.openpty()
     pr = subprocess.Popen(
       cmd,
@@ -68,45 +68,51 @@ def popen(task_id, cmd):
       close_fds=True)
     os.close(slave_fd)
 
-    with master_lock:
-        lock = get_lock("__task_status__")
-    buffer = b""
-    with os.fdopen(master_fd, "rb") as master:
-        while True:
-            try:
-                char = master.read(1)
-            except OSError as e:
-                if e.errno == 5:
-                    break
+    if show_stdout:
+        with master_lock:
+            lock = get_lock("__task_status__")
+        buffer = b""
+        with os.fdopen(master_fd, "rb") as master:
+            while True:
+                try:
+                    char = master.read(1)
+                except OSError as e:
+                    if e.errno == 5:
+                        break
+                    else:
+                        raise
                 else:
-                    raise
-            else:
-                if not char:
-                    break
-                if char in (b"\r", b"\n", b"\x08"):
-                    if char == b"\r":
-                        next_char = master.read(1)
-                        if next_char and next_char == b"\n":
-                            char = next_char
-                        else:
-                            char += next_char
-                    with lock:
-                        task_status[task_id]["progress"] += buffer.decode("utf-8", errors="replace")
-                    buffer = b""
-                buffer += char
-    if buffer:
-        with lock:
-            task_status[task_id]["progress"] += buffer.decode("utf-8", errors="replace")
+                    if not char:
+                        break
+                    if char in (b"\r", b"\n", b"\x08"):
+                        if char == b"\r":
+                            next_char = master.read(1)
+                            if next_char and next_char == b"\n":
+                                char = next_char
+                            else:
+                                char += next_char
+                        with lock:
+                            task_status[task_id]["progress"] += buffer.decode(
+                              "utf-8",
+                              errors="replace")
+                        buffer = b""
+                    buffer += char
+        if buffer:
+            with lock:
+                task_status[task_id]["progress"] += buffer.decode("utf-8", errors="replace")
 
     pr.wait()
-    with lock:
-        task_status[task_id]["progress"] += "\n"
+    if show_stdout:
+        with lock:
+            task_status[task_id]["progress"] += "\n"
+
     if (
       (cmd[0] != os.path.join(tool_dir, "pimass", "pimass-lin")
        and pr.returncode != 0) or
       (cmd[0] == os.path.join(tool_dir, "pimass", "pimass-lin")
        and pr.returncode == 0)):
         raise subprocess.CalledProcessError(1, "")
+    return pr.returncode
 
 ###############################################################################
 ### Calculate marker set summary statistics
@@ -1227,7 +1233,7 @@ def run_assoc(genome, params, task_id):
               [sum(1 for l in open(f"{in_root}.bim")),
                phe_df.loc[samples][trait].dropna().shape[0],
                params["q_num"] if params["q"] else 0,
-               "No",
+               "Yes",
                params["kq_from"] or markers]]
             with open(
               os.path.join(
@@ -1795,6 +1801,8 @@ def run_assoc(genome, params, task_id):
             command = [
               "gemma",
               "-bfile", in_root,
+              #"-g", f"{in_root}.bimbam",
+              #"-a", f"{in_root}.ann",
               "-p", f"{in_root}.txt",
               "-n", *n,
               "-o", f"{model}.{trait_name}",

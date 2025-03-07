@@ -54,8 +54,6 @@ class AddForm(FlaskForm):
     name = SelectField(
       "Name:",
       choices=[])
-    icon = FileField(
-      "Icon:")
     vcf = SelectField(
       "Variants:",
       choices=[])
@@ -90,7 +88,7 @@ class AddForm(FlaskForm):
       "BAM file(s):",
       choices=[])
     snpeff = BooleanField(
-      "Variant effect:")
+      "Annotate variants with SnpEff:")
     cds = SelectField(
       "CDS:",
       choices=[])
@@ -98,9 +96,12 @@ class AddForm(FlaskForm):
       "Proteins:",
       choices=[])
     sev = BooleanField(
-      "Variant severity:")
-    blastp = SelectField(
-      "Blast results:",
+      "Enable severity prediction:")
+    db_fasta = SelectField(
+      "DB FASTA file:",
+      choices=[])
+    db_prefix = SelectField(
+      "DB prefix:",
       choices=[])
     concat = MultiCheckboxField(
       "Concatenate contigs:",

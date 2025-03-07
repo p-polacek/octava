@@ -16,8 +16,15 @@ from collections import Counter
 from app.dirs import data_dir
 from app.task_worker import progress
 
-from modules.assoc import run_qc
 from modules.snpeff import snpeff_annotate
+from modules.assoc import (
+  popen,
+  run_qc)
+from modules.sev import (
+  make_db,
+  run_blastp,
+  process_blastp)
+
 
 def genome_setup(
   genome,
@@ -120,12 +127,11 @@ def genome_setup(
             pysam.index(file)
 
 ###############################################################################
-### Annotate variants and setup severity prediction
+### Annotate variants and setup BLAST / severity prediction
 ###############################################################################
 
-    """
     if params["snpeff"]:
-        progress(task_id, "Annotating VCF file")
+        progress(task_id, "Running VCF annotation")
         snpeff_annotate(
           genome,
           params["vcf"],
@@ -135,14 +141,27 @@ def genome_setup(
           params["pep"],
           task_id)
         params["vcf"] = f"ann.{params['vcf']}"
-    soufdil
+
     if params["sev"]:
-        pass
-#        setup_sev(
-#          genome,
-#          params["blastp"],
-#          task_id)
-    """
+        # Some commands cannot handle spaces in paths
+        # (which are allowed in genome names)
+        old_wd = os.getcwd()
+        os.chdir(os.path.join(data_dir, genome))
+
+        if params["db_fasta"]:
+            make_db(
+              task_id,
+              params["db_fasta"])
+            params["db_prefix"] = params["db_fasta"]
+
+        if params["db_prefix"]:
+            run_blastp(
+              task_id,
+              params["pep"],
+              params["db_prefix"])
+            process_blastp()
+
+        os.chdir(old_wd)
 
 ###############################################################################
 ### Get genome and sample data
@@ -296,7 +315,7 @@ def genome_setup(
         json.dump(gdata, gdata_out)
 
     # Save parameters as config.ini
-    _ = [params.pop(v) for v in ("name", "icon", "snpeff", "sev", "csrf_token")]
+    _ = [params.pop(v) for v in ("name", "csrf_token")]
     params["bam"] = json.dumps(params["bam"])
     params["enr"] = json.dumps(params["enr"])
     params["concat"] = json.dumps(params["concat"])

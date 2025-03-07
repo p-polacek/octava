@@ -46,7 +46,6 @@
         <div class="object-div">
           <form
            method="POST"
-           enctype="multipart/form-data"
            action="{{ action }}"
            onkeydown="if(event.keyCode === 13) { event.target.blur(); }">
             {{ form.hidden_tag() }}
@@ -62,28 +61,14 @@
 {# =================================================================== Icon #}
             {% if not edit and genome %}
               <div class="row-div">
-                <div class="wide-input-div justified small-padded-top small-padded-bottom">
-                  {{ form.icon.label(class="default-label bold") }}
-                   <div class="input-field-sized">
-                     {{ form.icon(
-                      id="icon",
-                      class="icon-width",
-                      accept=".png,.jpg,.jpeg",
-                      onchange="renderIcon();") }}
-                  </div>
-                </div>
-                <img
-                  class="aux-button clickable"
-                  src="{{ url_for('serve_button', button='delete') }}"
-                  onclick="resetIcon();"
-                  title="Reset icon" />
-              </div>
-              <div class="wide-input-div" style="justify-content: flex-end;">
+                <div class="disp-flex justified small-padded-top" style="width: 260px;">
+                  <label class="default-label bold">Icon:</label>
                 <img
                  id="icon-preview"
                  class="genome-icon"
-                 src="{{ url_for('static', filename='icons/Icon_default.png') }}"
+                 src="{{ url_for('serve_icon', genome=genome) }}"
                  alt="Default icon">
+              </div>
               </div>
             {% endif %}
 {# ======================================================= Edit input files #}
@@ -129,6 +114,29 @@
                      id=file+"-field") }}
                   </div>
                 {% endfor %}
+                <div class="row-div padded-top small-padded-bottom">
+                  <h2>
+                    Optional files:
+                  </h2>
+                </div>
+                <div class="row-div">
+                  <div class="wide-input-div justified">
+                    {{ form.cds.label(
+                     class="default-label bold") }}
+                    {{ form.cds(
+                     class="default-input",
+                     id="cds-field") }}
+                  </div>
+                </div>
+                <div class="row-div padded-top small-padded-bottom">
+                  <div class="wide-input-div justified">
+                    {{ form.pep.label(
+                     class="default-label bold") }}
+                    {{ form.pep(
+                     class="default-input",
+                     id="pep-field") }}
+                  </div>
+                </div>                  
                 <div class="row-div padded-top small-padded-bottom">
                   <h2>
                     Phenotype file:
@@ -209,38 +217,13 @@
                   </div>
                 </div>
 {# =============================================================== Annotate #}
-{#                <div class="row-div padded-top">
-                  <h2>
-                    Annotate variants:
-                  </h2>
-                </div>
                 <div class="row-div padded-top">
                   <div class="wide-input-div justified">
                     {{ form.snpeff.label(
                      class="default-label bold") }}
-                    {{ form.snpeff(id="snpeff", onclick="document.getElementById('snpeff-files-div').classList.toggle('collapsed', !this.checked);") }}
+                    {{ form.snpeff(id="snpeff") }}
                   </div>
                 </div>
-                <span id="snpeff-files-div" class="collapsed">
-                  <div class="row-div padded-top">
-                    <div class="wide-input-div justified">
-                      {{ form.cds.label(
-                       class="default-label bold") }}
-                      {{ form.cds(
-                         class="default-input",
-                         id="cds-field") }}
-                    </div>
-                  </div>
-                  <div class="row-div padded-top small-padded-bottom">
-                    <div class="wide-input-div justified">
-                      {{ form.pep.label(
-                       class="default-label bold") }}
-                      {{ form.pep(
-                         class="default-input",
-                         id="pep-field") }}
-                    </div>
-                  </div>                  
-                </span>
                 <div class="row-div small-padded-top">
                   <div class="wide-input-div justified">
                     {{ form.sev.label(
@@ -249,17 +232,27 @@
                   </div>
                 </div>
                 <span id="sev-files-div" class="collapsed">
-                  <div class="row-div padded-top small-padded-bottom">
+                  <div class="row-div padded-top">
                     <div class="wide-input-div justified">
-                      {{ form.blastp.label(
+                      {{ form.db_fasta.label(
                        class="default-label bold") }}
-                      {{ form.blastp(
-                         class="default-input",
-                         id="blastp-field") }}
+                      {{ form.db_fasta(
+                       class="default-input",
+                       id="db_fasta-field",
+                       onchange="document.getElementById('db_prefix-field').value='';") }}
                     </div>
-                  </div>                  
+                  </div>
+                  <div class="row-div padded-top">
+                    <div class="wide-input-div justified">
+                      {{ form.db_prefix.label(
+                       class="default-label bold") }}
+                      {{ form.db_prefix(
+                       class="default-input",
+                       id="db_prefix-field",
+                       onchange="document.getElementById('db_fasta-field').value='';") }}
+                    </div>
+                  </div>
                 </span>
-#}
 {# ============================================================= Enrichment #}
                 <div class="row-div padded-top">
                   <h2>
@@ -385,45 +378,45 @@
     var edit = {{ edit|tojson }};
     var visibleDropdown = null;
 
-    function resetIcon() {
-      var icon = document.getElementById("icon");
-      if (icon != null) {
-        icon.value = "";
-        var preview = document.getElementById("icon-preview");
-        preview.src = "{{ url_for('static', filename='icons/Icon_default.png') }}";
-      }
-    }
+//    function resetIcon() {
+//      var icon = document.getElementById("icon");
+//      if (icon != null) {
+//        icon.value = "";
+//        var preview = document.getElementById("icon-preview");
+//        preview.src = "{{ url_for('static', filename='icons/Icon_default.png') }}";
+//      }
+//    }
 
     // Event listener for the file input
-    function renderIcon() {
-      var iconInput = document.getElementById("icon");
-      if (iconInput.files && iconInput.files[0]) {
-        var icon = iconInput.files[0];
-        if (icon.size  > 1048576) {
-          iconInput.value = "";
-          alert("File must be 1MB maximum.");
-          return;
-        }
-        const validTypes = ["image/jpg", "image/jpeg", "image/png"];
-        if (!validTypes.includes(icon.type)) {
-          iconInput.value = "";
-          alert("File must be PNG or JPEG.");
-          return;
-        }
-        const reader = new FileReader();
-        var preview = document.getElementById("icon-preview");
-        reader.onload = function (e) {
-          preview.src = e.target.result;
-        };
-        reader.readAsDataURL(icon);
-        preview.onload = function() {
-          if (preview.height !== 128 || preview.width !== 128) {
-            resetIcon();
-            alert("Icon must be in square aspect ratio (128x128px or similar).");
-          }
-        }
-      }
-    }
+//    function renderIcon() {
+//      var iconInput = document.getElementById("icon");
+//      if (iconInput.files && iconInput.files[0]) {
+//        var icon = iconInput.files[0];
+//        if (icon.size  > 1048576) {
+//          iconInput.value = "";
+//          alert("File must be 1MB maximum.");
+//          return;
+//        }
+//        const validTypes = ["image/jpg", "image/jpeg", "image/png"];
+//        if (!validTypes.includes(icon.type)) {
+//          iconInput.value = "";
+//          alert("File must be PNG or JPEG.");
+//          return;
+//        }
+//        const reader = new FileReader();
+//        var preview = document.getElementById("icon-preview");
+//        reader.onload = function (e) {
+//          preview.src = e.target.result;
+//        };
+//        reader.readAsDataURL(icon);
+//        preview.onload = function() {
+//          if (preview.height !== 128 || preview.width !== 128) {
+//            resetIcon();
+//            alert("Icon must be in square aspect ratio (128x128px or similar).");
+//          }
+//        }
+//      }
+//    }
 
     function updateChr(file) {
       var dropdown = document.getElementById("chr-dropdown");
@@ -517,6 +510,9 @@
           if (document.getElementById(file + "-field").value === "") {
             alert("Variant, annotation and sequence files are all required.");
             return;
+          } else if (document.getElementById("sev").checked && document.getElementById("pep-field").value === "")  {
+            alert("Protein file is required for severity prediction.");
+            return;
           } else {
             document.querySelector("form").submit();
           }
@@ -533,9 +529,9 @@
       document.getElementById("help-popup").classList.add("collapsed");
     });
     document.addEventListener("DOMContentLoaded", function() {
-      if (genome !== "") {
-        resetIcon();
-      }
+      //if (genome !== "") {
+      //  resetIcon();
+      //}
       if (document.getElementById("info-field") != null) {
         updateEnr(document.getElementById("info-field").value);
         updateChr(document.getElementById("vcf-field").value);

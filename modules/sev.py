@@ -3,6 +3,7 @@
 import io
 import os
 import re
+import time
 import pysam
 import statistics
 import subprocess
@@ -24,20 +25,43 @@ from modules.load_input import load_config
 
 from Bio.Data.IUPACData import protein_letters_3to1 as convertAA
 
+# BLAST options
+blastp_evalue = "0.1"
+blastp_max_seqs = "5000"
+
+blastp_columns = [
+  "qseqid",
+  "sseqid",
+  "sallseqid",
+  "qstart",
+  "qend",
+  "evalue",
+  "qlen",
+  "sstart",
+  "send",
+  "slen",
+  "pident",
+  #"salltitles",
+  #"length",
+  #"nindent",
+  #"score",
+]
+
+cdhit_path = "cdhit"
+blastdbcmd_path = "blastdbcmd"
+
+seq_identity = 0.8
+cluster_to_most_similar = 1
+
+
 # Add the conversion of "Ter" to "*" to the dictionary
 convertAA["Ter"] = "*"
 
+# Needle options
 needle_path = "needle"
 
 needle_gapopen = "10"
 needle_gapextend = "1"
-
-# Define output directories
-transcripts_dir = "Transcripts"
-blastp_out_dir = "Blastp_out"
-blastp_out_pos_dir = "Blastp_out_positions"
-aligned_hits_dir = "Aligned_hits"
-clusters_dir = "Clusters"
 
 sev_helpstring = {
   "Number": ".",
@@ -57,117 +81,114 @@ sev_helpstring = {
     + "SEV_num_clusters | "
     + 'SEV_prediction\'"')}
 
-def run_blastp():
-    pass
+def make_db(task_id, db_fasta):
+    progress(task_id, "Making a BLAST database")
+    popen(
+      task_id,
+      ["makeblastdb",
+       "-in", os.path.join("prot_db", db_fasta),
+       "-out", os.path.join("prot_db", db_fasta),
+       "-dbtype", "prot",
+       "-parse_seqids"])
 
-def setup_sev(
-  genome,
-  blastp_out,
-  task_id):
-    blastp_path = os.path.join(
-      data_dir,
-      genome,
-      blastp_out)
-    sev_dir = os.path.join(
-      data_dir,
-      genome,
-      "prot_db")
-    prev_data = None
-    with pd.read_csv(
-      blastp_path,
+
+def run_blastp(task_id, prot_file, db_prefix):
+    # Split input sequences file into single-sequence FASTA files
+    # Initialize a progress counter based on number of proteins finished
+    progress(task_id, "Processing input proteins")
+    split_dir = os.path.join("prot_db", "prot")
+    if not os.path.exists(split_dir):
+        os.mkdir(split_dir)
+
+    prot_order = dict()
+    for idx, prot in enumerate(
+      SeqIO.parse(
+        prot_file,
+        "fasta"),
+      start=1):
+        prot_path = os.path.join(
+          split_dir,
+          f"{prot.id}.fasta")
+        SeqIO.write(
+          [prot],
+          prot_path,
+          "fasta")
+        prot_order[prot.id] = idx
+    prot_cnt = len(prot_order)
+
+    progress(task_id, "Running BLAST")
+    pr = subprocess.Popen(
+      ["blastp",
+       "-query", prot_file,
+       "-db", os.path.join("prot_db", db_prefix),
+       "-out", os.path.join("prot_db", "blastp_out.txt"),
+       "-evalue", blastp_evalue,
+       "-num_threads", str(os.cpu_count()),
+       "-outfmt", "6 " + " ".join(blastp_columns),
+       "-max_target_seqs", blastp_max_seqs],
+      stderr=subprocess.PIPE,
+      stdout=subprocess.PIPE)
+
+    while pr.poll() is None:
+        tail = subprocess.Popen(
+          ["tail", 
+           "-n", "1",
+           os.path.join("prot_db", "blastp_out.txt")],
+          stderr=subprocess.PIPE,
+          stdout=subprocess.PIPE)
+        stdout, stderr = tail.communicate()
+        if not stderr.decode():
+            last_prot = stdout.decode().split("\t", 1)[0]
+            pct = int(prot_order[last_prot] / prot_cnt * 100)
+            progress(
+              task_id,
+              f"\rProgress: {pct}%",
+              bold=False,
+              newline=False)
+        time.sleep(1)
+
+    stdout, stderr = pr.communicate()
+    if pr.returncode == 0:
+        progress(task_id, f"\rProgress: 100%", bold=False)
+    else:
+        raise OSError("Process failed.")
+
+def process_blastp():
+    split_dir = os.path.join("prot_db", "blastp_out")
+    if not os.path.exists(split_dir):
+        os.mkdir(split_dir)
+
+    blastp_reader = pd.read_csv(
+      os.path.join("prot_db", "blastp_out.txt"),
       sep="\t",
       header=None,
-      chunksize=100000) as blastp_reader:
-        for chunk in blastp_reader:
-            chunk = chunk.set_axis(
-              blastp_columns,
-              axis=1)
-            if prev_data != None:
-                chunk = pd.concat([prev_data, chunk])
+      chunksize=100000)
+    prev_data = None
 
-            for t_id, hits in chunk.groupby("qseqid", sort=False):
-                # Save only sequence IDs of hits, required by blastdbcmd
-                out_file = os.path.join(
-                  sev_dir,
-                  blastp_out_dir,
-                  f"{t_id}.blastp_out.txt")
-                (pd
-                  .Series(hits["sallseqid"].unique())
-                  .to_csv(
-                    out_file,
-                    index=False,
-                    header=False,
-                    sep="\t"))
+    for chunk in blastp_reader:
+        chunk = chunk.set_axis(
+          blastp_columns,
+          axis=1)
+        if prev_data != None:
+            chunk = pd.concat([prev_data, chunk])
 
-                # Save full information about hits
-                out_file = os.path.join(
-                  root_dir,
-                  blastp_out_pos_dir,
-                  f"{t_id}.blastp_out.txt")
-                (hits[
-                   "sallseqid",
-                   "qstart",
-                   "qend",
-                   "evalue"]
-                  .to_csv(
-                    out_file,
-                    index=False,
-                    header=False,
-                    sep="\t"))
-
-                clust_out = make_clusters(
-                  root_dir,
-                  args.blast_db,
-                  t_id)
-                if clust_out:
-                    print(clust_out)
-            prev_data = hits
-
-    blastp_out_file = f"{t_id}.blastp_out.txt"
-    hits_file = f"{t_id}.aligned_hits.fasta"
-    clusters_file = f"{t_id}.clusters"
-
-    blastp_file_path = os.path.join(
-      root_dir,
-      blastp_out_dir,
-      blastp_out_file)
-    hits_file_path = os.path.join(
-      root_dir,
-      aligned_hits_dir,
-      hits_file)
-    clusters_file_path = os.path.join(
-      root_dir,
-      clusters_dir,
-      clusters_file)
-
-    try:
-        p = subprocess.run(
-          [blastdbcmd_path,
-           "-db", blast_db,
-           "-entry_batch", blastp_file_path,
-           "-out", hits_file_path,
-           "-outfmt", "%f"],
-          check=True)
-    except subprocess.CalledProcessError as e:
-        return(
-          f"Blastdbcmd for {t_id} failed:",
-          e)
-
-    try:
-        p = subprocess.run(
-          [cdhit_path,
-          "-i", hits_file_path,
-          "-o", clusters_file_path,
-          "-c", seq_identity,
-          "-g", cluster_to_most_similar],
-         check=True,
-         stdout=subprocess.DEVNULL)
-    except subprocess.CalledProcessError as e:
-        return(
-          f"CD-HIT for {t_id} failed:",
-          e)
-
-
+        for prot_id, hits in chunk.groupby("qseqid", sort=False):
+            # Save hits, evalues and aligned regions
+            out_file = os.path.join(
+              split_dir,
+              f"{prot_id}.blastp_out.txt")
+            (hits[
+               ["sseqid",
+                "sallseqid",
+                "qstart",
+                "qend",
+                "evalue"]]
+              .to_csv(
+                out_file,
+                index=False,
+                header=False,
+                sep="\t"))
+        prev_data = hits
 
 
 def annotate_sev(genome, markers, task_id):
@@ -177,6 +198,11 @@ def annotate_sev(genome, markers, task_id):
       data_dir,
       genome,
       config["vcf"])
+    blast_db_root = os.path.join(
+      data_dir,
+      genome,
+      "prot_db",
+      config["db_prefix"])
     prot_dir = os.path.join(
       data_dir,
       genome,
@@ -206,9 +232,9 @@ def annotate_sev(genome, markers, task_id):
             comment="#",
             header=None,
             index_col=[0,1,3,4]))
-    sev_info.index = sev_info.index.set_levels(
-      sev_info.index.levels[0].astype(str),
-      level=0)
+        sev_info.index = sev_info.index.set_levels(
+          sev_info.index.levels[0].astype(str),
+          level=0)
     sev_lines = list()
     all_anns = list()
 
@@ -250,7 +276,7 @@ def annotate_sev(genome, markers, task_id):
                 t_id = ann["Feature_ID"]
                 seq_path = os.path.join(
                   prot_dir,
-                  transcripts_dir,
+                  "prot",
                 f"{t_id}.fasta")
                 t_seq = SeqIO.read(
                   seq_path,
@@ -377,10 +403,12 @@ def annotate_sev(genome, markers, task_id):
         progress(task_id, t_id, bold=False)
         anns = anns.reset_index(drop=True)
         full_set = set()
+
+        progress(task_id, "Fetching homologous sequences", newline=False, bold=False)
         # Get transcript sequence
         seq_path = os.path.join(
           prot_dir,
-          transcripts_dir,
+          "prot",
           f"{t_id}.fasta")
         if not os.path.exists(seq_path):
             continue
@@ -388,68 +416,90 @@ def annotate_sev(genome, markers, task_id):
           seq_path,
           "fasta")
 
-        blastp_pos_fn = os.path.join(
+        blastp_out_fn = os.path.join(
           prot_dir,
-          blastp_out_pos_dir,
+          "blastp_out",
           f"{t_id}.blastp_out.txt")
-        clusters_fn = os.path.join(
-          prot_dir,
-          clusters_dir,
-          f"{t_id}.clusters.clstr")
-
-        blastp_pos_df = (pd
+        blastp_out_df = (pd
           .read_csv(
-            blastp_pos_fn,
+            blastp_out_fn,
             header=None,
             sep="\t")
           .set_axis(
-            ["sallseqid", "qstart", "qend", "evalue"],
+            ["sseqid", "sallseqid", "qstart", "qend", "evalue"],
             axis=1))
-        # Split sallseqid (format: xx|id1|;xx|id2|; or xx|id1|id2|)
-        blastp_pos_df["sseqid"] = blastp_pos_df["sallseqid"].str.split("|").str[1]
 
-        with open(clusters_fn, "r") as clusters_in:
-            clusters_raw = clusters_in.read().strip().split("\n>")
+        # Extract sequences of aligned hits
+        hits_out = os.path.join(prot_dir, "aligned_hits.txt")
+        hits_fasta = os.path.join(prot_dir, "aligned_hits.fasta")
+        (pd
+          .Series(
+            blastp_out_df["sallseqid"].unique())
+          .to_csv(
+            hits_out,
+            header=False,
+            index=False))
 
-        hits_out = os.path.join(
-          prot_dir,
-          aligned_hits_dir,
-          f"{t_id}.aligned_hits.fasta")
+        old_wd = os.getcwd()
+        os.chdir(os.path.join(data_dir, genome, "prot_db"))
+        popen(
+          task_id,
+          [blastdbcmd_path,
+           "-db", config["db_prefix"],
+           "-entry_batch", "aligned_hits.txt",
+           "-out", "aligned_hits.fasta",
+           "-outfmt", "%f"])
+
+        # Cluster by similarity
+        popen(
+          task_id,
+          [cdhit_path,
+          "-i", "aligned_hits.fasta",
+          "-o", "clust",
+          "-c", str(seq_identity),
+          "-g", str(cluster_to_most_similar)],
+          show_stdout=False)
+        with open("clust.clstr") as clust_in:
+            clust_raw = clust_in.read().strip().split("\n>")
+
         hits = {
           rec.name: rec
-          for rec in SeqIO.parse(hits_out, "fasta")}
+          for rec in SeqIO.parse("aligned_hits.fasta", "fasta")}
 
-        cluster_seqs = list()
-        cluster_evalues = list()
-        for cluster in clusters_raw:
+        clust_seqs = list()
+        clust_evalues = list()
+        for cluster in clust_raw:
             # Format: >Cluster n
             #         <cluster sequences> 
             #         >Cluster n+1
-            cluster_lines = [
+            clust_lines = [
               line for line
               in cluster.strip().split("\n")[1:]]
             # Format: <whitespace> >seq_id...at x% <identity>
             seq_names = [
               line.split(">")[1].split("...")[0]
-              for line in cluster_lines]
-            cluster_seqs.append(seq_names)
-            mean_evalue = blastp_pos_df[
-              blastp_pos_df["sseqid"].isin(seq_names)]["evalue"].mean()
-            cluster_evalues.append(
+              for line in clust_lines]
+            clust_seqs.append(seq_names)
+            mean_evalue = blastp_out_df[
+              blastp_out_df["sseqid"].isin(seq_names)]["evalue"].mean()
+            clust_evalues.append(
               (seq_names, 
                mean_evalue))
         clusters = [
           cluster[0] for cluster
-          in sorted(cluster_evalues, key=lambda x: x[1])]
+          in sorted(clust_evalues, key=lambda x: x[1])]
+
+        os.chdir(old_wd)
+        progress(task_id, "\r", newline=False, bold=False)
 
         for idx in range(anns.shape[0]):
             start_pos, end_pos = anns.loc[idx, ["Start_pos", "End_pos"]]
             supp_set = list()
 
             matching_seqs = set(
-              blastp_pos_df[
-                (blastp_pos_df["qstart"] <= start_pos) &
-                (blastp_pos_df["qend"] >= end_pos)]["sseqid"])
+              blastp_out_df[
+                (blastp_out_df["qstart"] <= start_pos) &
+                (blastp_out_df["qend"] >= end_pos)]["sseqid"])
             for cluster in clusters:
                 filt_cluster = [
                   seq for seq in cluster
