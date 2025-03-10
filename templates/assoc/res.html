@@ -1270,9 +1270,7 @@
             }
             highlightGenes(layout);
           } else if (data.event.button === 1) {
-            Plotly.relayout(
-              "live-plot",
-              { "xaxis.range": marker.data.span[marker.pointIndex] })
+            addLocus(marker.data.markerPos[marker.pointIndex]);
           }
         } else {
           var markers = marker.data.Id[0];
@@ -1485,7 +1483,10 @@
             var trace = {
               x: geneData.map(v => offsetDict[v[1]] + v[3] - (v[3] - v[2]) / 2),
               y: geneData.map(v => 0.5),
-              span: geneData.map(v => [offsetDict[v[1]] + v[2], offsetDict[v[1]] + v[3]]),
+              markerPos: geneData.map(v => `${
+                v[1]}:${
+                v[2].toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}-${
+                v[3].toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`),
               traceType: "__genes__",
               mode: "markers",
               yaxis: "y",
