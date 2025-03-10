@@ -1415,7 +1415,9 @@
 
         if (isNaN(viewStart) || isNaN(viewEnd)) {
           if (currLocus != null) {
-            [viewStart, viewEnd] = [currLocus[1], currLocus[2]];
+            [viewStart, viewEnd] = [
+              currLocus[1] + chrOffsets[chrNames.indexOf(currLocus[0])],
+              currLocus[2] + chrOffsets[chrNames.indexOf(currLocus[0])]];
           }
         }
 

@@ -1127,38 +1127,41 @@ def run_assoc(genome, params, task_id):
       "gt",
       "gt")
 
+    fam_file = f"{in_root}.fam"
+    fam_df = pd.read_csv(
+      fam_file,
+      sep="\t",
+      header=None,
+      index_col=None)
+    samples = fam_df[1]
+
+    phe_path = os.path.join(
+      data_dir,
+      genome,
+      config["phe"])
+    with master_lock:
+        lock = get_lock(phe_path)
+    with lock:
+        phe_df = (pd
+          .read_csv(
+            phe_path,
+            sep="\t",
+            header=[0],
+            index_col=[0])
+         .loc[samples])
+
     if model == "blink":
         # BLINK analyses either one or all traits
         # phenotype file rewritten each time to keep only selected traits
-        out_fam = f"{in_root}.fam"
-        samples = pd.read_csv(
-          out_fam,
-          sep="\t",
-          header=None,
-          index_col=None,
-          usecols=[1])[1]
-        phe_path = os.path.join(
-          data_dir,
-          genome,
-          config["phe"])
-        with master_lock:
-            lock = get_lock(phe_path)
-        with lock:
-            phe_df = pd.read_csv(
-              phe_path,
-              sep="\t",
-              header=[0],
-              index_col=[0])
         (phe_df
           .fillna("NaN")
-          .loc[
-            samples,
-            params["traits"]]
+          .loc[params["traits"]]
           .rename_axis("Acc")
           .to_csv(
             f"{in_root}.txt",
             sep="\t"))
 
+        params["k"] = True
         q_list = list()
         if params["q"] and params["q_num"] > 0:
             # Covariates file filtered to keep top n selected ones
@@ -1231,7 +1234,7 @@ def run_assoc(genome, params, task_id):
             run_params = [
               ["Markers", "Samples", "PCs", "Kinship", "K/Q source"],
               [sum(1 for l in open(f"{in_root}.bim")),
-               phe_df.loc[samples][trait].dropna().shape[0],
+               phe_df.loc[samples, trait].dropna().shape[0],
                params["q_num"] if params["q"] else 0,
                "Yes",
                params["kq_from"] or markers]]
@@ -1246,29 +1249,7 @@ def run_assoc(genome, params, task_id):
 
     elif model == "rf":
         # Correct for kinship and population structure
-        out_fam = f"{in_root}.fam"
-        samples = pd.read_csv(
-          out_fam,
-          sep="\t",
-          header=None,
-          index_col=None,
-          usecols=[1])[1]
-        phe_path = os.path.join(
-          data_dir,
-          genome,
-          config["phe"])
-        with master_lock:
-            lock = get_lock(phe_path)
-        with lock:
-            phe_df = (pd
-              .read_csv(
-                phe_path,
-                sep="\t",
-                header=[0],
-                index_col=[0])
-              .loc[
-                samples,
-                params["traits"]])
+        phe_df = phe_df.loc[samples, params["traits"]]
 
         if params["k"] and ((not params["q"] or params["q_num"] == 0) and not params["cov"]):
             raise OSError(
@@ -1511,13 +1492,6 @@ def run_assoc(genome, params, task_id):
             if not os.path.exists(f"{in_root}.gctb.{ext}"):
                 os.link(f"{in_root}.{ext}", f"{in_root}.gctb.{ext}")
 
-        fam_path = f"{in_root}.fam"
-        fam_df = pd.read_csv(
-          fam_path,
-          sep="\t",
-          header=None,
-          index_col=None)
-        samples = fam_df[1]
         (fam_df
           .assign(IID = samples.tolist())
           .loc[:, ["IID"] + fam_df.columns.tolist()[1:]]
@@ -1526,24 +1500,9 @@ def run_assoc(genome, params, task_id):
             sep=" ",
             header=False,
             index=False))
-
-        phe_path = os.path.join(
-          data_dir,
-          genome,
-          config["phe"])
-        with master_lock:
-            lock = get_lock(phe_path)
-        with lock:
-            phe_df = pd.read_csv(
-              phe_path,
-              sep="\t",
-              header=[0],
-              index_col=[0])
         (phe_df
           .assign(IID = phe_df.index.tolist())
-          .loc[
-            samples,
-            ["IID"] + params["traits"]]
+          .loc[:, ["IID"] + params["traits"]]
           .to_csv(
             f"{in_root}.txt",
             header=False,
@@ -1641,9 +1600,9 @@ def run_assoc(genome, params, task_id):
               "--out", os.path.join(out_dir, f"{model}.{trait}")]
             cmd = cmd + ["--covar", f"{in_root}.cov"] if params["q"] and params["q_num"] > 0 else cmd
             cmd = cmd + ["--random-covar", f"{in_root}.kin"] if params["k"] else cmd
-            #popen(
-            #  task_id,
-            #  cmd)
+            popen(
+              task_id,
+              cmd)
 
             assoc_process(
               genome,
@@ -1662,7 +1621,7 @@ def run_assoc(genome, params, task_id):
               ["Markers", "Samples", "PCs", "Kinship", "K/Q source",
                "Burn-in iterations", "Total iterations", "Thinning"],
               [sum(1 for l in open(f"{in_root}.bim")),
-               phe_df.loc[samples][trait].dropna().shape[0],
+               phe_df.loc[samples, trait].dropna().shape[0],
                params["q_num"] if params["q"] else 0,
                "No",
                params["kq_from"] or markers,
@@ -1684,31 +1643,11 @@ def run_assoc(genome, params, task_id):
     else:
         # GEMMA cannot accept row or column names in phenotype file
         # phenotype file rewritten each time to keep only selected traits
-        out_fam = f"{in_root}.fam"
-        samples = pd.read_csv(
-            out_fam,
-            sep="\t",
-            header=None,
-            index_col=None,
-            usecols=[1])[1]
-        phe_path = os.path.join(
-          data_dir,
-          genome,
-          config["phe"])
-        with master_lock:
-            lock = get_lock(phe_path)
-        with lock:
-            phe_df = pd.read_csv(
-              phe_path,
-              sep="\t",
-              header=[0],
-              index_col=[0])
         (phe_df
           .fillna("NA")
           # GEMMA treats -9 as a missing value                                    #################################
           .replace(-9, -9.000000000001)
           .replace("-9", "-9.000000000001")
-          .loc[samples, ]
           .to_csv(
             f"{in_root}.txt",
             sep="\t",
@@ -1842,7 +1781,7 @@ def run_assoc(genome, params, task_id):
             run_params = [
               ["Markers", "Samples", "PCs", "Kinship", "K/Q source"],
               [sum(1 for l in open(f"{in_root}.bim")),
-               phe_df.loc[samples][trait].dropna().shape[0],
+               phe_df.loc[samples, trait].dropna().shape[0],
                params["q_num"] if params["q"] else 0,
                "No" if model == "glm" else "Yes",
                params["kq_from"] or markers]]
@@ -1962,10 +1901,11 @@ def assoc_process(
       res,
       mqplot_fn,
       json.loads(config["concat"]),
-      ch_col=ch_col,
-      pos_col=pos_col,
-      sig_col=sig_col,
-      end_col="end" if is_hap else None)
+      ch_col  = ch_col,
+      pos_col = pos_col,
+      sig_col = sig_col,
+      qqplot  = sig_col != "PIP",
+      end_col = "end" if is_hap else None)
 
     os.remove(out_tsv)
     os.remove(assoc_out)
@@ -1976,6 +1916,7 @@ def assoc_finemap(
   task_id):
     config  = load_config(genome)
     markers = params["mrk"]
+    model   = params["mod"]
     trait   = params["trt"]
     coord   = params["coord"]
     n_loci  = len(coord.split(", "))
@@ -1991,20 +1932,27 @@ def assoc_finemap(
       tool_dir,
       "gctb_2.5.2_Linux",
       "gctb")
-    gt_dir = os.path.join(
+    markers_dir = os.path.join(
       data_dir,
       genome,
       "assoc",
-      markers,
-      "gt")
+      markers)
     gt_root = os.path.join(
-      gt_dir,
+      markers_dir,
+      "gt",
       "gt.full")
 
+    with open(os.path.join(markers_dir, "res", f"{model}.{trait}.params")) as p:
+        orig_params = dict(zip(json.load(p)))
+        k, q, kq_from = (
+          orig_params["Kinship"] == "Yes",
+          int(orig_params["PCs"]),
+          orig_params["K/Q source"])
+
     # Process phenotype file
-    out_fam = f"{gt_root}.fam"
+    fam_file = f"{gt_root}.fam"
     samples = pd.read_csv(
-        out_fam,
+        fam_file,
         sep="\s+",
         header=None,
         index_col=None,

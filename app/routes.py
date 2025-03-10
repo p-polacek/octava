@@ -482,6 +482,7 @@ def ts(genome):
                     phe = phe_df[params["trait_sgl"]]
                     phe_samples = phe[~pd.isna(phe)].index.intersection(q_matr.index)
                     phe = phe.loc[phe_samples]
+                    from limix_lmm import LMM as qpqpqp
 
                     phe_q = q_matr.loc[phe_samples]
                     phe_q = sm.add_constant(phe_q)
@@ -489,6 +490,7 @@ def ts(genome):
                     QS = economic_qs_linear(phe_k)
                     lmm = LMM(
                       phe,
+                      #np.ones((phe.shape[0], 1)),
                       phe_q,
                       QS=QS)
                     lmm.fit()
