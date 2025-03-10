@@ -1255,19 +1255,25 @@
         var marker = data.points[0];
         var markerId = marker.text.split("<br>")[0];
         if (marker.data.traceType === "__genes__") {
-          if (highlightedGenes.includes(markerId)) {
-            highlightedGenes = highlightedGenes.filter(g => g !== markerId);
-            var numShapes = layout.shapes.length;
-            for (let i = 0; i < numShapes; i++) {
-              if (layout.shapes[i].geneId === markerId) {
-                layout.shapes[i].fillcolor = "#0f667a";
-                break;
+          if (data.event.button === 0) {
+            if (highlightedGenes.includes(markerId)) {
+              highlightedGenes = highlightedGenes.filter(g => g !== markerId);
+              var numShapes = layout.shapes.length;
+              for (let i = 0; i < numShapes; i++) {
+                if (layout.shapes[i].geneId === markerId) {
+                  layout.shapes[i].fillcolor = "#0f667a";
+                  break;
+                }
               }
+           } else {
+              highlightedGenes.push(markerId);
             }
-          } else {
-            highlightedGenes.push(markerId);
+            highlightGenes(layout);
+          } else if (data.event.button === 1) {
+            Plotly.relayout(
+              "live-plot",
+              { "xaxis.range": marker.data.span[marker.pointIndex] })
           }
-          highlightGenes(layout);
         } else {
           var markers = marker.data.Id[0];
           if (data.event.button === 1) {
@@ -1428,7 +1434,7 @@
             Plotly.deleteTraces("live-plot", genesTrace[0].idx);
           }
           Plotly.update("live-plot", {}, {shapes: shapes});
-          return;
+          return false;
         }
         var ranges = [];
         function getRanges(ch, start, end) {
@@ -1453,7 +1459,7 @@
         }
         getRanges(0, viewStart, viewEnd);
 
-        var request = $.ajax({
+        $.ajax({
           url: "{{ url_for('fetch_genes') }}",
           method: "POST",
           data: {
@@ -1479,6 +1485,7 @@
             var trace = {
               x: geneData.map(v => offsetDict[v[1]] + v[3] - (v[3] - v[2]) / 2),
               y: geneData.map(v => 0.5),
+              span: geneData.map(v => [offsetDict[v[1]] + v[2], offsetDict[v[1]] + v[3]]),
               traceType: "__genes__",
               mode: "markers",
               yaxis: "y",
@@ -1505,6 +1512,8 @@
             Plotly.addTraces("live-plot", [trace]);
             
           }
+        }).done(function(data) {
+          return true;
         });
       });
 
