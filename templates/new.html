@@ -47,6 +47,7 @@
           <form
            method="POST"
            action="{{ action }}"
+           {% if edit %} enctype="multipart/form-data" {% endif %}
            onkeydown="if(event.keyCode === 13) { event.target.blur(); }">
             {{ form.hidden_tag() }}
 {# =================================================================== Name #}

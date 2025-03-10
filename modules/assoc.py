@@ -1989,7 +1989,6 @@ def assoc_finemap(
       "pimass-lin")
     gctb_path = os.path.join(
       tool_dir,
-      "gctb",
       "gctb_2.5.2_Linux",
       "gctb")
     gt_dir = os.path.join(

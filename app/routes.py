@@ -495,6 +495,9 @@ def ts(genome):
                     phe_corr = phe - lmm.mean()
                     transform = pd.DataFrame(phe_corr).set_index(phe_samples)
 
+#                    phe_q = pd.read_csv("data/Pepper 423/covariates/Pun1_deletion.txt", sep="\t", header=0, index_col=0).loc[phe_samples]
+#                    phe_q = sm.add_constant(phe_q)
+#                    transform = pd.DataFrame(sm.OLS(phe, phe_q).fit().resid)
 
 
                 transform = transform.set_axis([params["t_name"]], axis=1)
