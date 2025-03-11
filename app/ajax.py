@@ -563,7 +563,6 @@ def fetch_genes():
     ann = pysam.TabixFile(ann_path)
 
     gene_data = list()
-    print(ranges)
     for r in ranges:
         for gene in ann.fetch(r[0], int(r[1]), int(r[2])):
             entry = gene.split("\t")

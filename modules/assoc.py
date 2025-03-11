@@ -1114,19 +1114,7 @@ def run_assoc(genome, params, task_id):
       "gt",
       "gt")
 
-    phe_path = os.path.join(
-      data_dir,
-      genome,
-      config["phe"])
-
-    kq_root = os.path.join(
-      data_dir,
-      genome,
-      "assoc",
-      params["kq_from"] or markers,
-      "gt",
-      "gt")
-
+    # Load samples and phenotype data
     fam_file = f"{in_root}.fam"
     fam_df = pd.read_csv(
       fam_file,
@@ -1155,50 +1143,26 @@ def run_assoc(genome, params, task_id):
         # phenotype file rewritten each time to keep only selected traits
         (phe_df
           .fillna("NaN")
-          .loc[params["traits"]]
+          .loc[:, params["traits"]]
           .rename_axis("Acc")
           .to_csv(
             f"{in_root}.txt",
             sep="\t"))
 
         params["k"] = True
-        q_list = list()
-        if params["q"] and params["q_num"] > 0:
-            # Covariates file filtered to keep top n selected ones
-            # and necessary samples
-            q_matr = (pd
-              .read_csv(
-                f"{kq_root}.eigenvec",
-                sep="\t",
-                header=[0],
-                index_col=[0,1])
-              .droplevel(0))
-            q_matr = q_matr.loc[:, q_matr.columns.tolist()[:int(params["q_num"])]]
-            if not samples.isin(q_matr.index).all():
-                raise OSError(
-                  "<b>Dataset selected for K/Q correction does not contain " +
-                  "all samples from the genotype dataset.<b>")
-            q_list.append(q_matr)
-        if params["cov"]:
-            cov = pd.read_csv(
-              io.StringIO(json.loads(params["cov"])),
-              sep="\t",
-              header=None,
-              index_col=0)
-            if not samples.isin(cov.index).all():
-                raise OSError(
-                  "<b>Additional covariates file does not contain " +
-                  "all samples from the genotype dataset.<b>")
-            q_list.append(cov)
-        if len(q_list) > 0:
-            (pd
-              .concat(
-                q_list,
-                axis=1)
-              .loc[samples]
-              .to_csv(
-                f"{in_root}.cov",
-                sep="\t"))
+        q_matr, k_matr = kq_process(
+          genome,
+          markers,
+          params["kq_from"] or markers,
+          samples,
+          False,
+          int(params["q_num"]) if params["q"] else 0,
+          params["cov"])
+
+        if not q_matr.empty:
+          q_matr.to_csv(
+            f"{in_root}.cov",
+            sep="\t")
         elif os.path.exists(f"{in_root}.cov"):
             os.remove(f"{in_root}.cov")
 
@@ -1256,66 +1220,14 @@ def run_assoc(genome, params, task_id):
               "<b>Kiship correction must be used " +
               "together with covariate or PCA correction.<b>")
 
-        q_list = list()
-        if params["q"] and params["q_num"] > 0:
-            # Covariates file filtered to keep top n selected ones
-            # and necessary samples
-            q_matr = (pd
-              .read_csv(
-                f"{kq_root}.eigenvec",
-                sep="\t",
-                header=[0],
-                index_col=[0,1])
-              .droplevel(0)
-              #.assign(I=1)
-              )
-            q_matr = q_matr.loc[:, q_matr.columns.tolist()[:int(params["q_num"])]] # ["I"] + 
-            if not samples.isin(q_matr.index).all():
-                raise OSError(
-                  "<b>Dataset selected for K/Q correction does not contain " +
-                  "all samples from the genotype dataset.<b>")
-            q_list.append(q_matr)
-        if params["cov"]:
-            cov = pd.read_csv(
-              io.StringIO(json.loads(params["cov"])),
-              sep="\t",
-              header=None,
-              index_col=0)
-            if not samples.isin(cov.index).all():
-                raise OSError(
-                  "<b>Additional covariates file does not contain " +
-                  "all samples from the genotype dataset.<b>")
-            q_list.append(cov)
-        if len(q_list) > 0:
-            q_matr = (pd
-              .concat(
-                q_list,
-                axis=1)
-              .loc[samples])
-
-        if params["k"]:
-            k_matr = pd.read_csv(
-              f"{kq_root}.rel",
-              sep="\t",
-              index_col=None,
-              header=None)
-            k_lab = pd.read_csv(
-              f"{kq_root}.rel.id",
-              sep="\t",
-              usecols=[1],
-              skiprows=[0],
-              header=None,
-              index_col=None)[1]
-            if not k_lab.isin(samples).all():
-                raise OSError(
-                  "<b>Dataset selected for K/Q correction does not contain " +
-                  "all samples from the genotype dataset.<b>")
-            k_matr = (k_matr
-              .set_axis(k_lab, axis=0)
-              .set_axis(k_lab, axis=1)
-              .loc[
-                samples,
-                samples])
+        q_matr, k_matr = kq_process(
+          genome,
+          markers,
+          params["kq_from"] or markers,
+          samples,
+          params["k"],
+          int(params["q_num"]) if params["q"] else 0,
+          params["cov"])
         gt = bed_reader.open_bed(f"{in_root}.bed").read()
 
         if params["optimize"]:
@@ -1327,12 +1239,15 @@ def run_assoc(genome, params, task_id):
 
         for trait in params["traits"]:
             progress(task_id, trait, bold=False)
-            phe = phe_df[trait]
-            phe_samples = phe[~pd.isna(phe)].index
-            phe = phe.loc[phe_samples]
+            phe = (phe_df
+              .loc[samples, trait]
+              .dropna())
+            phe_samples = phe.index
             phe_gt = gt[np.isin(samples, phe_samples), :]
 
-            if (params["q"] and params["q_num"] > 0) or params["cov"]:
+            if not q_matr.empty:
+                phe_samples = phe_samples.intersection(q_matr.index)
+                phe = phe.loc[phe_samples]
                 phe_q = q_matr.loc[phe_samples]
                 phe_q = sm.add_constant(phe_q)
                 if params["k"]:
@@ -1403,7 +1318,8 @@ def run_assoc(genome, params, task_id):
             res = res.loc[:, ["Chr", "Pos", "Imp"]]
             res.to_csv(
               out_tsv,
-              sep="\t")
+              sep="\t",
+              index=False)
             pysam.tabix_compress(
               out_tsv,
               out_gz,
@@ -1508,44 +1424,20 @@ def run_assoc(genome, params, task_id):
             header=False,
             sep=" "))
 
-        q_list = list()
-        if params["q"] and params["q_num"] > 0:
-            # Covariates file filtered to keep top n selected ones
-            # and necessary samples
-            q_matr = (pd
-              .read_csv(
-                f"{kq_root}.eigenvec",
-                sep="\t",
-                header=[0],
-                index_col=[0,1])
-              .droplevel(0))
-            q_matr = q_matr.loc[:, q_matr.columns.tolist()[:int(params["q_num"])]]
-            if not samples.isin(q_matr.index).all():
-                raise OSError(
-                  "<b>Dataset selected for K/Q correction does not contain " +
-                  "all samples from the genotype dataset.<b>")
-            q_list.append(q_matr)
-        if params["cov"]:
-            cov = pd.read_csv(
-              io.StringIO(json.loads(params["cov"])),
-              sep="\t",
-              header=None,
-              index_col=0)
-            if not samples.isin(cov.index).all():
-                raise OSError(
-                  "<b>Additional covariates file does not contain " +
-                  "all samples from the genotype dataset.<b>")
-            q_list.append(cov)
-        if len(q_list) > 0:
-            (pd
-              .concat(
-                q_list,
-                axis=1)
-              .loc[samples]
+        q_matr, k_matr = kq_process(
+          genome,
+          markers,
+          params["kq_from"] or markers,
+          samples,
+          params["k"],
+          int(params["q_num"]) if params["q"] else 0,
+          params["cov"])
+        if not q_matr.empty:
+            (q_matr
               .assign(IID = samples.tolist())
               .loc[
                 :,
-                ["IID"] + [c for q in q_list for c in q.columns.tolist()]]
+                ["IID"] + [c for c in q_matr.columns.tolist()]]
               .to_csv(
                 f"{in_root}.cov",
                 header=False,
@@ -1554,31 +1446,14 @@ def run_assoc(genome, params, task_id):
             os.remove(f"{in_root}.cov")
 
         if params["k"]:
-            # Kinship file filtered for necessary samples
-            k_matr = pd.read_csv(
-                f"{kq_root}.rel",
-                sep="\t",
-                header=None,
-                index_col=None)
-            k_lab = pd.read_csv(
-                f"{kq_root}.rel.id",
-                sep="\t",
-                usecols=[1],
-                skiprows=[0],
-                header=None,
-                index_col=None)[1]
-            k_matr = k_matr.loc[
-                k_lab.isin(samples),
-                k_lab.isin(samples)]
             (k_matr
-              .assign(FID = samples.tolist())
               .assign(IID = samples.tolist())
-              .loc[:, ["FID", "IID"] + k_matr.columns.tolist()]
+              .loc[:, ["IID"] + k_matr.columns.tolist()]
               .to_csv(
                 f"{in_root}.kin",
                 sep=" ",
                 header=False,
-                index=False))
+                index=True))
 
         gctb_path = os.path.join(
           tool_dir,
@@ -1594,11 +1469,11 @@ def run_assoc(genome, params, task_id):
               "--bayes", model,
               "--maf", "0",
               "--p-value", "1",
-              "--burn-in", (str(params["b_burn"]) if params["b_burn"] else "1000"),
-              "--chain-length", (str(params["b_chain"]) if params["b_chain"] else "3000"),
-              "--thin", (str(params["b_thin"]) if params["b_thin"] else "10"),
               "--out", os.path.join(out_dir, f"{model}.{trait}")]
-            cmd = cmd + ["--covar", f"{in_root}.cov"] if params["q"] and params["q_num"] > 0 else cmd
+            cmd = cmd + ["--burn-in", str(params["b_burn"])] if params["b_burn"] else cmd
+            cmd = cmd + ["--chain-length", str(params["b_chain"])] if params["b_chain"] else cmd
+            cmd = cmd + ["--thin", str(params["b_thin"])] if params["b_thin"] else cmd
+            cmd = cmd + ["--covar", f"{in_root}.cov"] if not q_matr.empty else cmd
             cmd = cmd + ["--random-covar", f"{in_root}.kin"] if params["k"] else cmd
             popen(
               task_id,
@@ -1654,68 +1529,28 @@ def run_assoc(genome, params, task_id):
             header=False,
             index=False))
 
-        if model != "glm" or (params["cov"] or (params["q"] and params["q_num"] > 0)):
-            q_list = list()
-            if params["q"] and params["q_num"] > 0:
-                # Covariates file filtered to keep top n selected ones
-                # and necessary samples
-                q_matr = (pd
-                  .read_csv(
-                    f"{kq_root}.eigenvec",
-                    sep="\t",
-                    header=[0],
-                    index_col=[0,1])
-                  .droplevel(0)
-                  .assign(I=1))
-                q_matr = q_matr.loc[:, ["I"] + q_matr.columns.tolist()[:int(params["q_num"])]]
-                if not samples.isin(q_matr.index).all():
-                    raise OSError(
-                      "<b>Dataset selected for K/Q correction does not contain " +
-                      "all samples from the genotype dataset.<b>")
-                q_list.append(q_matr)
-            if params["cov"]:
-                cov = pd.read_csv(
-                  io.StringIO(json.loads(params["cov"])),
-                  sep="\t",
-                  header=None,
-                  index_col=0)
-                if not samples.isin(cov.index).all():
-                    raise OSError(
-                      "<b>Additional covariates file does not contain " +
-                      "all samples from the genotype dataset.<b>")
-                q_list.append(cov)
-            if len(q_list) > 0:
-                (pd
-                  .concat(
-                    q_list,
-                    axis=1)
-                  .loc[samples]
-                  .to_csv(
-                    f"{in_root}.cov",
-                    sep="\t",
-                    header=False,
-                    index=False))
-            elif os.path.exists(f"{in_root}.cov"):
-                os.remove(f"{in_root}.cov")
+        q_matr, k_matr = kq_process(
+          genome,
+          markers,
+          params["kq_from"] or markers,
+          samples,
+          model != "glm",
+          int(params["q_num"]) if params["q"] else 0,
+          params["cov"])
+        if not q_matr.empty:
+            (q_matr
+              .assign(I=1)
+              .loc[:, ["I"] + q_matr.columns.tolist()]
+              .to_csv(
+                f"{in_root}.cov",
+                sep="\t",
+                header=False,
+                index=False))
+        elif os.path.exists(f"{in_root}.cov"):
+            os.remove(f"{in_root}.cov")
 
-        if model != "glm":
-            # Kinship file filtered for necessary samples
-            k_matr = pd.read_csv(
-                f"{kq_root}.rel",
-                sep="\t",
-                header=None,
-                index_col=None)
-            k_lab = pd.read_csv(
-                f"{kq_root}.rel.id",
-                sep="\t",
-                usecols=[1],
-                skiprows=[0],
-                header=None,
-                index_col=None)[1]
+        if not k_matr.empty:
             (k_matr
-              .loc[
-                k_lab.isin(samples),
-                k_lab.isin(samples)]
               .to_csv(
                 f"{in_root}.kin",
                 sep="\t",
@@ -1755,7 +1590,7 @@ def run_assoc(genome, params, task_id):
             else:
                 command += ["-lmm", "1"]
                 command += ["-k", f"{in_root}.kin"]
-            if params["q"] and params["q_num"] > 0:
+            if not q_matr.empty:
                 command += ["-c", f"{in_root}.cov"]
             progress(task_id, trait_name, bold=False)
             popen(
@@ -1798,6 +1633,88 @@ def run_assoc(genome, params, task_id):
             log_file = os.path.join(out_dir, f"{model}.{trait_name}.log.txt")
             if os.path.exists(log_file):
                 os.remove(log_file)
+
+def kq_process(
+  genome,
+  markers,
+  kq_from,
+  samples,
+  k,
+  q_num,
+  cov):
+    kq_root = os.path.join(
+      data_dir,
+      genome,
+      "assoc",
+      kq_from,
+      "gt",
+      "gt")
+
+    q_matr = pd.DataFrame()
+    k_matr = pd.DataFrame()
+    # Construct fixed effect covariates
+    q_list = list()
+    if q_num > 0:
+        # Covariates file filtered to keep top n selected ones
+        # and necessary samples
+        q_matr = (pd
+          .read_csv(
+            f"{kq_root}.eigenvec",
+            sep="\t",
+            header=[0],
+            index_col=[0,1])
+          .droplevel(0))
+        q_matr = q_matr.loc[:, q_matr.columns.tolist()[:q_num]]
+        if not samples.isin(q_matr.index).all():
+            raise OSError(
+              "<b>Dataset selected for K/Q correction does not contain " +
+              "all samples from the genotype dataset.<b>")
+        q_list.append(q_matr)
+
+    if cov:
+        cov = pd.read_csv(
+          io.StringIO(json.loads(cov)),
+          sep="\t",
+          header=None,
+          index_col=0)
+        if not samples.isin(cov.index).all():
+            raise OSError(
+              "<b>Additional covariates file does not contain " +
+              "all samples from the genotype dataset.<b>")
+        q_list.append(cov)
+    if len(q_list) > 0:
+        q_matr = (pd
+          .concat(
+            q_list,
+            axis=1)
+          .loc[samples])
+
+    # Construct kinship matrix
+    if k:
+        k_matr = pd.read_csv(
+          f"{kq_root}.rel",
+          sep="\t",
+          index_col=None,
+          header=None)
+        k_lab = pd.read_csv(
+          f"{kq_root}.rel.id",
+          sep="\t",
+          usecols=[1],
+          skiprows=[0],
+          header=None,
+          index_col=None)[1]
+        if not k_lab.isin(samples).all():
+            raise OSError(
+              "<b>Dataset selected for K/Q correction does not contain " +
+              "all samples from the genotype dataset.<b>")
+        k_matr = (k_matr
+          .set_axis(k_lab, axis=0)
+          .set_axis(k_lab, axis=1)
+          .loc[
+            samples,
+            samples])
+
+    return q_matr, k_matr
 
 def assoc_process(
   genome,
@@ -1905,6 +1822,7 @@ def assoc_process(
       pos_col = pos_col,
       sig_col = sig_col,
       qqplot  = sig_col != "PIP",
+      thresh  = sig_col != "PIP",
       end_col = "end" if is_hap else None)
 
     os.remove(out_tsv)
@@ -1942,13 +1860,6 @@ def assoc_finemap(
       "gt",
       "gt.full")
 
-    with open(os.path.join(markers_dir, "res", f"{model}.{trait}.params")) as p:
-        orig_params = dict(zip(json.load(p)))
-        k, q, kq_from = (
-          orig_params["Kinship"] == "Yes",
-          int(orig_params["PCs"]),
-          orig_params["K/Q source"])
-
     # Process phenotype file
     fam_file = f"{gt_root}.fam"
     samples = pd.read_csv(
@@ -1970,6 +1881,16 @@ def assoc_finemap(
           header=[0],
           index_col=[0])
 
+    if params["fm_method"] != "pm":
+        q_matr, k_matr = kq_process(
+          genome,
+          markers,
+          params["kq_from"] or markers,
+          samples,
+          params["k"],
+          int(params["q_num"]) if params["q"] else 0,
+          params["cov"])
+
     # Extract genotype data at QTLs
     progress(task_id, "Extracting genotypes at QTLs")
     with open(f"{out_root}.bed1", "w") as coord_out:
@@ -1982,7 +1903,7 @@ def assoc_finemap(
                 end = start
             _ = coord_out.write("\t".join((chrom, start, end)) + "\n")
 
-    if params["fm_method"] in ("B", "C", "glm"):
+    if params["fm_method"] in ("B", "C", "glm", "mlm"):
         popen(
           task_id,
           [plink2_path,
@@ -2023,6 +1944,26 @@ def assoc_finemap(
                 header=False,
                 sep=" "))
 
+            if not q_matr.empty:
+                (q_matr
+                  .assign(IID = samples.tolist())
+                  .loc[
+                    :,
+                    ["IID"] + [c for c in q_matr.columns.tolist()]]
+                  .to_csv(
+                    f"{out_root}.cov",
+                    header=False,
+                    sep=" "))
+            if params["k"]:
+                (k_matr
+                  .assign(IID = samples.tolist())
+                  .loc[:, ["IID"] + k_matr.columns.tolist()]
+                  .to_csv(
+                    f"{out_root}.kin",
+                    sep=" ",
+                    header=False,
+                    index=True))
+
             progress(task_id, "Fine-mapping with Bayes" + params["fm_method"])
             cmd = [
               gctb_path,
@@ -2035,6 +1976,8 @@ def assoc_finemap(
             cmd = cmd + ["--burn-in", str(params["b_burn"])] if params["b_burn"] else cmd
             cmd = cmd + ["--chain-length", str(params["b_chain"])] if params["b_chain"] else cmd
             cmd = cmd + ["--thin", str(params["b_thin"])] if params["b_thin"] else cmd
+            cmd = cmd + ["--covar", f"{out_root}.cov"] if not q_matr.empty else cmd
+            cmd = cmd + ["--random-covar", f"{out_root}.kin"] if params["k"] else cmd
             popen(
               task_id,
               cmd)
@@ -2087,7 +2030,24 @@ def assoc_finemap(
                 header=False,
                 index=False))
 
-            progress(task_id, "Fine-mapping with GLM")
+            if not q_matr.empty:
+                (q_matr
+                  .assign(I=1)
+                  .loc[:, ["I"] + q_matr.columns.tolist()]
+                  .to_csv(
+                    f"{out_root}.cov",
+                    sep="\t",
+                    header=False,
+                    index=False))
+            if not k_matr.empty:
+                (k_matr
+                  .to_csv(
+                    f"{out_root}.kin",
+                    sep="\t",
+                    header=False,
+                    index=False))
+
+            progress(task_id, f"Fine-mapping with {params['fm_method'].upper()}")
             command = [
               "gemma",
               "-bfile", out_root,
@@ -2097,8 +2057,14 @@ def assoc_finemap(
               "-miss", "1",
               "-maf", "0",
               "-r2", "1",
-              "-hwe", "0",
-              "-lm", "1"]
+              "-hwe", "0"]
+            if params["fm_method"] == "glm":
+                command += ["-lm", "1"]
+            else:
+                command += ["-lmm", "1"]
+                command += ["-k", f"{out_root}.kin"]
+            if not q_matr.empty:
+                command += ["-c", f"{out_root}.cov"]
             popen(
               task_id,
               command)
@@ -2130,7 +2096,7 @@ def assoc_finemap(
             # Save parameters
             run_params = [
               ["Marker set", "Method", "Trait", "Loci", "Markers", "Samples"],
-              [markers, "GLM", trait, "<br>".join(coord.split(", ")), num_vars, num_samples]]
+              [markers, params["fm_method"].upper(), trait, "<br>".join(coord.split(", ")), num_vars, num_samples]]
             with open(
               os.path.join(
                 tmp_dir,
@@ -2153,15 +2119,35 @@ def assoc_finemap(
                 progress(task_id, "Running optimization")
             else:
                 progress(task_id, "Fine-mapping with Random forest")
-            phe_df = (phe_df
+            phe = (phe_df
               .loc[samples, trait]
               .dropna())
+            phe_samples = phe.index
             gt_df = (pd
               .read_csv(
                 f"{out_root}.traw",
                 sep="\t",
                 header=0,
                 index_col=None))
+
+            if not q_matr.empty:
+                phe_samples = phe_samples.intersection(q_matr.index)
+                phe = phe.loc[phe_samples]
+                phe_q = q_matr.loc[phe_samples]
+                phe_q = sm.add_constant(phe_q)
+                if params["k"]:
+                    phe_k = k_matr.loc[phe_samples, phe_samples]
+                    QS = economic_qs_linear(phe_k)
+                    lmm = LMM(
+                      phe,
+                      phe_q,
+                      QS=QS)
+                    lmm.fit()
+                    phe_corr = phe - lmm.mean()
+                else:
+                    phe_corr = sm.OLS(phe, phe_q).fit().resid
+            else:
+                phe_corr = phe
 
             gt = (gt_df
               .drop(
@@ -2170,7 +2156,7 @@ def assoc_finemap(
               .set_axis(
                 samples,
                 axis=1)
-              .loc[:, phe_df.index]
+              .loc[:, phe_samples]
               .transpose())
 
             if params["optimize"]:
@@ -2196,7 +2182,7 @@ def assoc_finemap(
             res = run_rf(
               task_id,
               gt,
-              phe_df,
+              phe_corr,
               params["mtry"],
               params["ntree"],
               params["niter"],

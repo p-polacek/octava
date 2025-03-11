@@ -89,7 +89,7 @@ def mqplot(
 
     ax1.set_xticks(ticks=ticks, labels=labels, rotation=45, ha="right")
     ax1.set_xlabel("Chromosome")
-    ax1.set_ylabel("$-log_{10}$(p) values")
+    ax1.set_ylabel("$-log_{10}$(p) value / PIP / importance")
 
     # QQ plot
     if qqplot:

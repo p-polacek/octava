@@ -350,7 +350,7 @@
                   </div>
                 </div>
               </div>
-{# =========================================================== Fine-mapping #}
+{# ================================================ Fine-mapping saved runs #}
               <div class="row-div padded-top">
                 <h2>
                   Fine-mapping:
@@ -436,13 +436,67 @@
                       {{ choice(
                        onchange="
                         updateTracker(this.parentElement.parentElement);
-                        toggleRF();")}}
+                        toggleFMOpt();")}}
                       {{ choice.label(
                        class="checkbox-label") }}
                     </div>
                   {% endfor %}
                 </div>
               </div>
+{# ========================================================== FM correction #}
+              <span id="fm-corr" class="collapsed">
+                <div class="row-div small-padded-top">
+                  <h2>
+                    Population structure:
+                  </h2>
+                </div>
+                <div class="row-input-div justified small-padded-top">
+                  {{ form.k.label(
+                   class="default-label bold") }}
+                  {{ form.k }}
+                </div>
+                <div class="row-input-div justified small-padded-top">
+                  {{ form.q.label(
+                   class="default-label bold") }}
+                  {{ form.q }}
+                </div>
+                <div class="row-input-div justified small-padded-top">
+                  {{ form.q_num.label(
+                   class="default-label bold") }}
+                  {{ form.q_num(class="small-num-input") }}
+                </div>
+                <div class="row-div padded-top">
+                  <h2>
+                    Additional covariates:
+                  </h2>
+                  <img
+                   class="aux-button clickable"
+                   src="{{ url_for('serve_button', button='help') }}"
+                   onclick="showHelp(event, 'cov');" />
+                </div>
+                <div class="row-div">
+                  <div class="row-input-div justified small-padded-top small-padded-bottom">
+                    <label for="cov-file" class="default-label bold">
+                      File:
+                    </label>
+                    <input
+                     type="file"
+                     id="cov-file"
+                     class="icon-width"
+                     accept=".txt,.tsv"
+                     onchange="parseCov();" />
+                  </div>
+                  <img
+                    class="aux-button clickable"
+                    src="{{ url_for('serve_button', button='delete') }}"
+                    onclick="
+                      document.getElementById('cov-file').value = '';
+                      document.getElementById('cov-field').value = '';"
+                    title="Reset file" />
+                </div>
+                {{ form.cov(id="cov-field", class="collapsed") }}
+              </span>
+{# ====================================================== FM method options #}
               <span id="rf-params" class="collapsed">
                 <div class="row-div padded-top">
                   <h2>
@@ -537,7 +591,7 @@
                   {{ form[field](id=field + "-field") }}
                 {% endfor %}
               </div>
-              <div class="row-input-div justified small-padded-top">
+              <div class="row-input-div justified padded-top">
                 <button
                  type="button"
                  onclick="showPlot();">
@@ -848,12 +902,30 @@
       }
 
       var dataKeys = [];
-      for (var i = 0; i < checkedArr[0].length; i++) {
-        for (var j = 0; j < checkedArr[1].length; j++) {
-          for (var k = 0; k < checkedArr[2].length; k++) {
-            dataKeys.push([checkedArr[0][i],
-                     checkedArr[1][j],
-                     checkedArr[2][k]]);
+      if (!(checkedArr[1].length === 1 && checkedArr[1][0] === "mtmlm")) {
+        for (var i = 0; i < checkedArr[0].length; i++) {
+          for (var j = 0; j < checkedArr[1].length; j++) {
+            for (var k = 0; k < checkedArr[2].length; k++) {
+              if (checkedArr[1][j] !== "mtmlm") {
+                dataKeys.push([
+                  checkedArr[0][i],
+                  checkedArr[1][j],
+                  checkedArr[2][k]]);
+              }
+            }
+          }
+        }
+      }
+      if (checkedArr[1].includes("mtmlm")) {
+        var groupRows = document.querySelectorAll(".traits_group-option");
+        for (var i = 0; i < checkedArr[0].length; i++) {
+          for (var k = 0; k < groupRows.length; k++) {
+            if (groupRows[k].querySelector("input").checked) {
+              dataKeys.push([
+                checkedArr[0][i],
+                "mtmlm",
+                groupRows[k].querySelector("label").textContent]);
+            }
           }
         }
       }
@@ -918,13 +990,20 @@
         var lastChrom = chrNames[chrNames.length - 1];
         var xMax = chrOffsets.slice(-1)[0] + chrSizes.slice(-1)[0];
 
+        var plotEffect = false;
+
         if (!selOnly) {
           dataKeys.forEach( function(key) {
             var stringKey = JSON.stringify(key);
             if (mplotData[stringKey] != null) {
               var data = mplotData[stringKey];
-              yMax = Math.max(yMax, data[0][0]);
               var isHap = isHapDict[key[0]];
+              var yIdx = plotEffect ? data[0].length - 1 : 0;
+              if (plotEffect) {
+                yMax = Math.max(yMax, ...data.map(v => Math.abs(v[yIdx])));
+              } else {
+                yMax = Math.max(yMax, data[0][0]);
+              }
 
               var traceName = [...key];
               var thresh = document.getElementById("thresh").value;
@@ -944,7 +1023,7 @@
                     return i[2] + offsetDict[i[1]];
                   }
                 }),
-                y: data.map(i => i[0]),
+                y: data.map(i => Math.abs(i[yIdx])),
                 text: data.map(i => {
                   if (1 || i[0] >= thresh) {
                     if (isHap) {
@@ -981,7 +1060,7 @@
                 var yLines = [];
                 data.forEach(point => {
                   xLines.push(point[2] + offsetDict[point[1]], point[3] + offsetDict[point[1]], null);
-                  yLines.push(point[0], point[0], null);
+                  yLines.push(Math.abs(point[yIdx]), Math.abs(point[yIdx]), null);
                 });
                 traces.push({
                   x: xLines,
@@ -1710,24 +1789,44 @@
       Plotly.relayout("live-plot", { "xaxis.range": locusRange })
     }
 
-    function toggleRF() {
+    function toggleFMOpt() {
       var method = document.querySelector("input[name='fm_method']:checked");
       if (method == null || method.value === "") {
+        document.getElementById("fm-corr").classList.add("collapsed");
         document.getElementById("pm-params").classList.add("collapsed");
         document.getElementById("rf-params").classList.add("collapsed");
         document.getElementById("bayes-params").classList.add("collapsed");
-      } else if (method.value === "rf") {
-        document.getElementById("rf-params").classList.remove("collapsed");
-        document.getElementById("pm-params").classList.add("collapsed");
-        document.getElementById("bayes-params").classList.add("collapsed");
-      } else if (method.value === "pm") {
-        document.getElementById("pm-params").classList.remove("collapsed");
-        document.getElementById("rf-params").classList.add("collapsed");
-        document.getElementById("bayes-params").classList.add("collapsed");
-      } else if (method.value === "B" || method.value === "C") {
-        document.getElementById("pm-params").classList.add("collapsed");
-        document.getElementById("rf-params").classList.add("collapsed");
-        document.getElementById("bayes-params").classList.remove("collapsed");
+      } else {
+        document.getElementById("fm-corr").classList.remove("collapsed");
+        if (method.value === "glm" || method.value === "mlm") {
+          document.getElementById("rf-params").classList.add("collapsed");
+          document.getElementById("pm-params").classList.add("collapsed");
+          document.getElementById("bayes-params").classList.add("collapsed");
+          if (method.value === "glm") {
+            document.getElementById("k").checked = "";
+            document.getElementById("k").disabled = true;
+          } else {
+            document.getElementById("k").checked = true;
+            document.getElementById("k").disabled = true;
+          }
+        } else {
+          document.getElementById("k").checked = true;
+          document.getElementById("k").disabled = false;          
+          if (method.value === "rf") {
+            document.getElementById("rf-params").classList.remove("collapsed");
+            document.getElementById("pm-params").classList.add("collapsed");
+            document.getElementById("bayes-params").classList.add("collapsed");
+          } else if (method.value === "pm") {
+            document.getElementById("fm-corr").classList.add("collapsed");
+            document.getElementById("pm-params").classList.remove("collapsed");
+            document.getElementById("rf-params").classList.add("collapsed");
+            document.getElementById("bayes-params").classList.add("collapsed");
+          } else if (method.value === "B" || method.value === "C") {
+            document.getElementById("pm-params").classList.add("collapsed");
+            document.getElementById("rf-params").classList.add("collapsed");
+            document.getElementById("bayes-params").classList.remove("collapsed");
+          }
+        }
       }
     }
 
@@ -1860,6 +1959,7 @@
           }
 
           form.action = "{{ url_for('assoc_locus', genome=genome) }}";
+          document.getElementById("k").disabled = false;
 
         } else if (button.value === "av") {
           form.action = "{{ url_for('fa_opts', genome=genome) }}";
@@ -1956,7 +2056,7 @@
     document.addEventListener("DOMContentLoaded", function() {
       document.querySelector("input[name='fm_method']").checked = "checked";
       updateTracker(document.getElementById("fm-method-div"));
-      toggleRF();
+      toggleFMOpt();
       var notAsGroup = !document.getElementById("as-group").checked;
       var groupOpts = document.getElementById("grouping-opt-div");
       groupOpts.classList.toggle("collapsed", notAsGroup);

@@ -371,7 +371,7 @@
             <div class="row-input-div justified padded-top">
               {{ form.k.label(
                class="default-label bold") }}
-              {{ form.k(id="k-checkbox") }}
+              {{ form.k }}
             </div>
             <div class="row-input-div justified small-padded-top">
               {{ form.q.label(
@@ -621,7 +621,7 @@
     {% endif %}
 
     function setKQ(model) {
-      var kbox = document.getElementById("k-checkbox");
+      var kbox = document.getElementById("k");
       if (["blink", "mlm", "mtmlm"].includes(model)) {
         kbox.checked = "checked";
         kbox.disabled = "disabled";
