@@ -1179,11 +1179,11 @@ def run_assoc(genome, params, task_id):
           "--out", os.path.join(out_dir, "BLINK"),
           "--trait", "0"]
 
-        if os.path.exists(f"{in_root}.bimbam"):
-            command += ["--vcf"]
+        if os.path.exists(f"{in_root}.dat"):
+            command += ["--numeric"]
         else:
             command += ["--plink"]            
-
+        print(command[-1])
         popen(
           task_id,
           command)
