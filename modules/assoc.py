@@ -2080,7 +2080,7 @@ def assoc_finemap(
                 sep="\t",
                 header=0,
                 index_col=None,
-                usecols=[0,2,10])
+                usecols=[0,2,11])
               .set_axis(
                 ["chr", "pos", "val"],
                 axis=1)

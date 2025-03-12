@@ -15,6 +15,13 @@ var plotColors = [
 ];
 
 var buttonsToAdd = {
+  clear_sel: {
+    name: "Clear selection",
+    icon: Plotly.Icons.eraseshape,
+    click: function(gd) {
+      Plotly.update(gd, { selectedpoints: null }, { selections: [] });
+    }
+  },
   legend: {
     name: "Toggle legend",
     icon: {
@@ -186,17 +193,35 @@ var buttonsToAdd = {
         }
       });
       // Create a combined trace
-      var cmb = visibleData[0];
-      for (let i = 1; i < visibleData.length; i++) {
-        console.log(visibleData[i]);
-        cmb.x = cmb.x.concat(visibleData[i].x);
-        cmb.y = cmb.y.concat(visibleData[i].y);
-        cmb.hovertext = cmb.hovertext.concat(visibleData[i].hovertext);
+//      var yAxes = Object.keys(gd.layout)
+//        .filter(v => v.startsWith("yaxis"))
+//        .map(v => v.replace("axis", ""));
+      var tracesByY = {};
+      visibleData.forEach((trace, index) => {
+        let yAxis = trace.yaxis || "y";
+        if (!tracesByY[yAxis]) {
+          tracesByY[yAxis] = [];
+        }
+        tracesByY[yAxis].push(trace);
+      });
+
+      var newTraces = [];
+      for (const [y, traces] of Object.entries(tracesByY)) {
+        var cmb = traces[0];
+        for (let i = 1; i < traces.length; i++) {
+          cmb.x = cmb.x.concat(traces[i].x);
+          cmb.y = cmb.y.concat(traces[i].y);
+          if (cmb.hovertext != null) {
+            cmb.hovertext = cmb.hovertext.concat(traces[i].hovertext);
+          }
+        }
+        cmb.name = "Combined";
+        cmb.legendgroup = "Combined";
+        newTraces.push(cmb);
       }
-      cmb.name = "Combined";
 
       Plotly.deleteTraces(gd, visibleIdxs);
-      Plotly.addTraces(gd, cmb);
+      Plotly.addTraces(gd, newTraces);
     }
   },
   _delete: {

@@ -1227,31 +1227,35 @@
         editable: false,
         showTips: true,
         modeBarButtonsToAdd: 
-          ["legend", "edit", "recolor", "move_down", "group", "_delete"]
-          .map(key => buttonsToAdd[key]),
+          [...["drawline", "drawopenpath", "drawclosedpath", "drawcircle", "drawrect", "eraseshape"],
+          ...["legend", "edit", "recolor", "move_down", "group", "_delete"]
+          .map(key => buttonsToAdd[key])],
         modeBarButtonsToRemove: [],
       };
 
       Plotly.newPlot("var-phe-plot", traces, layout, config);
       var plotDiv = document.getElementById("var-phe-plot");
 
-      plotDiv.on("plotly_click", function(data){
-        var selectedPos = data.points[0].x;
-        var checkbox = document.querySelector('[pos="' + selectedPos + '"]');
-        checkbox.checked = !checkbox.checked;
-        checkboxIdx = checkbox.id.slice(3);
-        document.getElementById("varbar" + checkboxIdx).classList.toggle("var-sel", checkbox.checked);
+      function setPlotEventListeners() {
+        plotDiv.on("plotly_click", function(data){
+          var selectedPos = data.points[0].x;
+          var checkbox = document.querySelector('[pos="' + selectedPos + '"]');
+          checkbox.checked = !checkbox.checked;
+          checkboxIdx = checkbox.id.slice(3);
+          document.getElementById("varbar" + checkboxIdx).classList.toggle("var-sel", checkbox.checked);
 
-        // Change the color of the clicked x-axis tick label
-        var xClicked = data.points[0].x;
-        var ticks = plotDiv.getElementsByClassName('xtick');
-        for (var i = 0; i < ticks.length; i += 1) {
-          var tickText = ticks[i].getElementsByTagName("text")[0];
-          if (tickText.innerHTML === xClicked) {
-            tickText.style.fill = !checkbox.checked ? "red" : "limegreen";
+          // Change the color of the clicked x-axis tick label
+          var xClicked = data.points[0].x;
+          var ticks = plotDiv.getElementsByClassName('xtick');
+          for (var i = 0; i < ticks.length; i += 1) {
+            var tickText = ticks[i].getElementsByTagName("text")[0];
+            if (tickText.innerHTML === xClicked) {
+              tickText.style.fill = !checkbox.checked ? "red" : "limegreen";
+            }
           }
-        }
-      });
+        });
+      }
+      setPlotEventListeners();
     }
 {# =================================================== Gene expression plot #}
     function showExp() {

@@ -1196,12 +1196,12 @@
             maxallowed: yMax * 1.05,
           },
           yaxis3: {
-            range: [0, 1.05],
+            //range: [0, 1.05],
             autorange: false,
             showticklabels: false,
             domain: [0, 0.95],
-            minallowed: 0,
-            maxallowed: 1.05,
+            //minallowed: 0,
+            //maxallowed: 1.05,
             visible: false,
             overlaying: "y2",
           },
@@ -1270,15 +1270,15 @@
 
       var config = {
         editable: false,
-        modeBarButtonsToAdd: 
+        modeBarButtons: [
+          ["toImage"],
+          ["zoom2d", "pan2d", "select2d", "lasso2d", buttonsToAdd["clear_sel"]],
+          ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
+          ["hoverClosestCartesian", "hoverCompareCartesian"],
           ["legend", "edit", "recolor", "move_down", "_delete"]
-          .map(key => buttonsToAdd[key]),
+          .map(key => buttonsToAdd[key])],
         modeBarButtonsToRemove: [],
       };
-
-      for (i of ["hoverclosest", "hovercompare"]) {
-        config.modeBarButtonsToAdd.push(i);
-      }
 
       if (traces.length > 0) {
         Plotly.newPlot("live-plot", traces, layout, config);
@@ -1386,8 +1386,8 @@
                 //legendgroup: "LD to " + markerId,
                 Id: [markers],
                 traceType: "__ld__",
-                mode: "lines",
-                type: "scatter",
+                mode: "lines+markers",
+                type: "scattergl",
                 yaxis: "y3",
                 fill: "tozeroy",
                 fillcolor: ldColor,
@@ -1440,9 +1440,7 @@
                   bgcolor: "white",
                 },
                 marker: {
-                  size: 6,
-                  opacity: 1,
-                  color: ldVals,
+                  opacity: 0,
                 },
                 colorscale: [
                  [0, "rgb(208,208,208)"],
@@ -1478,6 +1476,9 @@
 
       plotDiv.on("plotly_relayout", function(event) {
         var locusField = document.getElementById("assoc-locus-field");
+        if (event.dragmode != null || event.selections != null) {
+          return;
+        }
         replaceLocus = true;
         var currLocus = validateLocus();
         if (currLocus != null) {
@@ -1602,6 +1603,13 @@
       plotDiv.oncontextmenu = (event => {
         event.preventDefault();
         event.stopPropagation();
+      });
+
+      plotDiv.on("plotly_selected", function(data) {
+        if (data != null) {
+          var sel = [...new Set(data.points.map(v => v.text.split("<br>")[0]))].join(", ");
+          document.getElementById("assoc-locus-field").value = sel;
+        }
       });
     }
 
