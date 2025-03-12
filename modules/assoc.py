@@ -1175,10 +1175,15 @@ def run_assoc(genome, params, task_id):
           blink_path,
           "--gwas",
           "--file", in_root,
-          "--plink",
           #"--bin_size", "5", "10", "2", "0.3",
           "--out", os.path.join(out_dir, "BLINK"),
           "--trait", "0"]
+
+        if os.path.exists(f"{in_root}.bimbam"):
+            command += ["--vcf"]
+        else:
+            command += ["--plink"]            
+
         popen(
           task_id,
           command)
@@ -1574,9 +1579,6 @@ def run_assoc(genome, params, task_id):
             n = [str(phe_df.columns.get_loc(t) + 1) for t in trait]
             command = [
               "gemma",
-              "-bfile", in_root,
-              #"-g", f"{in_root}.bimbam",
-              #"-a", f"{in_root}.ann",
               "-p", f"{in_root}.txt",
               "-n", *n,
               "-o", f"{model}.{trait_name}",
@@ -1592,6 +1594,15 @@ def run_assoc(genome, params, task_id):
                 command += ["-k", f"{in_root}.kin"]
             if not q_matr.empty:
                 command += ["-c", f"{in_root}.cov"]
+
+            if os.path.exists(f"{in_root}.bimbam"):
+                command += [
+                  "-g", f"{in_root}.bimbam",
+                  "-a", f"{in_root}.ann"]
+            else:
+                command += [
+                  "-bfile", in_root]
+
             progress(task_id, trait_name, bold=False)
             popen(
               task_id,
