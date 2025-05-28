@@ -1,6 +1,12 @@
 {% extends "header.html" %}
 
-{% block title %} {% if edit %}Edit{% else %}New{% endif %} dataset {% endblock %}
+{% block title %} 
+  {% if edit %}
+    Edit dataset
+  {% else %}
+    New dataset
+  {% endif %}
+{% endblock %}
 
 {% block style %}{% endblock %}
 
@@ -23,7 +29,7 @@
         </h3>
       {% endfor %}
       <h3 class="padded-left mini-padded-top taller-line bold red-text">
-        Phenotype files were not saved, check input files and re-submit.
+        Files were not saved, check input and re-submit.
       </h3>
     </div>
   {% endif %}
@@ -34,7 +40,11 @@
   <div class="results-wrapper">
     <div class="row-div padded-bottom">
       <h2>
-        {% if edit %}Edit{% else %}Set up a new{% endif %} dataset:
+        {% if edit %}
+          Edit dataset
+        {% else %}
+          Set up a new dataset
+        {% endif %}
       </h2>
       <img
         class="aux-button clickable"
@@ -47,47 +57,32 @@
           <form
            method="POST"
            action="{{ action }}"
-           {% if edit %} enctype="multipart/form-data" {% endif %}
+           {% if edit %}
+             enctype="multipart/form-data"
+           {% endif %}
            onkeydown="if(event.keyCode === 13) { event.target.blur(); }">
             {{ form.hidden_tag() }}
 {# =================================================================== Name #}
-            {% if not edit %}
+            {% if not genome %}
               <div class="wide-input-div justified mini-padded-top small-padded-bottom">
                 {{ form.name.label(class="default-label bold") }}
                 {{ form.name(
                  class="default-input",
                  onchange="window.location.href = this.value;") }}
               </div>
-            {% endif %}
 {# =================================================================== Icon #}
-            {% if not edit and genome %}
-              <div class="row-div">
-                <div class="disp-flex justified small-padded-top" style="width: 260px;">
-                  <label class="default-label bold">Icon:</label>
-                <img
-                 id="icon-preview"
-                 class="genome-icon"
-                 src="{{ url_for('serve_icon', genome=genome) }}"
-                 alt="Default icon">
-              </div>
-              </div>
-            {% endif %}
-{# ======================================================= Edit input files #}
-            {% if genome and (not edit or (edit and allow)) %}
-              <div class="row-div padded-top small-padded-bottom">
-                <h2>
-                  {% if edit %}Edit{% else %}Required {% endif %} files:
-                </h2>
-              </div>
+            {% else %}
               {% if edit %}
-              {% for file in ("phe", ) %} {# "run", "proj", "samp") %} #}
+                <h2 class="small-padded-top">
+                  Additional phenotype data
+                </h2>
                 <div class="row-div">
                   <div class="wide-input-div justified padded-top padded-bottom">
-                    {{ form[file].label(class="default-label bold") }}
+                    {{ form.phe.label(class="default-label bold") }}
                      <div class="input-field-sized">
-                       {{ form[file](
-                        class="icon-width",
-                        id=file+"-field",
+                       {{ form.phe(
+                        class="edit-field-width",
+                        id="phe-field",
                         accept=".txt,.tsv,.csv") }}
                     </div>
                   </div>
@@ -97,9 +92,51 @@
                     onclick="this.value = '';"
                     title="Reset file" />
                 </div>
-              {% endfor %}
+                <h2 class="small-padded-top">
+                  New cofactor file
+                </h2>
+                <div class="row-div">
+                  <div class="wide-input-div justified padded-top padded-bottom">
+                    {{ form.cof.label(class="default-label bold") }}
+                     <div class="input-field-sized">
+                       {{ form.cof(
+                        class="edit-field-width",
+                        id="cof-field",
+                        accept=".txt,.tsv,.csv") }}
+                    </div>
+                  </div>
+                  <img
+                    class="aux-button clickable"
+                    src="{{ url_for('serve_button', button='delete') }}"
+                    onclick="this.value = '';"
+                    title="Reset file" />
+                </div>
 {# ======================================================== New input files #}
               {% else %}
+                <div class="row-div">
+                  <div class="disp-flex justified small-padded-top" style="width: 260px;">
+                    <label class="default-label bold">Icon:</label>
+                  <img
+                   id="icon-preview"
+                   class="genome-icon"
+                   src="{{ url_for('serve_icon', genome=genome) }}"
+                   alt="Default icon">
+                </div>
+                </div>
+                <h2 class="padded-top">
+                  Use files from existing dataset
+                </h2>
+                <div class="wide-input-div justified padded-top small-padded-bottom">
+                  {{ form.setup_from.label(class="default-label bold") }}
+                  {{ form.setup_from(
+                   class="default-input",
+                   id="setup-from-field") }}
+                </div>
+                <div class="row-div padded-top small-padded-bottom">
+                  <h2>
+                    Required files:
+                  </h2>
+                </div>
                 <div class="wide-input-div justified small-padded-bottom">
                   {{ form.vcf.label(class="default-label bold") }}
                   {{ form.vcf(
@@ -120,24 +157,15 @@
                     Optional files:
                   </h2>
                 </div>
-                <div class="row-div">
-                  <div class="wide-input-div justified">
-                    {{ form.cds.label(
+                {% for file in ("cds", "pep") %}
+                  <div class="wide-input-div justified small-padded-bottom">
+                    {{ form[file].label(
                      class="default-label bold") }}
-                    {{ form.cds(
+                    {{ form[file](
                      class="default-input",
-                     id="cds-field") }}
+                     id=file+"-field") }}
                   </div>
-                </div>
-                <div class="row-div padded-top small-padded-bottom">
-                  <div class="wide-input-div justified">
-                    {{ form.pep.label(
-                     class="default-label bold") }}
-                    {{ form.pep(
-                     class="default-input",
-                     id="pep-field") }}
-                  </div>
-                </div>                  
+                {% endfor %}
                 <div class="row-div padded-top small-padded-bottom">
                   <h2>
                     Phenotype file:
@@ -315,34 +343,6 @@
                     </div>
                   </div>
                 </div>
-{# =========================================================== Edit dataset #}
-                <div class="row-div padded-bottom collapsed">
-                  <div class="wide-input-div justified">
-                    {{ form.edit.label(
-                     class="default-label bold") }}
-                    {{ form.edit }}
-                  </div>
-                </div>
-{# ============================================================ IGV options #}
-                <span class="collapsed">
-                <div class="row-div padded-top">
-                  <h2>
-                    IGV visualisation options:
-                  </h2>
-                </div>
-                <div class="wide-input-div justified padded-top">
-                  {{ form.igv_vis.label(class="default-label bold") }}
-                  <div class="promsize-div">
-                    {{ form.igv_vis(class="default-input promsize-input") }}
-                  </div>
-                </div>
-                <div class="wide-input-div justified small-padded-top">
-                  {{ form.igv_h.label(class="default-label bold") }}
-                  <div class="promsize-div">
-                    {{ form.igv_h(class="default-input promsize-input") }}
-                  </div>
-                </div>
-                </span>
               {% endif %}
             {% endif %}
             <div class="row-input-div justified padded-top padded-bottom">

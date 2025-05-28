@@ -25,9 +25,9 @@
 {% block content %}
   <div class="results-wrapper">
     <div class="row-div">
-      <h2 class="padded-left">
-        Results:
-      </h2>
+      <h1 class="padded-left">
+        Association analysis results
+      </h1>
       <img
         class="aux-button clickable"
         src="{{ url_for('serve_button', button='help') }}"
@@ -37,26 +37,36 @@
       <div class="disp-flex">
         <form
          method="POST"
+         target="_blank"
          onkeydown="
           if(event.keyCode === 13) { event.target.blur();}">
 {# ========================================================= Run parameters #}
           <div class="scrollable results-subcontainer flex">
             <div class="object-div param-div-flexheight">
-              <div class="row-input-div padded-bottom">
+              <div class="row-input-div centered-div padded-bottom">
                 <button
                  type="button"
-                 onclick="newAssoc();">
-                  <label
-                   class="default-label bold">
-                    Run new analysis
+                 class="heading-button"
+                 onclick="location.href='{{
+                  url_for(
+                   'assoc_opts',
+                   genome=genome ) }}'">
+                  <label class="default-label bold">
+                    Run a new analysis
                   </label>
                 </button>
               </div>
+              <div class="row-input-div">
+                <hr style="width: 100%;">
+              </div>
+              <h2 class="padded-bottom">
+                Run parameters:
+              </h2>
               {% for field in [
                "markers",
                "models",
-               "traits",
-               "traits_group"] %}
+               "trait",
+               "trait_group"] %}
                 {% set field_count = field + "_count" %}
                 {% set option_class = field + "-option" %}
                 <div class="row-div small-padded-bottom">
@@ -85,7 +95,9 @@
                       </button>
                     </div>
                     {% for choice in form[field] %}
-                      <div class="checkbox-row {{ option_class }}"
+                      <div class="checkbox-row {{ option_class }}
+                      {% if field == 'trait_group' %} group-option {% endif %}
+                      "
                       {% if field == "markers" %}
                        oncontextmenu="contextMenu(
                         event,
@@ -102,43 +114,15 @@
                 </div>
               {% endfor %}
 {# =========================================================== Plot options #}
-              <div class="row-div mini-padded-top">
-                <h2>
-                  Options:
-                </h2>
-              </div>
-              <div class="row-input-div justified small-padded-top">
-                <label
-                 for="thresh"
-                 class="default-label bold">
-                  Threshold:
-                </label>
-                <input
-                 type="number"
-                 class="small-num-input"
-                 id="thresh"
-                 onchange="updateThresh(this.value);"
-                 min="0"
-                 step="any"
-                 value="8" />
-              </div>
-              <div class="
-               row-input-div
-               justified
-               small-padded-top
-               small-padded-bottom">
-                <label
-                 for="window"
-                 class="default-label bold">
-                  Window (kb):
-                </label>
-                <input
-                 type="number"
-                 class="small-num-input",
-                 id="window"
-                 min="0"
-                 step="1"
-                 value="100" />
+              <h2 class="small-padded-top">
+                Visualisation options
+              </h2>
+              <div class="row-input-div justified mini-padded-top small-padded-bottom">
+                {{ form.plot_thr.label(class="default-label bold") }}
+                {{ form.plot_thr(
+                  id="thresh",
+                  class="small-num-input",
+                  onchange="updateThresh(this.value);") }}
               </div>
 {# ========================================================= Plot as groups #}
               <div class="row-div">
@@ -146,14 +130,16 @@
                   <label
                    for="as-group"
                    class="default-label bold" >
-                    Plot as groups
+                    Plot a bubble plot
                   </label>
                   <input
                    type="checkbox"
                    id="as-group"
                    onclick="
                     document.getElementById('grouping-opt-div')
-                    .classList.toggle('collapsed', !this.checked);">
+                    .classList.toggle('collapsed', !this.checked);
+                    document.getElementById('sgl-opt-div')
+                    .classList.toggle('collapsed', this.checked);">
                 </div>
                 <img
                   class="aux-button clickable"
@@ -163,27 +149,39 @@
               <div
                id="grouping-opt-div"
                class="collapsed">
-                <div class="row-input-div small-padded-top justified">
+                <div class="
+                 row-input-div
+                 justified
+                 small-padded-top
+                 small-padded-bottom">
                   <label
-                   for="plot-avg"
+                   for="window-bbl"
                    class="default-label bold">
-                    Plot averages by window
+                    Window (kb):
                   </label>
                   <input
-                   type="checkbox"
-                   id="plot-avg">
+                   type="number"
+                   class="small-num-input",
+                   id="window-bbl"
+                   min="0"
+                   step="1"
+                   value="100" />
                 </div>
-                <div class="row-input-div small-padded-top justified">
+                <div class="row-input-div justified small-padded-bottom">
                   <label
-                   for="groups-separate"
+                   for="min-sig"
                    class="default-label bold">
-                    Combinations separately
+                    Significance ≥
                   </label>
                   <input
-                   type="checkbox"
-                   id="groups-separate">
+                   type="number"
+                   class="small-num-input",
+                   id="min-sig"
+                   min="0"
+                   step="1"
+                   value="8" />
                 </div>
-                <div class="row-input-div justified small-padded-top">
+                <div class="row-input-div justified">
                   <label
                    for="min-size"
                    class="default-label bold">
@@ -206,100 +204,24 @@
                     Update plot
                   </label>
                 </button>
-                &nbsp;&nbsp;
                 <button
                  type="button"
                  onclick="toggleStatic();">
                   <label class="default-label bold">
-                    Switch plots
+                    Show QC plots
                   </label>
                 </button>
               </div>
-{# ======================================================= Loci of interest #}
-              <div class="row-div padded-top small-padded-bottom">
-                <h2>
-                  Loci of interest:
-                </h2>
-              </div>
-              <div class="row-div small-padded-bottom">
-                <div class="row-input-div justified">
-                  <label for="assoc-locus-field" class="default-label bold">
-                    Current:
-                  </label>
-                  <input
-                   id="assoc-locus-field"
-                   class="default-input"
-                   onchange="goToLocus(JSON.stringify([this.value]));" />
-                </div>
-                <img
-                  class="aux-button clickable"
-                  src="{{ url_for('serve_button', button='save') }}"
-                  onclick="makeGroup(event, 'assoc-locus');"
-                  title="Save current locus" />
-              </div>
-              <div class="row-div small-padded-bottom">
-                <button
-                 type="button"
-                 class="dropdown-button"
-                 onclick="showDropdown(event, this);" >
-                  {{ form.assoc_loci.label(class="default-label bold") }}
-                  <span
-                   id="loci_count"
-                   class="default-label counter">
-                    0 selected
-                  </span>
-                </button>
-                <img
-                  class="aux-button clickable"
-                  src="{{ url_for('serve_button', button='delete') }}"
-                  onclick="deleteGroup(event, 'assoc-locus');"
-                  title="Delete selected loci" />
-                <div
-                 id="assoc-locus_group-dropdown"
-                 class="dropdown-menu collapsed" >
-                  <div class="sticky non-transparent small-padding">
-                    <input
-                     type="text"
-                     class="search-bar"
-                     placeholder="Search..."
-                     onkeyup="filterDropdown(visibleDropdown);">
-                    <button
-                     type="button"
-                     onclick="toggleAll(visibleDropdown);">
-                      Select all
-                    </button>
-                  </div>
-                    {% for choice in form.assoc_loci %}
-                    <div class="checkbox-row group-option">
-                      {{ choice(
-                       class="assoc-locus_group-checkbox",
-                       onchange="updateCount(
-                        this.parentElement.parentElement);
-                        if (this.checked) { goToLocus(this.value); };") }}
-                      {{ choice.label(class="checkbox-label") }}
-                    </div>
-                  {% endfor %}
-                </div>
-              </div>
-              <div class="row-input-div small-padded-bottom justified collapsed">
-                <label
-                 for="add-window"
-                 class="default-label bold">
-                  Add +/- window to locus
-                </label>
-                <input
-                 type="checkbox"
-                 id="add-window">
-              </div>
-              <div class="row-input-div justified small-padded-top padded-bottom">
-                <button
-                 type="button"
-                 class="submit-button"
-                 value="ld">
-                  <label class="default-label bold">
-                    View LD
-                  </label>
-                </button>
+{# ==================================================== Regions of interest #}
+              <h3 class="bold small-padded-top small-padded-bottom">
+                Current / selected region(s)
+              </h3>
+              <textarea
+               class="locus-textarea"
+               id="assoc-locus-field"
+               onchange="goToLocus(this.value);">
+              </textarea>
+              <div class="row-input-div centered-divs small-padded-top padded-bottom">
                 <button
                  type="button"
                  class="submit-button"
@@ -309,16 +231,57 @@
                   </label>
                 </button>
               </div>
-              <div class="row-div small-padded-top small-padded-bottom">
+{# ====================================================== Highlight options #}
+              <h3 class="bold small-padded-top small-padded-bottom">
+                Highlight:
+              </h3>
+              <div class="row-div small-padded-bottom">
+                <button
+                 type="button"
+                 class="dropdown-button"
+                 onclick="showDropdown(event, this);">
+                  {{ form.hgl_coord_group.label(
+                   class="default-label bold") }}
+                  <span
+                   class="default-label counter">
+                  </span>
+                </button>
+                <div id="hgl_coord_group-dropdown" class="dropdown-menu collapsed">
+                  <div class="sticky non-transparent small-padding">
+                    <input
+                     type="text"
+                     class="search-bar"
+                     placeholder="Search..."
+                     onkeyup="filterDropdown(visibleDropdown);">
+                    <button
+                     type="button"
+                     onclick="toggleAll(visibleDropdown); highlightRegions();">
+                      Select all
+                    </button>
+                  </div>
+                  {% for choice in form.hgl_coord_group %}
+                    <div
+                     class="checkbox-row group-option">
+                      {{ choice(
+                       onchange="
+                        highlightRegions();
+                        updateTracker(this.parentElement.parentElement);")}}
+                      {{ choice.label(
+                       class="checkbox-label") }}
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="row-div small-padded-bottom">
                 <div class="row-input-div">
                   <button
                    type="button"
                    class="dropdown-button"
                    onclick="showDropdown(event, this);">
-                    {{ form.gene_groups.label(class="default-label bold") }}
+                    {{ form.hgl_gene_group.label(class="default-label bold") }}
                     <span
                      class="default-label counter"
-                     id="gene_groups-count">
+                     id="hgl_gene_group-count">
                       0 selected
                     </span>
                   </button>
@@ -333,86 +296,42 @@
                        onkeyup="filterDropdown(visibleDropdown);">
                       <button
                        type="button"
-                       onclick="toggleAll(visibleDropdown);">
+                       onclick="toggleAll(visibleDropdown); applyGeneHighlight();">
                         Select all
                       </button>
                     </div>
-                    {% for choice in form.gene_groups %}
+                    {% for choice in form.hgl_gene_group %}
                       <div class="checkbox-row group-option">
                         {{ choice(
                          class="genes_group-checkbox",
                          onchange="
                           updateCount(this.parentElement.parentElement);
-                          highlightGroup(this.value, this.checked);") }}
+                          highlightGroup(this.parentElement.querySelector('.checkbox-label').innerText, this.value, this.checked);") }}
                         {{ choice.label(class="checkbox-label") }}
                       </div>
                     {% endfor %}
                   </div>
                 </div>
               </div>
-{# ================================================ Fine-mapping saved runs #}
-              <div class="row-div padded-top">
-                <h2>
-                  Fine-mapping:
-                </h2>
-                <img                  class="aux-button clickable"                  src="{{ url_for('serve_button', button='help') }}"                  onclick="showHelp(event, 'finemap');" />              </div>
-              <div class="row-div padded-top small-padded-bottom">
-                <button
-                 type="button"
-                 class="dropdown-button"
-                 onclick="showDropdown(event, this);">
-                  {{ form.fm_runs.label(class="default-label bold") }}
-                  <span
-                   class="default-label counter"
-                   id="fm_runs-count">
-                    0 selected
-                  </span>
-                </button>
-                <div
-                 class="dropdown-menu collapsed"
-                 id="fm_runs-dropdown">
-                  <div class="sticky non-transparent small-padding">
-                    <input
-                     type="text"
-                     class="search-bar"
-                     placeholder="Search..."
-                     onkeyup="filterDropdown(visibleDropdown);">
-                    <button
-                     type="button"
-                     onclick="toggleAll(visibleDropdown);">
-                      Select all
-                    </button>
-                  </div>
-                  {% for choice in form.fm_runs %}
-                    <div
-                     class="checkbox-row group-option"
-                     oncontextmenu="contextMenu(
-                      event,
-                       {'action': 'fm_run',
-                        'task_id': '{{ choice.data }}' });">
-                      {{ choice(
-                       class="fm_runs-checkbox",
-                       onchange="updateCount(
-                        this.parentElement.parentElement);") }}
-                      {{ choice.label(class="checkbox-label") }}
-                    </div>
-                  {% endfor %}
+{# ======================================================= LD within region #}
+              <div id="sgl-opt-div">
+              <div class="row-div">
+                <div class="row-input-div">
+                  <h2 class="padded-top padded-bottom">
+                    Linkage and QTL analysis
+                  </h2>
                 </div>
                 <img
-                  class="aux-button clickable"
-                  id="save-fm"
-                  src="{{ url_for('serve_button', button='save') }}"
-                  onclick="saveFM(event);"
-                  title="Save current fine-mapping analysis" />
+                 class="aux-button clickable"
+                 src="{{ url_for('serve_button', button='help') }}"
+                 onclick="showHelp(event, 'assoc-res');" />
               </div>
-              <div
-                id="fm-method-div"
-                class="row-div small-padded-bottom">
+              <div class="row-div small-padded-bottom">
                 <button
                  type="button"
                  class="dropdown-button"
                  onclick="showDropdown(event, this);">
-                  {{ form.fm_method.label(
+                  {{ form.markers_sgl.label(
                    class="default-label bold") }}
                   <span
                    class="default-label tracker">
@@ -431,183 +350,62 @@
                       Select all
                     </button>
                   </div>
-                  {% for choice in form.fm_method %}
-                    <div class="checkbox-row">
+                  {% for choice in form.markers_sgl %}
+                    <div
+                     class="checkbox-row"
+                     oncontextmenu="contextMenu(
+                      event,
+                      {'action': 'markers',
+                       'markers': this.querySelector('label').textContent});">
                       {{ choice(
                        onchange="
-                        updateTracker(this.parentElement.parentElement);
-                        toggleFMOpt();")}}
+                        updateTracker(this.parentElement.parentElement);")}}
                       {{ choice.label(
                        class="checkbox-label") }}
                     </div>
                   {% endfor %}
-                </div>
+                 </div>
               </div>
-{# ========================================================== FM correction #}
-              <span id="fm-corr" class="collapsed">
-                <div class="row-div small-padded-top">
-                  <h2>
-                    Population structure:
-                  </h2>
-                </div>
-                <div class="row-input-div justified small-padded-top">
-                  {{ form.k.label(
-                   class="default-label bold") }}
-                  {{ form.k }}
-                </div>
-                <div class="row-input-div justified small-padded-top">
-                  {{ form.q.label(
-                   class="default-label bold") }}
-                  {{ form.q }}
-                </div>
-                <div class="row-input-div justified small-padded-top">
-                  {{ form.q_num.label(
-                   class="default-label bold") }}
-                  {{ form.q_num(class="small-num-input") }}
-                </div>
-                <div class="row-div padded-top">
-                  <h2>
-                    Additional covariates:
-                  </h2>
-                  <img
-                   class="aux-button clickable"
-                   src="{{ url_for('serve_button', button='help') }}"
-                   onclick="showHelp(event, 'cov');" />
-                </div>
-                <div class="row-div">
-                  <div class="row-input-div justified small-padded-top small-padded-bottom">
-                    <label for="cov-file" class="default-label bold">
-                      File:
-                    </label>
-                    <input
-                     type="file"
-                     id="cov-file"
-                     class="icon-width"
-                     accept=".txt,.tsv"
-                     onchange="parseCov();" />
-                  </div>
-                  <img
-                    class="aux-button clickable"
-                    src="{{ url_for('serve_button', button='delete') }}"
-                    onclick="
-                      document.getElementById('cov-file').value = '';
-                      document.getElementById('cov-field').value = '';"
-                    title="Reset file" />
-                </div>
-                {{ form.cov(id="cov-field", class="collapsed") }}
-              </span>
-{# ====================================================== FM method options #}
-              <span id="rf-params" class="collapsed">
-                <div class="row-div padded-top">
-                  <h2>
-                    Random forest options:
-                  </h2>
-                  <img
-                    class="aux-button clickable"
-                    src="{{ url_for('serve_button', button='help') }}"
-                    onclick="showHelp(event, 'rf-options');" />
-                </div>
-                <div class="row-div padded-top">
-                  <h3 class="bold">
-                    Optimize parameters:
-                  </h3>
-                </div>
-                {% for field in ("mtryvals", "ntreevals") %}
-                  <div class="row-input-div justified small-padded-top">
-                    {{ form[field].label(
-                     class="default-label bold") }}
-                    {{ form[field](class="small-num-input") }}
-                  </div>
-                {% endfor %}
-                <div class="row-input-div justified padded-top">
-                  <button
-                   class="submit-button"
-                   value="optim">
-                    <label
-                     class="default-label bold">
-                      Optimize
-                    </label>
-                  </button>
-                </div>
-                <div class="row-div padded-top">
-                  <h3 class="bold">
-                    Number of:
-                  </h3>
-                </div>
-                {% for field in ("mtry", "ntree", "niter", "nperm") %}
-                  <div class="row-input-div justified small-padded-top">
-                    {{ form[field].label(
-                     class="default-label bold") }}
-                    {{ form[field](class="small-num-input") }}
-                  </div>
-                {% endfor %}
-                {{ form.optimize(id="optimize", class="collapsed") }}
-              </span>
-              <span id="pm-params" class="collapsed">
-                <div class="row-div padded-top">
-                  <h2>
-                    PiMASS options:
-                  </h2>
-                  <img
-                    class="aux-button clickable"
-                    src="{{ url_for('serve_button', button='help') }}"
-                    onclick="showHelp(event, 'pimass-options');" />
-                </div>
-                {% for field in ("pm_w", "pm_s", "pm_num", "pm_hmin", "pm_hmax", "pm_pmin", "pm_pmax", "pm_nstart", "pm_smin", "pm_smax") %}
-                  <div class="row-input-div justified small-padded-top">
-                    {{ form[field].label(
-                     class="default-label bold") }}
-                    {{ form[field](class="small-num-input") }}
-                  </div>
-                {% endfor %}
-              </span>
-              <span id="bayes-params" class="collapsed">
-                <div class="row-div padded-top">
-                  <h2>
-                    Bayes options:
-                  </h2>
-                  <img
-                    class="aux-button clickable collapsed"
-                    src="{{ url_for('serve_button', button='help') }}"
-                    onclick="showHelp(event, 'bayes-options');" />
-                </div>
-                {% for field in ("b_burn", "b_chain", "b_thin") %}
-                  <div class="row-input-div justified small-padded-top">
-                    {{ form[field].label(
-                     class="default-label bold") }}
-                    {{ form[field](class="small-num-input") }}
-                  </div>
-                {% endfor %}
-              </span>
-              <div class="collapsed">
-                {% for field in [
-                 "pval",
-                 "coord",
-                 "fmt",
-                 "mrk",
-                 "mod",
-                 "trt",
-                 "fm_ids"] %}
-                  {{ form[field](id=field + "-field") }}
-                {% endfor %}
+              <div class="row-input-div justified small-padded-bottom">
+                {{ form.window_ld.label(class="default-label bold") }}
+                {{ form.window_ld(
+                  id="window-ld",
+                  class="small-num-input") }}
               </div>
-              <div class="row-input-div justified padded-top">
+              <div class="row-input-div justified padded-bottom">
+              <label for="{{ form.r2_ld.id }}" class="default-label bold">
+                {{ form.r2_ld.label.text|safe }}
+              </label>
+                {{ form.r2_ld(
+                  id="r2-ld",
+                  class="small-num-input") }}
+              </div>
+              <div class="row-input-div padded-bottom">
                 <button
-                 type="button"
-                 onclick="showPlot();">
+                 type="button" onclick="saveQTLs();">
                   <label class="default-label bold">
-                    Update plot
+                    Extract QTLs
                   </label>
                 </button>
+              </div>
+
+{#            <div style="padding-top: 50px;"></div>
+              <div class="row-input-div justified small-padded-top padded-bottom">
                 <button
                  type="button"
                  class="submit-button"
-                 value="fm">
+                 value="ld">
                   <label class="default-label bold">
-                    Fine-map
+                    View LD
                   </label>
                 </button>
               </div>
+#}              <div class="collapsed">
+                {% for field in ["gene", "coord", "fmt", "qtl_runs"] %}
+                  {{ form[field](id=field + "-field") }}
+                {% endfor %}
+              </div>
+            </div>
             </div>
           </div>
         </form>
@@ -638,9 +436,6 @@
    filename='js/plotly_config.js')}}"></script>
   <script src="{{url_for(
    'static',
-   filename='js/contextmenu.js')}}"></script>
-  <script src="{{url_for(
-   'static',
    filename='js/help_texts.js')}}"></script>
   <script src="{{url_for(
    'static',
@@ -664,13 +459,23 @@
       "#bcbd22",  // curry yellow-green
       "#17becf"   // blue-teal
     ];
+    const ldColorCycle = [ // All raised in luminosity, offset by 3
+      "#F2B7B7",  // brick red
+      "#c6addc",  // muted purple
+      "#d7b9b3",  // chestnut brown
+      "#efafdc",  // raspberry yogurt pink
+      "#baf1f8",  // blue-teal
+      "#cfcfcf",  // middle gray
+      "#eded9c",  // curry yellow-green
+      "#b7dbf2",  // muted blue
+      "#ffd7b3",  // safety orange
+      "#bcedbc",  // cooked asparagus green
+    ];
     const chrNames = {{ chroms|tojson }};
     const chrSizes = {{ sizes|tojson }};
     const chrOffsets = {{ offsets|tojson }};
     const modelsDict = {{ models|tojson }};
-    const FMData = {{ fm_data|tojson }};
     const isHapDict = {{ is_hap|tojson }};
-    var highlightedGenes = [];
     var replaceLocus = true;
 
     var chrTicks = [];
@@ -682,7 +487,10 @@
       offsetDict[chrNames[i]] = chrOffsets[i];
     }
     var concatNames = {{ concat|tojson }};
-    var plotNames = chrNames.filter( n => !concatNames.includes(n) );    
+    var plotNames = chrNames.filter( n => !concatNames.includes(n) );
+    if (concatNames.length > 0) {
+      plotNames.push("Other");
+    }
 
     var genome = '{{ genome }}';
     var visibleDropdown = null;
@@ -692,19 +500,6 @@
       window.location.href = '{{ url_for("assoc_opts", genome=genome) }}';
     }
 {# ================================================== Static plot functions #}
-    async function fetchStatic(m, l, t, p) {
-      var g = genome;
-      try {
-        const resp = await fetch(`/staticplot?g=${g}&m=${m}&l=${l}&t=${t}&p=${p}`);
-        alert(Object.keys(resp));
-        const blob = await resp.blob();
-        document.getElementById(p).src = URL.createObjectURL(blob);
-        alert(URL.createObjectURL(blob));
-      } catch (error) {
-        console.error('Error fetching image:', error);
-      }
-    }
-
     function toggleStatic() {
       var liveDiv = document.getElementById("live-plot");
       var staticDiv = document.getElementById("static-plot");
@@ -717,12 +512,8 @@
       } else {
         var visibleTraces = [];
         document.getElementById("live-plot").data.forEach( function(trace) {
-          if (
-           !trace.hasOwnProperty("visible")
-           || trace.visible !== "legendonly") {
-             if (trace.Id != null) {
-              visibleTraces.push(trace);
-            }
+          if (trace.visible !== "legendonly" && trace.traceType === "mp_sgl") {
+            visibleTraces.push(trace);
           }
         });
         if (visibleTraces.length !== 1) {
@@ -757,20 +548,23 @@
       document.getElementById("live-plot").classList.remove("collapsed");
 
       var asGroup = document.getElementById("as-group").checked;
-      var thresh  = Math.max(3, document.getElementById("thresh").value);
-      var window  = Math.max(0, document.getElementById("window").value);
+      var thresh  = Math.max(3, document.getElementById("min-sig").value);
+      var window  = Math.max(0, document.getElementById("window-bbl").value);
       var minSize = Math.max(0, document.getElementById("min-size").value);
-      var plotAvg = +document.getElementById("plot-avg").checked;
       document.getElementById("assoc-locus-field").value = "";
 
       var checkboxClasses = [
        ".markers-option",
        ".models-option",
-       ".traits-option"];
+       ".trait-option"];
       var checkedArr = [];
       checkboxClasses.forEach( function(cls) {
         checkedArr.push(checkedBoxes(cls));
       });
+      if (checkedArr.some(a => a.length === 0)) {
+        document.getElementById("live-plot").innerHTML = "";
+        return;
+      }
 
       // Fetch all GWAS result data to plot
       var requests = [];
@@ -778,17 +572,12 @@
       var yMax = 0;
 {# ============================================================== As groups #}
       if (asGroup) {
-        var separate = document.getElementById("groups-separate").checked;
-        if (checkedArr[0].length === 1 && checkedArr[1].length === 1) {
-          separate = false;
-        }
-
         var allKeys = [];
         var groupNames = [];
         var selOnly = false;
 
         var checkedRows = [];
-        var checkboxRows = document.querySelectorAll(".traits_group-option");
+        var checkboxRows = document.querySelectorAll(".trait_group-option");
         checkboxRows.forEach( function(checkboxRow) {
           var checkbox = checkboxRow.querySelector("input");
           if (checkbox.checked) {
@@ -812,9 +601,6 @@
           checkedRows.forEach( function(checkedRow) {
             var groupKeys = [];
             var groupName = checkedRow.querySelector("label").textContent.trim();
-            if (!separate) {
-              groupNames.push(groupName);
-            }
 
             var tData = checkedRow.querySelector("input[type='checkbox']").value;
             var traits = JSON.parse(tData);
@@ -823,20 +609,13 @@
 
               for (let j = 0; j < checkedArr[1].length; j++) {
                 model = checkedArr[1][j];
-
-                if (separate) {
-                  groupNames.push([markers, model, groupName].join(", "));
-                }
-
+                groupNames.push([markers, model, groupName].join(", "));
                 var groupKey = [];
                 traits.forEach( function(trait) {
                   groupKey.push([markers, model, trait]);
                 });
                 groupKeys.push(groupKey);
               }
-            }
-            if (!separate) {
-              groupKeys = [groupKeys.flat()];
             }
             allKeys = allKeys.concat(groupKeys);
           });
@@ -852,7 +631,6 @@
             window: parseInt(window) * 1000,
             thresh, thresh,
             min_size: minSize,
-            plot_avg: plotAvg,
           },
           success: function(data) {
             for (let i = 0; i < data.length; i++) {
@@ -865,17 +643,20 @@
                   name: groupNames[i],
                   mode: "markers",
                   type: "scattergl",
+                  traceType: "mp_bbl",
                   x: traceData.map(i => i[0]),
                   y: yVals,
+                  runs: traceData.map(i => i[3]),
+                  positions: traceData.map(i => i[2]),
                   yaxis: "y2",
                   marker: {
-                    size: traceData.map(i => i[2] * 4 + 2),
+                    size: traceData.map(i => i[3].length * 4 + 2),
                   },
                   text: traceData.map(i => {
-                   return `${i[3]}<br><br>${i[4].join("<br>")}`;
+                   return `${i[2]}<br><br>${i[3].join("<br>")}`;
                   }),
                   hoverinfo: "y+text",
-                  hovertemplate: "log10(p): %{y}<br>%{text}",
+                  hovertemplate: "Average peak log10(p): %{y}<br>%{text}",
                     hoverlabel: {
                       namelength: 0,
                       bgcolor: "white",
@@ -891,7 +672,7 @@
         requests.push(request);
 {# ============================================================= Individual #}
       } else {
-        checkedBoxes(".traits_group-option").forEach( function(group) {
+        checkedBoxes(".trait_group-option").forEach( function(group) {
           var traits = JSON.parse(group);
           traits.forEach( function(trait) {
             if (!checkedArr[2].includes(trait)) {
@@ -917,7 +698,7 @@
         }
       }
       if (checkedArr[1].includes("mtmlm")) {
-        var groupRows = document.querySelectorAll(".traits_group-option");
+        var groupRows = document.querySelectorAll(".trait_group-option");
         for (var i = 0; i < checkedArr[0].length; i++) {
           for (var k = 0; k < groupRows.length; k++) {
             if (groupRows[k].querySelector("input").checked) {
@@ -957,34 +738,6 @@
           })(dataKey);
         });
       }
-{# ========================================================== Fetch FM data #}
-      var FMtoPlot = FMData.slice();
-      var selectedRuns = [];
-      document.querySelectorAll(".fm_runs-checkbox").forEach(function(run) {
-        if (run.checked) {
-          selectedRuns.push(run.value);
-        }
-      });
-      if (selectedRuns.length > 0) {
-        selectedRuns.forEach( function(selectedRun) {
-          (function(run) {
-            var request = $.ajax({
-              url: "{{ url_for('fetch_fmplot') }}",
-              method: "POST",
-              data: {
-                genome: genome,
-                task_id: run,
-              },
-              success: function(data) {
-                if (typeof data == "object") {
-                  FMtoPlot.push(data);
-                }
-              }
-            });
-            requests.push(request);
-          })(selectedRun);
-        });
-      }
 {# ========================================================== Assemble plot #}
       $.when.apply($, requests).done(function() {
         var lastChrom = chrNames[chrNames.length - 1];
@@ -992,133 +745,97 @@
 
         var plotEffect = false;
 
+        dataKeys = dataKeys.filter(k => mplotData[JSON.stringify(k)] != null);
+
         if (!selOnly) {
           dataKeys.forEach( function(key) {
             var stringKey = JSON.stringify(key);
-            if (mplotData[stringKey] != null) {
-              var data = mplotData[stringKey];
-              var isHap = isHapDict[key[0]];
-              var yIdx = plotEffect ? data[0].length - 1 : 0;
-              if (plotEffect) {
-                yMax = Math.max(yMax, ...data.map(v => Math.abs(v[yIdx])));
-              } else {
-                yMax = Math.max(yMax, data[0][0]);
-              }
-
-              var traceName = [...key];
-              var thresh = document.getElementById("thresh").value;
-              traceName[1] = modelsDict[traceName[1]];
-              var visName = traceName.join(", ");
-              const trace = {
-                name: visName,
-                legendgroup: traceName.join(", "),
-                Id: key,
-                mode: "markers",
-                type: "scattergl",
-                yaxis: "y2",
-                x: data.map(i => {
-                  if (isHap) {
-                    return i[2] + (i[3] - i[2]) / 2 + offsetDict[i[1]];
-                  } else {
-                    return i[2] + offsetDict[i[1]];
-                  }
-                }),
-                y: data.map(i => Math.abs(i[yIdx])),
-                text: data.map(i => {
-                  if (1 || i[0] >= thresh) {
-                    if (isHap) {
-                      return `${i[1]}:${i[2]
-                       .toString()
-                       .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}-${i[3]
-                       .toString()
-                       .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}_${i[4]}<br>${visName}`;
-                    } else {
-                      return `${i[1]}:${i[2]
-                       .toString()
-                       .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}<br>${visName}`;
-                     }
-                   } else {
-                     return null;
-                   }
-                }),
-                hoverinfo: "text",
-                hovertemplate: "%{text}<br>Value: %{y}",
-                hoverlabel: {
-                  namelength: 0,
-                  bgcolor: "white",
-                },
-                marker: {
-                  color: colorCycle[traces.length % 10],
-                  size: 6,
-                  opacity: null,
-                },
-                visible: true,
-              };
-              traces.push(trace);
-              if (isHap) {
-                var xLines = [];
-                var yLines = [];
-                data.forEach(point => {
-                  xLines.push(point[2] + offsetDict[point[1]], point[3] + offsetDict[point[1]], null);
-                  yLines.push(Math.abs(point[yIdx]), Math.abs(point[yIdx]), null);
-                });
-                traces.push({
-                  x: xLines,
-                  y: yLines,
-                  type: "scattergl",
-                  mode: "lines",
-                  yaxis: "y2",
-                  legendgroup: traceName.join(", "),
-                  line: {
-                    width: 6,
-                    color: colorCycle[(traces.length - 1) % 10],
-                  },
-                  hoverinfo: "skip",
-                  showlegend: false,
-                  visible: true,
-                });
-              }
+            var data = mplotData[stringKey];
+            var isHap = isHapDict[key[0]];
+            var yIdx = plotEffect ? data[0].length - 1 : 0;
+            if (plotEffect) {
+              yMax = Math.max(yMax, ...data.map(v => Math.abs(v[yIdx])));
+            } else {
+              yMax = Math.max(yMax, data[0][0]);
             }
-          });
-        }
 
-        if (FMtoPlot.length > 0) {
-          var yPipMax = 0;
-          for (let i = 0; i < FMtoPlot.length; i++) {
-            var[FMParams, taskId, name, FMRes] = FMtoPlot[i];
-            if (name === "") {
-              name = "PIP" + (i + 1)
-            }
-            var FMVals = FMRes.map(v => v[2]);
-            yPipMax = Math.max(yPipMax, ...FMVals);
-            traces.push({
-              x: FMRes.map(v => v[1] + offsetDict[v[0]]),
-              y: FMVals,
-              Id: FMParams,
-              taskId: taskId,
-              traceType: "__fm__",
-              type: "scattergl",
+            var traceName = [...key];
+            var thresh = document.getElementById("thresh").value;
+            traceName[1] = modelsDict[traceName[1]];
+            var visName = traceName.join(", ");
+            var trace = {
+              name: visName,
+              legendgroup: traceName.join(", "),
+              Id: key,
               mode: "markers",
-              name: name,
-              yaxis: "y4",
-              marker: {
-                color: colorCycle[traces.length % 10],
-                symbol: "triangle-up",
-                size: 8,
-              },
-              text: FMRes.map(v => {
-               return `${v[0]}:${v[1]
-                .toString()
-                .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+              type: "scattergl",
+              traceType: "mp_sgl",
+              yaxis: "y2",
+              x: data.map(i => {
+                if (isHap) {
+                  return i[2] + (i[3] - i[2]) / 2 + offsetDict[i[1]];
+                } else {
+                  return i[2] + offsetDict[i[1]];
+                }
               }),
-              hoverinfo: "text+y",
+              y: data.map(i => Math.abs(i[yIdx])),
+              text: data.map(i => {
+                if (1 || i[0] >= thresh) {
+                  if (isHap) {
+                    return `${i[1]}:${i[2]
+                     .toString()
+                     .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}-${i[3]
+                     .toString()
+                     .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}_${i[4]}<br>${visName}`;
+                  } else {
+                    return `${i[1]}:${i[2]
+                     .toString()
+                     .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}<br>${visName}`;
+                   }
+                 } else {
+                   return null;
+                 }
+              }),
+              hoverinfo: "text",
               hovertemplate: "%{text}<br>Value: %{y}",
               hoverlabel: {
                 namelength: 0,
                 bgcolor: "white",
               },
-            });
-          }
+              marker: {
+                color: colorCycle[traces.length % 10],
+                size: 6,
+                symbol: Math.floor(traces.length / 10),
+                opacity: null,
+              },
+              visible: true,
+            };
+            traces.push(trace);
+            if (isHap) {
+              var xLines = [];
+              var yLines = [];
+              data.forEach(point => {
+                xLines.push(point[2] + offsetDict[point[1]], point[3] + offsetDict[point[1]], null);
+                yLines.push(Math.abs(point[yIdx]), Math.abs(point[yIdx]), null);
+              });
+              traces.push({
+                x: xLines,
+                y: yLines,
+                type: "scattergl",
+                traceType: "hapline",
+                mode: "lines",
+                yaxis: "y2",
+                legendgroup: traceName.join(", "),
+                line: {
+                  width: 6,
+                  color: colorCycle[(traces.length - 1) % 10],
+                },
+                hoverinfo: "skip",
+                showlegend: false,
+                visible: true,
+              });
+            }
+          });
         }
 
         // Break long legend titles by newlines
@@ -1127,6 +844,56 @@
             traces[i].name = traces[i].name.replace(/(.{10,}?)[\s\_\-]/g, "$1<br>");
           }
         }
+
+        if (traces.length === 0) {
+          document.getElementById("live-plot").innerHTML = "";
+          return;
+        }
+
+        // Add empty traces for genes and highlighted genes
+        var trace = {
+          x: [],
+          y: [],
+          markerPos: [],
+          traceType: "__genes__",
+          mode: "markers",
+          yaxis: "y",
+          text: [],
+          permanent: true,
+          hoverinfo: "text",
+          hoverlabel: {
+            namelength: 0,
+            bgcolor: "white",
+          },
+          marker: {
+            opacity: 0,
+          },
+          showlegend: false,
+          visible: true,
+        };
+        traces.push(trace);
+
+        var trace = {
+          x: [],
+          y: [],
+          markerPos: [],
+          traceType: "__genes_hgl__",
+          mode: "markers",
+          yaxis: "y",
+          text: [],
+          permanent: true,
+          hoverinfo: "text",
+          hoverlabel: {
+            namelength: 0,
+            bgcolor: "white",
+          },
+          marker: {
+            opacity: 0,
+          },
+          showlegend: false,
+          visible: true,
+        };
+        traces.push(trace);
 {# =========================================== Construct x-axis tick labels #}
         // Don't show scaffold labels and spans
         if (concatNames.length > 0) {
@@ -1157,6 +924,32 @@
           var plotSizes   = chrSizes;
         }
 
+        var y2Title;
+        var modelTypes = [...new Set(dataKeys.map(v => v[1]))];
+        if (modelTypes.length > 1) {
+          if (modelTypes.every(m => ["B", "C"].includes(m))) {
+            y2Title = "Posterior inclusion probability";
+          } else if (modelTypes.every(m => ["glm", "mlm", "mtmlm", "blink"].includes(m))) {
+            y2Title = "-log<sub>10</sub>(P-value)";
+          } else {
+            y2Title = "Significance (multiple scales)";
+            if (event.clientX != null) {
+              showHelp(event, null, "Significance plotted on y-axis uses multiple scales.<br>Take caution when interpreting results.");
+            }
+          }
+        } else {
+          y2Title = (() => {
+            if (dataKeys.length > 0) {
+              switch (dataKeys[0][1]) {
+                case "rf": return "Permutation importance";
+                case "B": case "C": return "Posterior inclusion probability";
+                case "glm": case "mlm": case "mtmlm": case "blink": return "-log<sub>10</sub>(P-value)";
+                default: return "Significance";
+              }
+            }
+          })();
+        }
+
         var layout = {
           legend: {
             x: 1.05,
@@ -1178,16 +971,15 @@
           yaxis: {
             title: "Genes",
             domain: [0.95, 1],
-            range: [0, 1],
+            range: [0.1, 0.9],
             zeroline: false,
             showgrid: false,
             showticklabels: false,
-            minallowed: 0,
-            maxallowed: 1,
+            minallowed: 0.1,
+            maxallowed: 0.9,
           },
           yaxis2: {
-            title: "-log10(p-value) / Importance / Effect", //title: "-log10(p-value)",
-            //rangemode: "tozero",
+            title:  y2Title,
             range: [0, yMax * 1.05],
             autorange: false,
             ticklen: 5,
@@ -1196,14 +988,17 @@
             maxallowed: yMax * 1.05,
           },
           yaxis3: {
+            title: "Linkage disequilibrium (r<sup>2</sup>)",
             range: [0, 1.05],
             autorange: false,
-            showticklabels: false,
+            showticklabels: true,
             domain: [0, 0.95],
             minallowed: 0,
             maxallowed: 1.05,
-            visible: false,
+            visible: true,
             overlaying: "y2",
+            side: "right",
+            griddash: "dash",
           },
           margin: {
 //            l: 100,
@@ -1215,24 +1010,12 @@
           hovermode: "closest",
           showlegend: true,
         };
-        if (FMtoPlot.length > 0) {
-          layout.yaxis4 = {
-            title: "PIP / importance",
-            overlaying: "y2",
-            //showgrid: false,
-            //gridcolor: "blue",
-            griddash: "dash",
-            side: "right",
-            range: [0, yPipMax * 1.05],
-            minallowed: 0,
-            maxallowed: yPipMax * 1.05,
-          };
-        }
 {# ======================================================= Chromosome spans #}
         var spanShapes = [];
-        for (i = 0; i < plotNames.length; i+= 2) {
+        for (i = 0; i < plotNames.length; i++) {
           var shape = {
             type: "rect",
+            shapeType: "chrom",
             xref: "x",
             yref: "paper",
             x0: plotOffsets[i],
@@ -1244,6 +1027,7 @@
             line: {
               width: 0,
             },
+            visible: !Boolean(i%2),
           };
           spanShapes.push(shape);
         }
@@ -1255,6 +1039,7 @@
         }
         layout.shapes.push({
           type: "line",
+          shapeType: "thresh",
           x0: 0,
           x1: 1,
           y0: thresh,
@@ -1268,6 +1053,13 @@
           },
         });
 
+      var customButtons = ["legend", "edit", "recolor", "reshade", "move_down", "_delete"];
+      if (asGroup) {
+        customButtons.splice(4, 0, "group_bbl");
+      } else {
+        customButtons.splice(4, 0, "group_mp");
+      }
+
       var config = {
         editable: false,
         modeBarButtons: [
@@ -1275,15 +1067,16 @@
           ["zoom2d", "pan2d", "select2d", "lasso2d", buttonsToAdd["clear_sel"]],
           ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
           ["hoverClosestCartesian", "hoverCompareCartesian"],
-          ["legend", "edit", "recolor", "move_down", "_delete"]
-          .map(key => buttonsToAdd[key])],
+          customButtons.map(key => buttonsToAdd[key])],
         modeBarButtonsToRemove: [],
       };
 
       if (traces.length > 0) {
         Plotly.newPlot("live-plot", traces, layout, config);
         replaceLocus = true;
+        highlightRegions();
         setPlotEventListeners();
+        applyGeneHighlight();
         }
 
       }).fail(function() {
@@ -1303,7 +1096,6 @@
 
       var plotDiv = document.getElementById("live-plot");
       var pval = plotDiv.layout.yaxis2.range[1];
-      document.getElementById("pval-field").value  = pval;
       var layout = plotDiv.layout;
 
       plotDiv.on("plotly_legendclick", function(data) {
@@ -1312,19 +1104,12 @@
           var traceId = traces[data.curveNumber].Id;
           if (traceId != null) {
             var taskId = traces[data.curveNumber].taskId;
-            if (taskId != null) {
-              var [markers, model, trait] = traceId;
-              contextMenu(event, 
-                {action: "fm_run",
-                 task_id: taskId});
-            } else {
-              var [markers, model, trait] = traceId;
-              contextMenu(event, 
-                {action: "gwas_run",
-                 markers: markers,
-                 model:   model,
-                 trait:   trait});
-            }
+            var [markers, model, trait] = traceId;
+            contextMenu(event, 
+              {action: "gwas_run",
+               markers: markers,
+               model:   model,
+               trait:   trait});
             return false;
           }
         }
@@ -1333,127 +1118,169 @@
       plotDiv.on("plotly_click", function(data) {
         var marker = data.points[0];
         var markerId = marker.text.split("<br>")[0];
-        if (marker.data.traceType === "__genes__") {
+        if ((marker.data.traceType === "__genes__") || (marker.data.traceType === "__genes_hgl__")) {
           if (data.event.button === 0) {
-            if (highlightedGenes.includes(markerId)) {
-              highlightedGenes = highlightedGenes.filter(g => g !== markerId);
-              var numShapes = layout.shapes.length;
-              for (let i = 0; i < numShapes; i++) {
-                if (layout.shapes[i].geneId === markerId) {
-                  layout.shapes[i].fillcolor = "#0f667a";
-                  break;
-                }
-              }
-           } else {
-              highlightedGenes.push(markerId);
-            }
-            highlightGenes(layout);
-          } else if (data.event.button === 1) {
-            addLocus(marker.data.markerPos[marker.pointIndex]);
-          }
-        } else {
-          var markers = marker.data.Id[0];
-          if (data.event.button === 1) {
-            addLocus(markerId);
-          } else if (data.event.button === 0) {
-          var window = document.getElementById("window").value;
-          var request = $.ajax({
-            url: "{{ url_for('fetch_ld') }}",
-            method: "POST",
-            data: {
-              genome: genome,
-              markers: markers,
-              marker_id: markerId,
-              window: window,
-            },
-            success: function(ldData) {
-              var isHap = isHapDict[markers];
-              ldData = ldData.slice(0, -1);
-              var ldVals = ldData.map(i => i[2]);
-              var traces = [];
+            console.log(marker.data.traceType);
+            var shapes = layout.shapes;
+            var selShape = shapes
+              .map((shape, idx) => ({ shape, idx }))
+              .filter(s => s.shape.geneId === markerId);
+
+            if (marker.data.traceType === "__genes_hgl__") {
+              var hglIdxs = shapes
+                .filter(s => s.highlighted)
+                .map((shape, idx) => ({ shape, idx }))
+                .filter(s => s.shape.geneId === markerId)
+                .map(s => s.idx);
 
               var currTraces = document.getElementById("live-plot").data;
-              var ldTraces = currTraces
+              var genesTrace = currTraces
                 .map((trace, idx) => ({ trace, idx }))
-                .filter(v => v.trace.traceType === "__ld__");
-              if (ldTraces.length !== 0) {
-                //Plotly.deleteTraces("live-plot", ldTrace[0].idx);
-              }
+                .filter(v => v.trace.traceType === "__genes_hgl__")[0];
 
-              var ldColor = colorCycle[(ldTraces.length + 3) % 10];
-              const trace = {
-                name: "LD to " + markerId,
-                //legendgroup: "LD to " + markerId,
-                Id: [markers],
-                traceType: "__ld__",
-                mode: "lines+markers",
-                type: "scattergl",
-                yaxis: "y3",
-                fill: "tozeroy",
-                fillcolor: ldColor,
-                //opacity: 0.3,
-                //fillgradient: {
-                //  type: "vertical",
-                //  colorscale: [
-                //    [0,"rgba(208,208,208,0.5)"],
-                //    //[1,"rgba(208,0,0,0.5)"]],
-                //    [1, colorCycle[(ldTraces.length + 3) % 10] + "80"]],
-                //  start: 0,
-                //  stop: 1,
-                //},
-                line: {
-                  color: ldColor,
-                  width: 0.5,
+              var trace = genesTrace.trace;
+              Plotly.update(
+                "live-plot",
+                {
+                  x: [trace.x.filter((t, i) => !hglIdxs.includes(i))],
+                  y: [trace.y.filter((t, i) => !hglIdxs.includes(i))],
+                  markerPos: [trace.markerPos.filter((t, i) => !hglIdxs.includes(i))],
+                  text: [trace.text.filter((t, i) => !hglIdxs.includes(i))],
                 },
-                x: ldData.map(i => {
-                  if (isHap) {
-                    return [i[1] + offsetDict[i[0]], i[3] + offsetDict[i[0]]];
-                  } else {
-                    return i[1] + offsetDict[i[0]];
-                  }
-                }).flat(),
-                y: ldVals.map(i => {
-                  if (isHap) {
-                    return [i, i];
-                  } else {
-                    return i;
-                  }
-                }).flat(),
-                text: ldData.map(i => {
-                  if (isHap) {
-                    var txt = `${i[0]}:${i[1]
-                     .toString()
-                     .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}-${i[3]
-                     .toString()
-                     .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}_${i[4]}`;
-                    return [txt, txt];
-                  } else {
-                    return `${i[0]}:${i[1]
-                     .toString()
-                     .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
-                   }
-                }).flat(),
-                hoverinfo: "text+y",
-                hovertemplate: "%{text}<br>LD: %{y}",
-                hoverlabel: {
-                  namelength: 0,
-                  bgcolor: "white",
-                },
-                marker: {
-                  opacity: 0,
-                },
-                colorscale: [
-                 [0, "rgb(208,208,208)"],
-                 [1, "rgb(208,0,0)"]],
-                visible: true,
-              };
-              traces.push(trace);
+                {shapes: shapes.filter(s => ((s.geneId !== markerId) || (!s.highlighted)))},
+                genesTrace.idx);
 
-              Plotly.addTraces("live-plot", traces, 0);
-              
+            } else {
+              var geneShape = JSON.parse(JSON.stringify(selShape[0].shape));
+              geneShape.fillcolor = "#de3416";
+              geneShape.line.color = "#de3416";
+              geneShape.line.width = 1;
+              geneShape.highlighted = true;
+
+              var currTraces = document.getElementById("live-plot").data;
+              var genesTrace = currTraces
+                .map((trace, idx) => ({ trace, idx }))
+                .filter(v => v.trace.traceType === "__genes_hgl__")[0];
+
+              var trace = genesTrace.trace;
+              Plotly.update(
+                "live-plot",
+                {
+                  x: [[...trace.x, marker.x]],
+                  y: [[...trace.y, marker.y]],
+                  markerPos: [[...trace.markerPos, marker.markerPos]],
+                  text: [[...trace.text, marker.text]],
+                },
+                {shapes: [...shapes, geneShape]},
+                genesTrace.idx);
+
+
+              return;
+
             }
-          });
+          } else if (data.event.button === 1) {
+            if (document.getElementById("fmt-field").value === "coord") {
+              replaceLocus = true;
+            }
+            document.getElementById("fmt-field").value = "gene";
+            addLocus(marker.data.text[marker.pointIndex]);
+          }
+        } else {
+          if (marker.data.Id == null) {
+            return;
+          }
+          var markers = marker.data.Id[0];
+          if (data.event.button === 1) {
+            if (document.getElementById("fmt-field").value === "gene") {
+              replaceLocus = true;
+            }
+            document.getElementById("fmt-field").value = "coord";            
+            addLocus(markerId);
+          } else if (data.event.button === 0) {
+            var window = document.getElementById("window-ld").value;
+            var r2 = document.getElementById("r2-ld").value;
+            var selMarkers = document.querySelector("input[name='markers_sgl']:checked");
+            if (selMarkers != null) {
+              markers = selMarkers.value;
+            }
+            var request = $.ajax({
+              url: "{{ url_for('fetch_ld') }}",
+              method: "POST",
+              data: {
+                genome: genome,
+                markers: markers,
+                marker_id: markerId,
+                window: window,
+                r2: r2,
+              },
+              success: function(ldData) {
+                var isHap = isHapDict[markers];
+                ldData = ldData.slice(0, -1);
+                var ldVals = ldData.map(i => i[2]);
 
+                var currTraces = document.getElementById("live-plot").data;
+                var ldTraces = currTraces
+                  .map((trace, idx) => ({ trace, idx }))
+                  .filter(v => v.trace.traceType === "__ld__");
+                var ldColor = ldColorCycle[ldTraces.length % 10];
+
+                const trace = {
+                  name: "LD to " + markerId,
+                  Id: [markers],
+                  traceType: "__ld__",
+                  mode: "lines+markers",
+                  type: "scattergl",
+                  yaxis: "y3",
+                  fill: "tozeroy",
+                  fillcolor: ldColor,
+                  line: {
+                    color: ldColor,
+                    width: 0.5,
+                  },
+                  x: ldData.map(i => {
+                    if (isHap) {
+                      return [i[1] + offsetDict[i[0]], i[3] + offsetDict[i[0]]];
+                    } else {
+                      return i[1] + offsetDict[i[0]];
+                    }
+                  }).flat(),
+                  y: ldVals.map(i => {
+                    if (isHap) {
+                      return [i, i];
+                    } else {
+                      return i;
+                    }
+                  }).flat(),
+                  text: ldData.map(i => {
+                    if (isHap) {
+                      var txt = `${i[0]}:${i[1]
+                       .toString()
+                       .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}-${i[3]
+                       .toString()
+                       .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}_${i[4]}`;
+                      return [txt, txt];
+                    } else {
+                      return `${i[0]}:${i[1]
+                       .toString()
+                       .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+                     }
+                  }).flat(),
+                  hoverinfo: "text+y",
+                  hovertemplate: "%{text}<br>LD: %{y}",
+                  hoverlabel: {
+                    namelength: 0,
+                    bgcolor: "white",
+                  },
+                  marker: {
+                    opacity: 0,
+                  },
+                  visible: true,
+                };
+
+                Plotly.addTraces("live-plot", [trace], 0);
+                
+              }
+            });
           } else if (data.event.button === 2) {
             var traces = plotDiv.data;
             var traceId = traces[data.points[0].curveNumber].Id;
@@ -1476,6 +1303,7 @@
 
       plotDiv.on("plotly_relayout", function(event) {
         var locusField = document.getElementById("assoc-locus-field");
+        document.getElementById("fmt-field").value = "coord";
         if (event.dragmode != null || event.selections != null) {
           return;
         }
@@ -1490,8 +1318,8 @@
 
         var viewStart = Math.max(0, Math.floor(event["xaxis.range[0]"]));
         var viewEnd = Math.min(Math.ceil(event["xaxis.range[1]"], chrSizes.reduce((a, b) => a + b, 0)));
-        var numShapes = Math.ceil(plotNames.length / 2) + 1;
-        var shapes = layout.shapes.slice(0, numShapes) || [];
+        var numShapes = plotNames.length + 1;
+        var shapes = layout.shapes.filter(v => ((v.shapeType != "gene") || (v.highlighted))) || [];
 
         if (isNaN(viewStart) || isNaN(viewEnd)) {
           if (currLocus != null) {
@@ -1501,19 +1329,21 @@
           }
         }
 
-        if (isNaN(viewStart) && isNaN(event["yaxis.autorange"])) {
-          return;
-        }
-
-        if (!isNaN(event["yaxis.autorange"]) || viewEnd - viewStart > 5000000) {
+        if ((isNaN(viewStart) && isNaN(event["yaxis.autorange"])) || (!isNaN(event["yaxis.autorange"]) || viewEnd - viewStart > 5000000)) {
           var currTraces = document.getElementById("live-plot").data;
           var genesTrace = currTraces
             .map((trace, idx) => ({ trace, idx }))
-            .filter(v => v.trace.traceType === "__genes__");
-          if (genesTrace.length !== 0) {
-            Plotly.deleteTraces("live-plot", genesTrace[0].idx);
-          }
-          Plotly.update("live-plot", {}, {shapes: shapes});
+            .filter(v => v.trace.traceType === "__genes__")[0];
+          Plotly.update(
+            "live-plot",
+            {
+              x: [[]],
+              y: [[]],
+              markerPos: [[]],
+              text: [[]],
+            },
+            {shapes: shapes},
+            genesTrace.idx);
           return false;
         }
         var ranges = [];
@@ -1553,47 +1383,41 @@
                 xref: "x",
                 yref: "y",
                 yaxis: "y",
+                shapeType: "gene",
+                highlighted: false,
                 geneId: gene[0],
                 x0: offsetDict[gene[1]] + gene[2],
                 y0: 0,
                 x1: offsetDict[gene[1]] + gene[3],
                 y1: 1,
                 fillcolor: "#0f667a",
-                line: { width: 0 },
+                line: {
+                  color: "28889e",
+                  width: 1.5,
+                },
               });
             });
-            var trace = {
-              x: geneData.map(v => offsetDict[v[1]] + v[3] - (v[3] - v[2]) / 2),
-              y: geneData.map(v => 0.5),
-              markerPos: geneData.map(v => `${
-                v[1]}:${
-                v[2].toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}-${
-                v[3].toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`),
-              traceType: "__genes__",
-              mode: "markers",
-              yaxis: "y",
-              text: geneData.map(v => v[0]),
-              hoverinfo: "text",
-              hoverlabel: {
-                namelength: 0,
-                bgcolor: "white",
-              },
-              marker: { opacity: 0 },
-              showlegend: false,
-              visible: true,
-            };
+            shapes =  shapes.sort((a, b) => {
+              return (a.highlighted === b.highlighted) ? 0 : (a.highlighted ? 1 : -1);
+            });
 
             var currTraces = document.getElementById("live-plot").data;
             var genesTrace = currTraces
               .map((trace, idx) => ({ trace, idx }))
-              .filter(v => v.trace.traceType === "__genes__");
-            if (genesTrace.length !== 0) {
-              Plotly.deleteTraces("live-plot", genesTrace[0].idx);
-            }
-            Plotly.update("live-plot", {}, {shapes: shapes});
-            highlightGenes(layout);
-            Plotly.addTraces("live-plot", [trace]);
-            
+              .filter(v => v.trace.traceType === "__genes__")[0];
+            Plotly.update(
+              "live-plot",
+              {
+                x: [geneData.map(v => offsetDict[v[1]] + v[3] - (v[3] - v[2]) / 2)],
+                y: [geneData.map(v => 0.5)],
+                markerPos: [geneData.map(v => `${
+                  v[1]}:${
+                  v[2].toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}-${
+                  v[3].toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`)],
+                text: [geneData.map(v => v[0])],
+              },
+              {shapes: shapes},
+              genesTrace.idx);
           }
         }).done(function(data) {
           return true;
@@ -1613,40 +1437,149 @@
       });
     }
 
-    function highlightGroup(genes, highlight) {
+    function highlightGroup(groupName, genes, highlight) {
       var layout = document.getElementById("live-plot").layout;
-      genes = JSON.parse(genes);
-      if (highlight) {
-        for (let i = 0; i < genes.length; i++) {
-          if (!highlightedGenes.includes(genes[i])) {
-            highlightedGenes.push(genes[i]);
-          }
-        }
-      } else {
-        highlightedGenes = highlightedGenes.filter(g => !genes.includes(g));
-        for (let i = 0; i < layout.shapes.length; i++) {
-          if (genes.includes(layout.shapes[i].geneId)) {
-            layout.shapes[i].fillcolor = "#0f667a";
-          }
-        }
+      if (layout == null) {
+        return;
       }
-      highlightGenes(layout);
+      var shapes = layout.shapes;
+      if (highlight) {
+        $.ajax({
+          url: "{{ url_for('fetch_gene_pos') }}",
+          method: "POST",
+          data: {
+            genome: genome,
+            genes: genes,
+          },
+          success: function(geneData) {
+            geneData.forEach(gene => {
+              shapes.push({
+                type: "rect",
+                xref: "x",
+                yref: "y",
+                yaxis: "y",
+                shapeType: "gene",
+                groupName: groupName,
+                highlighted: true,
+                geneId: gene[0],
+                x0: offsetDict[gene[1]] + gene[2],
+                y0: 0,
+                x1: offsetDict[gene[1]] + gene[3],
+                y1: 1,
+                fillcolor: "#de3416",
+                line: {
+                  color: "#e6573e",
+                  width: 1.5,
+                },
+              });
+            });
+
+            var currTraces = document.getElementById("live-plot").data;
+            var genesTrace = currTraces
+              .map((trace, idx) => ({ trace, idx }))
+              .filter(v => v.trace.traceType === "__genes_hgl__")[0];
+            Plotly.update(
+              "live-plot",
+              {
+                x: [[...genesTrace.trace.x, ...geneData.map(v => offsetDict[v[1]] + v[3] - (v[3] - v[2]) / 2)]],
+                y: [[...genesTrace.trace.y, ...geneData.map(v => 0.5)]],
+                markerPos: [[...genesTrace.trace.markerPos, ...geneData.map(v => `${
+                  v[1]}:${
+                  v[2].toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}-${
+                  v[3].toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`)]],
+                text: [[...genesTrace.trace.text, ...geneData.map(v => v[0])]],
+              },
+              {shapes: shapes},
+              genesTrace.idx);
+          }
+        }).then(() => {});
+      } else {
+        var hglIdxs = shapes
+          .filter(s => s.highlighted)
+          .map((shape, idx) => ({ shape, idx }))
+          .filter(s => s.shape.groupName === groupName)
+          .map(s => s.idx);
+
+        //if (hglIdxs.length === 0) {
+        //  return;
+        //}
+
+        var currTraces = document.getElementById("live-plot").data;
+        var genesTrace = currTraces
+          .map((trace, idx) => ({ trace, idx }))
+          .filter(v => v.trace.traceType === "__genes_hgl__")[0];
+
+        var trace = genesTrace.trace;
+        Plotly.update(
+          "live-plot",
+          {
+            x: [trace.x.filter((t, i) => !hglIdxs.includes(i))],
+            y: [trace.y.filter((t, i) => !hglIdxs.includes(i))],
+            markerPos: [trace.markerPos.filter((t, i) => !hglIdxs.includes(i))],
+            text: [trace.text.filter((t, i) => !hglIdxs.includes(i))],
+          },
+          {shapes: shapes.filter(s => s.groupName !== groupName)},
+          genesTrace.idx);
+      }
     }
 
-    function highlightGenes(layout) {
-      var shapes = layout.shapes.slice();
-      var numShapes = shapes.length;
-      for (let i = 0; i < numShapes ; i++) {
-        if (highlightedGenes.includes(shapes[i].geneId)) {
-          shapes[i].fillcolor = "#de3416";
+    function applyGeneHighlight() {
+      var selGroups = document.querySelectorAll("input[name='hgl_gene_group']");
+      for (group of selGroups) {
+        highlightGroup(
+          group.parentElement.querySelector(".checkbox-label").innerText,
+          group.value,
+          group.checked)
+      }
+    }
+
+    function highlightRegions() {
+      var coordShapes = [];
+      var regions = document.getElementsByName("hgl_coord_group");
+      for (let i = 0; i < regions.length; i++) {
+        var region = regions[i];
+        if (region.checked) {
+          var loci = JSON.parse(region.value);
+          for (locus of loci) {
+
+            if (/^\w+:\d{1,3}(,\d{3})*$/.test(locus)) {
+              var [chrom, pos] = locus.split(":");
+              pos = parseInt(pos.replaceAll(",", ""));
+              var start, end;
+              start = end = parseInt(pos);
+            } else if (/^\w+:\d{1,3}(,\d{3})*-\d{1,3}(,\d{3})*$/.test(locus)) {
+              var [chrom, span] = locus.split(":");
+              var [start, end] = span.replaceAll(",", "").split("-").map(v => parseInt(v));
+            } else {
+              return;
+            }
+            var offset = offsetDict[chrom];
+            var shape = {
+              type: "rect",
+              shapeType: "coord",
+              xref: "x",
+              yref: "paper",
+              x0: start + offset,
+              y0: 0,
+              x1: end + offset,
+              y1: 1,
+              fillcolor: "rgba(30, 175, 55, 0.15)",
+              line: {
+                color: "rgba(30, 175, 55, 0.15)",
+                width: start === end ? 2 : 0,
+              },
+            };
+            coordShapes.push(shape);
+          }
         }
       }
-      Plotly.update("live-plot", {}, {shapes: shapes});
+      var shapes = document.getElementById("live-plot").layout.shapes;
+      Plotly.relayout("live-plot", {shapes: [...shapes.filter(v => v.shapeType !== "coord"), ...coordShapes]});
     }
 
     function updateThresh(thresh) {
       var shapes = document.getElementById("live-plot").layout.shapes;
-      var numChrs = Math.ceil(plotNames.length / 2);
+      var numChrs = plotNames.length;
       shapes[numChrs].y0 = shapes[numChrs].y1 = thresh;
       Plotly.update("live-plot", {}, {shapes: shapes});
     }
@@ -1731,7 +1664,7 @@
       if (replaceLocus) {
         locusField.value = locus;
       } else {
-        locusField.value += ", " + locus;
+        locusField.value += " " + locus;
       }
       //locusField.focus();
       //setTimeout(() => {
@@ -1783,195 +1716,68 @@
     }
 
     function goToLocus(locus) {
-      locus = JSON.parse(locus)[0];
-      if (!/^\w+:\d{1,3}(,\d{3})*-\d{1,3}(,\d{3})*$/.test(locus)) {
+      if (/^\w+:\d{1,3}(,?\d{3})*$/.test(locus)) {
+        var [chrom, pos] = locus.split(":");
+        pos = parseInt(pos.replaceAll(",", ""));
+        var start = Math.max(0, pos - 1000);
+        var end = pos + 1000;
+      } else if (/^\w+:\d{1,3}(,?\d{3})*-\d{1,3}(,?\d{3})*$/.test(locus)) {
+        var [chrom, span] = locus.split(":");
+        var [start, end] = span.replaceAll(",", "").split("-");
+      } else {
         return;
       }
-      var [chrom, span] = locus.split(":");
-      var [start, end] = span.replaceAll(",", "").split("-");
 
       var offset = offsetDict[chrom];
       var locusRange = [
         parseInt(start) + offset,
         Math.min(chrSizes[chrNames.indexOf(chrom)] + offset, parseInt(end) + offset)];
       Plotly.relayout("live-plot", { "xaxis.range": locusRange })
+      document.getElementById("assoc-locus-field").value = locus;
     }
-
-    function toggleFMOpt() {
-      var method = document.querySelector("input[name='fm_method']:checked");
-      if (method == null || method.value === "") {
-        document.getElementById("fm-corr").classList.add("collapsed");
-        document.getElementById("pm-params").classList.add("collapsed");
-        document.getElementById("rf-params").classList.add("collapsed");
-        document.getElementById("bayes-params").classList.add("collapsed");
-      } else {
-        document.getElementById("fm-corr").classList.remove("collapsed");
-        if (method.value === "glm" || method.value === "mlm") {
-          document.getElementById("rf-params").classList.add("collapsed");
-          document.getElementById("pm-params").classList.add("collapsed");
-          document.getElementById("bayes-params").classList.add("collapsed");
-          if (method.value === "glm") {
-            document.getElementById("k").checked = "";
-            document.getElementById("k").disabled = true;
-          } else {
-            document.getElementById("k").checked = true;
-            document.getElementById("k").disabled = true;
-          }
-        } else {
-          document.getElementById("k").checked = true;
-          document.getElementById("k").disabled = false;          
-          if (method.value === "rf") {
-            document.getElementById("rf-params").classList.remove("collapsed");
-            document.getElementById("pm-params").classList.add("collapsed");
-            document.getElementById("bayes-params").classList.add("collapsed");
-          } else if (method.value === "pm") {
-            document.getElementById("fm-corr").classList.add("collapsed");
-            document.getElementById("pm-params").classList.remove("collapsed");
-            document.getElementById("rf-params").classList.add("collapsed");
-            document.getElementById("bayes-params").classList.add("collapsed");
-          } else if (method.value === "B" || method.value === "C") {
-            document.getElementById("pm-params").classList.add("collapsed");
-            document.getElementById("rf-params").classList.add("collapsed");
-            document.getElementById("bayes-params").classList.remove("collapsed");
-          }
-        }
+{# ============================================================== Save QTLs #}
+    function saveQTLs() {
+      var traces = document.getElementById("live-plot").data;
+      var traceIds = traces
+        .filter(t => (t.visible === true) && (t.traceType === "mp_sgl"))
+        .map(t => t.Id);
+      if (traceIds.includes(null)) {
+        showHelp(event, null, "QTL extraction does not work with combined traces.");
+        return;
       }
-    }
-
-    function saveFM(event) {
-      var currTraces = document.getElementById("live-plot").data;
-      var FMTraces = currTraces
-        .map((trace, idx) => ({ trace, idx }))
-        .filter(v => v.trace.traceType === "__fm__" && (!v.trace.hasOwnProperty("visible") || v.trace.visible !== "legendonly"));
-      if (FMTraces.length !== 1) {
-        showHelp(event, null, "Select exactly one fine-mapping analysis.");
-      } else {
-        var taskId = FMTraces[0].trace.taskId;
-        var runName = "";
-        while (runName === "") {
-          var runName = window.prompt("Analysis name:");
-        }
-        if (runName !== null) {
-          
-          var data = JSON.stringify({
-           genome: genome,
-           run: taskId,
-           name: runName});
-          var request = new XMLHttpRequest();
-          request.open("POST", "{{ url_for('save_fm') }}", true);
-          request.send(data);
-
-          request.onreadystatechange = function() {
-            if (request.readyState === XMLHttpRequest.DONE) {
-              if (request.status === 204) {
-                var dropdownId = "fm_runs-dropdown";
-                var dropdown = document.getElementById(dropdownId);
-                var checkboxRow = document.createElement("div");
-                checkboxRow.classList.add("checkbox-row");
-                checkboxRow.classList.add("group-option");
-                var checkbox = document.createElement("input");
-                checkbox.type = "checkbox";
-                checkbox.checked = "checked";
-                checkbox.classList.add("fm_runs-checkbox");
-                checkbox.id = "fm_runs-dropdown" + runName;
-                checkbox.value = taskId;
-
-                checkbox.addEventListener("change", function(event) {
-                  updateCount(this.parentElement.parentElement);
-                });
-
-                var label = document.createElement("label");
-                label.classList.add("checkbox-label")
-                label.htmlFor = checkbox.id;
-                label.appendChild(document.createTextNode(runName));
-
-                checkboxRow.addEventListener("contextmenu", function(event) {
-                  contextMenu(event,
-                    {"action": "fm_run",
-                     "task_id": taskId});
-                });
-
-                checkboxRow.appendChild(checkbox);
-                checkboxRow.appendChild(document.createTextNode(" "));
-                checkboxRow.appendChild(label);
-                dropdown.appendChild(checkboxRow);
-                updateCount(dropdown);
-
-                // Rename current trait
-                Plotly.restyle("live-plot", "name", [runName], FMTraces[0].idx);
-
-              } else {
-                alert(request.responseText);
-              }
-            }
-          };
-        }
+      if (traceIds.length === 0) {
+        return;
       }
+      document.getElementById("qtl_runs-field").value = JSON.stringify(traceIds);
+
+      var form = document.querySelector("form");
+      form.action = "{{ url_for('assoc_qtls', genome=genome) }}";
+      form.submit();
     }
 {# ============================================================ Submit loci #}
     // Process form submit to send to fine-mapping or allele viewer
     document.querySelectorAll(".submit-button").forEach(function(button) {
       button.addEventListener("click", function(event) {
         var form = document.querySelector("form");
-        document.getElementById("optimize").checked = "";
-        form.target = "";
 
-        var lociDropdown = document.getElementById("assoc-locus_group-dropdown");
-        var loci = [...lociDropdown.querySelectorAll(".assoc-locus_group-checkbox")];
-        var savedLoci = loci
-          .filter(l => l.checked)
-          .map(l => JSON.parse(l.value)[0]);
         var currLocus = document.getElementById("assoc-locus-field");
-        if (currLocus.value !== "") {
-          savedLoci.push(currLocus.value);
-        }
-        if (savedLoci.length === 0) {
-          showHelp(event, null, "Select at least one locus of interest.");
+        if (currLocus.value === "") {
+          showHelp(event, null, "Select a valid locus.");
           event.preventDefault();
           return;
         }
-        document.getElementById("coord-field").value = savedLoci.join(", ");
-        document.getElementById("fmt-field").value = "coord";
+        var fmt = document.getElementById("fmt-field").value;
+        if (fmt === "coord") {
+          document.getElementById("coord-field").value = currLocus.value;
+          document.getElementById("gene-field").value = "";
+        } else {
+          document.getElementById("gene-field").value = currLocus.value;
+          document.getElementById("coord-field").value = "";
+        }
+        
 
-        if (["fm", "optim"].includes(button.value)) {
-          var visibleTraces = [];
-          document.getElementById("live-plot").data.forEach( function(trace) {
-            if (
-             !trace.hasOwnProperty("visible") ||
-             trace.visible !== "legendonly") {
-              if (trace.Id != null && trace.taskId == null) {
-                visibleTraces.push(trace.Id);
-              }
-            }
-          });
-          if (visibleTraces.length !== 1) {
-            showHelp(event, null, "Select exactly one dataset.");
-            event.preventDefault();
-            return;
-          }
-          var trace = visibleTraces[0];
-          var method = document.querySelector("input[name='fm_method']:checked");
-          if (method == null || method.value === "") {
-            showHelp(event, null, "Choose a fine-mapping method.");
-            event.preventDefault();
-            return;
-          }
-
-          document.getElementById("mrk-field").value = trace[0];
-          document.getElementById("mod-field").value = trace[1];
-          document.getElementById("trt-field").value = trace[2];
-
-          if (button.value === "optim") {
-            document.getElementById("optimize").checked = "checked";
-            form.target = "_blank";
-          }
-
-          form.action = "{{ url_for('assoc_locus', genome=genome) }}";
-          document.getElementById("k").disabled = false;
-
-        } else if (button.value === "av") {
+        if (button.value === "av") {
           form.action = "{{ url_for('fa_opts', genome=genome) }}";
-          form.target = "_blank";
         } else if (button.value === "ld") {
           var LdPlot = document.getElementById("ld-plot");
           var livePlot = document.getElementById("live-plot");
@@ -2062,27 +1868,22 @@
     });
 
     document.addEventListener("DOMContentLoaded", function() {
-      document.querySelector("input[name='fm_method']").checked = "checked";
-      updateTracker(document.getElementById("fm-method-div"));
-      toggleFMOpt();
       var notAsGroup = !document.getElementById("as-group").checked;
       var groupOpts = document.getElementById("grouping-opt-div");
       groupOpts.classList.toggle("collapsed", notAsGroup);
+      var sglOpts = document.getElementById("sgl-opt-div");
+      sglOpts.classList.toggle("collapsed", !notAsGroup);
       // Show samples list when right-clicking group
 
       // Prevent hiding help popup when clicked within
       const helpPopup = document.getElementById("help-popup");
       popupClickedRetain(helpPopup);
 
-      showPlot();
-      //if (document.getElementById("live-plot").layout) {
-      //  document.querySelectorAll(".genes_group-checkbox:checked").forEach( function(ch) {
-      //    highlightGroup(ch.value, true);
-      //  });
-      //}
-
       document.getElementById("assoc-locus-field").value = "";
-      //document.getElementById("sel-locus").value = "";
+      var radioBtn = document.getElementsByName("markers_sgl")[0];
+      updateTracker(radioBtn.parentElement.parentElement);  
+
+      showPlot();
     });
 
     function resizePlot() {

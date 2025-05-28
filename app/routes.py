@@ -4,9 +4,11 @@ import app.path
 from flask_app import (
   app,
   get_lock,
+  running_pr,
   task_queue,
   master_lock,
-  task_status)
+  task_status,
+  cancelled_tasks)
 
 from app.dirs import (
   tmp_dir,
@@ -15,23 +17,18 @@ from app.dirs import (
 
 import os
 import re
-import glob
 import json
 import uuid
+import queue
 import pysam
 import tabix
 import shutil
-import functools
-import subprocess
 import numpy as np
 import pandas as pd
 
 from time import time
-import statsmodels.api as sm
-from scipy.stats import boxcox
-from glimix_core.lmm import LMM
 from sklearn.decomposition import PCA
-from numpy_sugar.linalg import economic_qs_linear
+from scipy.stats import boxcox, zscore
 
 from flask import (
   flash,
@@ -52,15 +49,12 @@ from app.ajax import (
   fetch_bblplot)
 
 from app.igv_conf import (
-  igv_am,
-  igv_fm,
-  igv_rf,
-  igv_nofm)
+  igv_am)
 
 from app.serve import (
   favicon,
   serve_ld,
-  serve_pip,
+  serve_qtl,
   serve_file,
   serve_icon,
   serve_assoc,
@@ -71,12 +65,13 @@ from modules.tmp_clean import clean
 from modules.sev import annotate_sev
 from modules.setup import genome_setup
 
-from modules.assoc import (
+from modules.assoc_f import (
   mdbin,
   run_qc,
   filt_qc,
-  run_assoc,
-  assoc_finemap)
+  extract_qtls)
+
+from modules.assoc.kq import kq_correct
 
 from modules.forms import (
   AddForm,
@@ -100,22 +95,25 @@ from modules.load_input import (
 @app.route("/status/<task_id>", methods=["GET"])
 def get_status(task_id):
     # Remove tasks finished more than a week ago
-    for _id in task_status.keys():
-        if (
-          _id != "specs" and
-          "end" in task_status[_id].keys() and
-          time() - task_status[_id]["end"] > 604800):
-            _ = task_status.pop(_id)
+    with master_lock:
+        status_lock = get_lock("__task_status__")
+    with status_lock:
+        for _id in task_status.keys():
+            if (
+              _id != "specs" and
+              "end" in task_status[_id].keys() and
+              time() - task_status[_id]["end"] > 604800):
+                _ = task_status.pop(_id)
 
-    if task_id not in task_status.keys():
-        if task_id not in [t[0] for t in list(task_queue.queue)]:
-            return jsonify(""), 404
+        if task_id not in task_status.keys():
+            with master_lock:
+                queue_lock = get_lock("__task_queue__")
+            with queue_lock:
+                if task_id not in [t[0] for t in list(task_queue.queue)]:
+                    return jsonify(""), 404
+                else:
+                    return jsonify(""), 201
         else:
-            return jsonify(""), 201
-    else:
-        with master_lock:
-            lock = get_lock("__task_status__")
-        with lock:
             progress = task_status[task_id]["progress"]
             task_status[task_id]["progress"] = ""
             code = task_status[task_id]["code"]
@@ -125,6 +123,20 @@ def get_status(task_id):
                 duration = end - task_status[task_id]["start"]
                 return jsonify([progress, round(duration)]), code
             return jsonify(progress), code
+
+@app.route("/remove_task/<task_id>", methods=["POST"])
+def remove_task(task_id):
+    (pr, task_spec) = running_pr.get(task_id, (None, None))
+    if pr and pr.poll() is None:
+        pr.terminate()
+        task_status[task_id]["code"] = 410
+    else:
+        cancelled_tasks.append(task_id)
+        task_status[task_id] = {
+          "progress": "",
+          "code": 410}
+
+    return jsonify("")
 
 ###############################################################################
 ### Index page
@@ -281,19 +293,24 @@ def setup(genome):
       "task_id": task_id})
 
     # Make sure the same task isn't running or queued
-    if task_spec in task_status["specs"]:
-        return render_template(
-          "error.html",
-          error="Dataset is already being processed.")
-    else:
-        task_queue.put((task_id, task_spec, task))
-        return render_template(
-          "loading.html",
-          genome    = genome,
-          task      = "setup",
-          task_id   = task_id,
-          task_spec = task_spec,
-          form      = "")
+    with master_lock:
+        status_lock = get_lock("__task_status__")
+    with status_lock:
+        if task_spec in task_status["specs"]:
+            return render_template(
+              "error.html",
+              error="Dataset is already being processed.")
+        else:
+#            queue_lock = get_lock("__task_queue__")
+#            with queue_lock:
+            task_queue.put((task_id, task_spec, task))
+            return render_template(
+              "loading.html",
+              genome    = genome,
+              task      = "setup",
+              task_id   = task_id,
+              task_spec = task_spec,
+              form      = "")
 
 @app.route(
   "/<genome>/Edit",
@@ -305,9 +322,8 @@ def edit(genome):
     allow = config["edit"]
 
     if request.method == "POST":
-        if not config["edit"]:
-            errors.append("Editing is not allowed for this dataset.")
-        else:
+        phe_file = request.files["phe"]
+        if phe_file:
             phe_path = os.path.join(
               data_dir,
               genome,
@@ -321,12 +337,11 @@ def edit(genome):
                   header=[0],
                   index_col=[0])
 
-                file = request.files["phe"]
                 new_phe = pd.read_csv(
-                  file,
+                  phe_file,
                   header=[0],
                   index_col=[0],
-                  sep="," if file.filename.endswith(".csv") else "\t")
+                  sep="," if phe_file.filename.endswith(".csv") else "\t")
 
                 if len(new_phe.columns) == 0:
                     errors.append("<b>No columns found in file.</b>")
@@ -377,14 +392,33 @@ def edit(genome):
                                 sep="\t"))
                             errors = 0
 
+        cof_file = request.files["cof"]
+        if cof_file:
+            cof_path = os.path.join(
+              data_dir,
+              genome,
+              "covariates",
+              cof_file.filename)
+            if os.path.exists(cof_path):
+                errors.append("Covariate file with the same name already exists.")
+            else:
+                cof = (pd
+                  .read_csv(
+                    cof_file,
+                    header=[0],
+                    index_col=[0],
+                    sep="," if cof_file.filename.endswith(".csv") else "\t")
+                  .to_csv(
+                    cof_path,
+                    sep="\t"))
+
     return render_template(
       "new.html",
-      genome  = genome,
-      form    = form,
-      edit    = True,
-      allow   = allow,
-      errors  = errors,
-      action  = url_for("edit", genome=genome))
+      genome = genome,
+      form   = form,
+      edit   = True,
+      errors = errors,
+      action = url_for("edit", genome=genome))
 
 ###############################################################################
 ### Trait/sample view
@@ -414,100 +448,57 @@ def ts(genome):
               sep="\t",
               header=[0],
               index_col=[0])
-            if params["t_type"] == "tr":
-                if params["transform"] == "log":
-                    transform = np.log(phe_df[[params["trait_sgl"]]])
-                elif params["transform"] == "pca":
-                    traits = params["traits"]
-                    for group in params["traits_group"]:
-                        traits += json.loads(group)
-                    pca = PCA(n_components=params["num_pc"])
-                    phe = phe_df[traits].dropna()
-                    columns = [
-                      params["t_name"] + f"_PC{i}"
-                      for i in range(1, params["num_pc"] + 1)]
-                    transform = (pd
-                      .DataFrame(
-                        pca.fit_transform(phe),
-                        index=phe.index,
-                        columns=columns))
-                elif params["transform"] == "bin":
-                    transform = ((
-                      phe_df[[params["trait_sgl"]]].dropna() >= float(params["binthr"]))
-                      .astype(int))
-                elif params["transform"] == "zs":
-                    data = phe_df[[params["trait_sgl"]]].dropna()
-                    transform = ((data - np.mean(data)) / np.std(data))
-                elif params["transform"] == "bc":
-                    transform = phe_df[[params["trait_sgl"]]][phe_df[params["trait_sgl"]] > 0]
-                    transform[params["trait_sgl"]] = boxcox(transform[params["trait_sgl"]])[0]
-                elif params["transform"] == "corr":
 
+            samples = json.loads(params["sample_sel"]) or phe_df.index.tolist()
+            raw_phe = phe_df.loc[samples, [params["trait_sgl"]]].dropna()
 
+            if params["transform"] == "log":
+                transform = np.log(raw_phe)
+            elif params["transform"] == "pca":
+                traits = params["trait"]
+                for group in params["trait_group"]:
+                    traits += json.loads(group)
+                pca = PCA(n_components=params["num_pc"])
+                phe = phe_df[traits].dropna()
+                columns = [
+                  params["t_name"] + f"_PC{i}"
+                  for i in range(1, params["num_pc"] + 1)]
+                transform = (pd
+                  .DataFrame(
+                    pca.fit_transform(phe),
+                    index=phe.index,
+                    columns=columns))
+            elif params["transform"] == "bin":
+                transform = ((
+                  raw_phe >= float(params["binthr"]))
+                  .astype(int))
+            elif params["transform"] == "zs":
+                transform = pd.DataFrame(zscore(raw_phe))
+            elif params["transform"] == "outl":
+                transform = raw_phe.mask(np.abs(zscore(raw_phe)) > float(params["num_sd"]))
+            elif params["transform"] == "thr":
+                transform = raw_phe.mask(
+                  (raw_phe < (params["thr_min"] if params["thr_min"] is not None else -np.inf)) |
+                  (raw_phe > (params["thr_max"] if params["thr_max"] is not None else np.inf)))
+            elif params["transform"] == "bc":
+                #transform = raw_phe[phe_df[params["trait_sgl"]] > 0]
+                transform[params["trait_sgl"]] = boxcox(transform[params["trait_sgl"]])[0]
+            elif params["transform"] == "corr":
+                phe_corr = kq_correct(
+                  genome,
+                  raw_phe[params["trait_sgl"]],
+                  None,
+                  params["k"],
+                  int(params["q_num"]) if params["q"] else 0,
+                  params["kq_from"],
+                  params["cov"])
+                transform = pd.DataFrame(phe_corr)
 
+            else:
+                transform = pd.DataFrame(raw_phe)
 
-                    kq_root = os.path.join(
-                      data_dir,
-                      genome,
-                      "assoc",
-                      params["kq_from"],
-                      "gt",
-                      "gt")
+            transform = transform.set_axis([params["t_name"]], axis=1)
 
-                    q_matr = (pd
-                      .read_csv(
-                        f"{kq_root}.eigenvec",
-                        sep="\t",
-                        header=[0],
-                        index_col=[0,1])
-                      .droplevel(0))
-                    q_matr = q_matr.loc[:, q_matr.columns.tolist()[:int(params["q_num"])]]
-
-                    k_matr = pd.read_csv(
-                      f"{kq_root}.rel",
-                      sep="\t",
-                      index_col=None,
-                      header=None)
-                    k_lab = pd.read_csv(
-                      f"{kq_root}.rel.id",
-                      sep="\t",
-                      usecols=[1],
-                      skiprows=[0],
-                      header=None,
-                      index_col=None)[1]
-                    k_matr = (k_matr
-                      .set_axis(k_lab, axis=0)
-                      .set_axis(k_lab, axis=1))
-
-                    phe = phe_df[params["trait_sgl"]]
-                    phe_samples = phe[~pd.isna(phe)].index.intersection(q_matr.index)
-                    phe = phe.loc[phe_samples]
-                    from limix_lmm import LMM as qpqpqp
-
-                    phe_q = q_matr.loc[phe_samples]
-                    phe_q = sm.add_constant(phe_q)
-                    phe_k = k_matr.loc[phe_samples, phe_samples]
-                    QS = economic_qs_linear(phe_k)
-                    lmm = LMM(
-                      phe,
-                      #np.ones((phe.shape[0], 1)),
-                      phe_q,
-                      QS=QS)
-                    lmm.fit()
-                    phe_corr = phe - lmm.mean()
-                    transform = pd.DataFrame(phe_corr).set_index(phe_samples)
-
-#                    phe_q = pd.read_csv("data/Pepper 423/covariates/Pun1_deletion.txt", sep="\t", header=0, index_col=0).loc[phe_samples]
-#                    phe_q = sm.add_constant(phe_q)
-#                    transform = pd.DataFrame(sm.OLS(phe, phe_q).fit().resid)
-
-
-                transform = transform.set_axis([params["t_name"]], axis=1)
-
-            elif params["t_type"] == "sel":
-                samples = json.loads(params["samples_sel"])
-                transform = phe_df.loc[samples, [params["trait_sgl"]]]
-                transform = transform.set_axis([params["t_name"]], axis=1)
             safe_cols = [
               re.sub("[^\w\(\)]", "_", col)
               for col in transform.columns]
@@ -540,7 +531,7 @@ def ts(genome):
               for line in phe_in if line.strip()]
     if phe:
         form.trait_sgl.choices = phe[0][1:]
-        form.traits.choices = phe[0][1:]
+        form.trait.choices = phe[0][1:]
 
     vcf_path = os.path.join(
       data_dir,
@@ -567,13 +558,13 @@ def ts(genome):
     samples = (samp_df[[samp_df.columns[0]]]
       .to_records()
       .tolist())
-    form.samples.choices = samples
-    form.samples_group.choices = [
+    form.sample.choices = samples
+    form.sample_group.choices = [
       (json.dumps(group[0]), group[1])
-       for group in gdata["groups"].get("samples", [])]
-    form.traits_group.choices = [
+       for group in gdata["group"].get("sample", [])]
+    form.trait_group.choices = [
       [json.dumps(group[0]), group[1]]
-      for group in gdata["groups"].get("traits", [])]
+      for group in gdata["group"].get("trait", [])]
 
     markers_root = os.path.join(
       data_dir,
@@ -583,6 +574,10 @@ def ts(genome):
         init_path = os.path.join(markers_root, m, "init")
         if os.path.exists(init_path):
             form.kq_from.choices.append(m)
+    form.cov.choices = [
+      fn for fn in os.listdir(
+        os.path.join(data_dir, genome, "covariates"))]
+
 
     return render_template(
       "trt/trt.html",
@@ -631,17 +626,17 @@ def fa_opts(genome):
             usecols=[0,1])
           .to_records()
           .tolist())
-    form.samples.choices = samples
+    form.sample.choices = samples
 
-    form.samples_group.choices = [
+    form.sample_group.choices = [
       (json.dumps(group[0]), group[1])
-       for group in gdata["groups"].get("samples", [])]
-    form.gene_groups.choices = [
+       for group in gdata["group"].get("sample", [])]
+    form.gene_group.choices = [
       (json.dumps(group[0]), group[1])
-       for group in gdata["groups"].get("genes", [])]
-    form.coord_groups.choices = [
+       for group in gdata["group"].get("gene", [])]
+    form.coord_group.choices = [
       (json.dumps(group[0]), group[1])
-       for group in gdata["groups"].get("coords", [])]
+       for group in gdata["group"].get("coord", [])]
 
     for key, value in request.args.items():
         form[key].data = value
@@ -650,6 +645,8 @@ def fa_opts(genome):
       "fa/opts.html",
       genome = genome,
       form   = form,
+      anns   = None,
+      genes  = None,
       id_fmt = gdata["id_fmt"])
 
 ###############################################################################
@@ -687,24 +684,24 @@ def fa_res(genome):
             usecols=[0,1])
           .to_records()
           .tolist())
-    form.samples.choices = samples
+    form.sample.choices = samples
 
-    form.samples_group.choices = [
+    form.sample_group.choices = [
       [json.dumps(group[0]), group[1]]
-       for group in gdata["groups"].get("samples", [])]
-    form.gene_groups.choices = [
+       for group in gdata["group"].get("sample", [])]
+    form.gene_group.choices = [
       [json.dumps(group[0]), group[1]]
-       for group in gdata["groups"].get("genes", [])]
-    form.coord_groups.choices = [
+       for group in gdata["group"].get("gene", [])]
+    form.coord_group.choices = [
       (json.dumps(group[0]), group[1])
-       for group in gdata["groups"].get("coords", [])]
-    form.exprun_groups.choices = [
+       for group in gdata["group"].get("coord", [])]
+    form.exprun_group.choices = [
       [json.dumps(group[0]), group[1]]
-       for group in gdata["groups"].get("expruns", [])]
+       for group in gdata["group"].get("exprun", [])]
 
-#    form.traits_group.choices = [
+#    form.trait_group.choices = [
 #      [json.dumps(group[0]), group[1]]
-#      for group in gdata["groups"].get("traits", [])]
+#      for group in gdata["group"].get("trait", [])]
 
     (gts,
      groups,
@@ -939,13 +936,17 @@ def assoc_qc(genome):
             with open(params_path) as params_in:
                 params = json.load(params_in)
             if params[1][10] == "No":
-                form.filt_from.choices.append(d)
+                form.filt_from.choices.append((d, d))
+
+    form.coord.choices = [
+      [json.dumps(group[0]), group[1]]
+      for group in gdata["group"].get("coord", [])]
 
     form.chr.choices = gdata["chr_names"]
 
-    form.samples_group.choices = [
+    form.sample_group.choices = [
       (json.dumps(group[0]), group[1])
-       for group in gdata["groups"].get("samples", [])]
+       for group in gdata["group"].get("sample", [])]
 
     return render_template(
       "assoc/qc.html",
@@ -987,20 +988,23 @@ def assoc_filt(genome):
       "task_id": task_id})
 
     # Make sure the same task isn't running or queued
-    if task_spec in task_status["specs"]:
-        return render_template(
-          "error.html",
-          error="Set name unavailable. Choose another name.")
-    else:
-        task_queue.put((task_id, task_spec, task))
-        return render_template(
-          "loading.html",
-          genome    = genome,
-          task      = "filt",
-          task_id   = task_id,
-          task_spec = task_spec,
-          warning   = "",
-          form      = "")
+    with master_lock:
+        status_lock = get_lock("__task_status__")
+    with status_lock:
+        if task_spec in task_status["specs"]:
+            return render_template(
+              "error.html",
+              error="Set name unavailable. Choose another name.")
+        else:
+            task_queue.put((task_id, task_spec, task))
+            return render_template(
+              "loading.html",
+              genome    = genome,
+              task      = "filt",
+              task_id   = task_id,
+              task_spec = task_spec,
+              warning   = "",
+              form      = "")
 
 ###############################################################################
 ### Choose parameters for association analysis
@@ -1023,7 +1027,7 @@ def assoc_opts(genome):
     with lock:
         with open(phe_path, "r") as phe_in:
             phe_header = next(phe_in)
-    form.traits.choices = phe_header.strip().split("\t")[1:]
+    form.trait.choices = phe_header.rstrip().split("\t")[1:]
 
     markers_root = os.path.join(
       data_dir,
@@ -1045,13 +1049,16 @@ def assoc_opts(genome):
             form.markers_sgl.choices.append(m)
             form.kq_from.choices.append(m)
 
-    form.chrom.choices = [""] + gdata["chr_names"]
-    form.traits_group.choices = [
+    form.cov.choices = [
+      fn for fn in os.listdir(
+        os.path.join(data_dir, genome, "covariates"))]
+
+    form.trait_group.choices = [
       [json.dumps(group[0]), group[1]]
-      for group in gdata["groups"].get("traits", [])]
-    form.samples_group.choices = [
+      for group in gdata["group"].get("trait", [])]
+    form.sample_group.choices = [
       (json.dumps(group[0]), group[1])
-       for group in gdata["groups"].get("samples", [])]
+       for group in gdata["group"].get("sample", [])]
     form.plot.choices += [
       ("kin",
        "Kinship matrix"),
@@ -1075,28 +1082,6 @@ def assoc_opts(genome):
       chr_offsets = gdata["chr_offsets"],
       concat      = concat,
       errors      = None)
-
-###############################################################################
-### Optimize random forest parameters
-###############################################################################
-
-@app.route(
-  "/Optimize_RF/<task_id>",
-  methods=["GET", "POST"])
-def rf_optim_view(task_id):
-    optim_path = os.path.join(
-      tmp_dir,
-      f"{task_id}.rfopt")
-
-    if not os.path.exists(optim_path):
-        return render_template(
-          "error.html",
-          error="Results not found.")
-    with open(optim_path) as optim_in:
-        rf_data = json.load(optim_in)
-    return render_template(
-      "assoc/rf_optim.html",
-      rf_data=rf_data)
 
 ###############################################################################
 ### Run association analysis
@@ -1123,15 +1108,15 @@ def assoc_run(genome):
     error = []
 
     if data["model_sgl"] != "mtmlm":
-        for group in data["traits_group"]:
+        for group in data["trait_group"]:
             group, group_name = json.loads(group)
             for trait in group:
-                if trait not in data["traits"]:
-                    data["traits"].append(trait)
+                if trait not in data["trait"]:
+                    data["trait"].append(trait)
 
         existing_traits = list()
-        for trait in data["traits"][:]:
-            if not (data["overwrite"] or data["optimize"]):
+        for trait in data["trait"][:]:
+            if not data["overwrite"]:
                 # Skip existing runs
                 trait_out = os.path.join(
                   data_dir,
@@ -1141,7 +1126,7 @@ def assoc_run(genome):
                   "res",
                   f"{data['model_sgl']}.{trait}.feather")
                 if os.path.exists(trait_out):
-                    data["traits"].remove(trait)
+                    data["trait"].remove(trait)
                     existing_traits.append(trait)
         if existing_traits:
             errors.append("Results already exist for:")
@@ -1155,15 +1140,15 @@ def assoc_run(genome):
               task_spec[2] == data["markers_sgl"] and
               task_spec[3] == data["model_sgl"]):
                 for trait in task_spec[4]:
-                    if trait in data["traits"]:
-                        data["traits"].remove(trait)
+                    if trait in data["trait"]:
+                        data["trait"].remove(trait)
                         queued_traits.append(trait)
         if queued_traits:
             errors.append("Results are already being generated for:")
             errors.append(", ".join(queued_traits))
 
-        if data["traits"]:
-            data["traits"] = sorted(data["traits"])
+        if data["trait"]:
+            data["trait"] = sorted(data["trait"])
 
             task_id = str(uuid.uuid4())
             task_spec = (
@@ -1171,18 +1156,19 @@ def assoc_run(genome):
               genome,
               data["markers_sgl"],
               data["model_sgl"],
-              data["traits"])
-            task = (
-              run_assoc,
-              {"genome": genome,
-              "params": data,
-              "task_id": task_id})
+              data["trait"])
+            task = [
+              "python3",
+              os.path.join("modules", "assoc", "run_assoc.py"),
+              genome,
+              json.dumps(data),
+              task_id]
 
             task_queue.put((task_id, task_spec, task))
             return render_template(
               "loading.html",
               genome    = genome,
-              task      = "assoc" if not data["optimize"] else "rf_optim",
+              task      = "assoc",
               task_id   = task_id,
               task_spec = task_spec,
               errors    = errors,
@@ -1193,15 +1179,15 @@ def assoc_run(genome):
             flash(errors)
             return redirect(url_for("assoc_res", genome=genome))
     else:
-        if data["traits"]:
+        if data["trait"]:
             pass
             #errors = ["To use multi-trait MLM, traits must be grouped."]
         else:
-            data["traits_group"] = [
+            data["trait_group"] = [
               json.loads(g)
-              for g in data["traits_group"]]
+              for g in data["trait_group"]]
             existing_groups = list()
-            for group, group_name in data["traits_group"][:]:
+            for group, group_name in data["trait_group"][:]:
                 # Skip existing runs
                 trait_out = os.path.join(
                   data_dir,
@@ -1212,7 +1198,7 @@ def assoc_run(genome):
                   f"{data['model_sgl']}.{group_name}.feather")
                 if not data["overwrite"]:
                     if os.path.exists(trait_out):
-                        data["traits_group"].remove([group, group_name])
+                        data["trait_group"].remove([group, group_name])
                         existing_groups.append(group_name)
             if existing_groups:
                 errors.append("Results already exist for:")
@@ -1226,26 +1212,27 @@ def assoc_run(genome):
                   task_spec[2] == data["markers_sgl"] and
                   task_spec[3] == data["model_sgl"]):
                     for group in task_spec[4]:
-                        if group in data["traits_group"]:
-                            data["traits_group"].remove(group)
+                        if group in data["trait_group"]:
+                            data["trait_group"].remove(group)
                             queued_groups.append(group[1])
             if queued_groups:
                 errors.append("Results are already being generated for:")
                 errors.append(", ".join(queued_groups))
 
-            if data["traits_group"]:
+            if data["trait_group"]:
                 task_id = str(uuid.uuid4())
                 task_spec = (
                   "run_assoc",
                   genome,
                   data["markers_sgl"],
                   data["model_sgl"],
-                  data["traits_group"])
-                task = (
-                  run_assoc,
-                  {"genome": genome,
-                  "params": data,
-                  "task_id": task_id})
+                  data["trait_group"])
+                task = [
+                  "python3",
+                  os.path.join("modules", "assoc", "run_assoc.py"),
+                  genome,
+                  json.dumps(data),
+                  task_id]
 
                 task_queue.put((task_id, task_spec, task))
                 return render_template(
@@ -1280,10 +1267,10 @@ def assoc_res(genome):
     if saved_form and not form["markers"].data:
         form["markers"].data = [form["markers_sgl"].data]
         form["models"].data = [form["model_sgl"].data]
-        form["traits"].data = form["traits"].data
-        form["traits_group"].data = [
+        form["trait"].data = form["trait"].data
+        form["trait_group"].data = [
           json.dumps(json.loads(group.replace("'", '"'))[0])
-          for group in form["traits_group"].data]
+          for group in form["trait_group"].data]
 
         
     markers_root = os.path.join(
@@ -1295,6 +1282,7 @@ def assoc_res(genome):
       d for d in os.listdir(markers_root)
       if os.path.isdir(os.path.join(markers_root, d))
       and os.path.exists(os.path.join(markers_root, d, "init"))]
+    form.markers_sgl.choices = form.markers.choices[:]
 
     analysed_traits = list()
     analysed_models = list()
@@ -1319,64 +1307,26 @@ def assoc_res(genome):
             if model not in analysed_models:
                 analysed_models.append(model)
 
-    form.traits.choices = analysed_traits
+    form.trait.choices = analysed_traits
     form.models.choices = [(m, models_dict[m]) for m in analysed_models]
 
-    form.traits_group.choices = [
+    form.trait_group.choices = [
       [json.dumps(group[0]), group[1]]
-      for group in gdata["groups"].get("traits", [])]
+      for group in gdata["group"].get("trait", [])]
 
-    form.assoc_loci.choices = [
+    form.hgl_coord_group.choices = [
       [json.dumps(group[0]), group[1]]
-      for group in gdata["groups"].get("assoc-locus", [])]
+      for group in gdata["group"].get("coord", [])]
 
-    form.gene_groups.choices = [
+    form.hgl_gene_group.choices = [
       (json.dumps(group[0]), group[1])
-       for group in gdata["groups"].get("genes", [])]
+       for group in gdata["group"].get("gene", [])]
 
     chroms  = gdata["chr_names"]
     sizes   = gdata["chr_sizes"]
     offsets = gdata["chr_offsets"]
     concat  = json.loads(config["concat"])
 
-    fm_data = list()
-    form["fm_ids"].choices = form["fm_ids"].data
-    if form["fm_ids"].data is not None:
-        for task_id in form["fm_ids"].data:
-            fm_path = os.path.join(
-              tmp_dir,
-              f"{task_id}.fm")
-            params_path = os.path.join(
-              tmp_dir,
-              f"{task_id}.params")
-            with open(params_path) as params_in:
-                params = json.load(params_in)
-            input_params = params[1][:3]
-            fm_data.append([
-              input_params,
-              task_id,
-              "",
-              pd
-                .read_feather(
-                  fm_path)
-                .values.tolist()])
-
-    saved_runs = list()
-    saved_runs_dir = os.path.join(
-      data_dir,
-      genome,
-      "fm")
-    for run_fn in os.listdir(saved_runs_dir):
-        if run_fn.endswith(".nm"):
-            run_path = os.path.join(
-              saved_runs_dir,
-              run_fn)
-            with open(os.path.join(saved_runs_dir, run_fn)) as name_in:
-                run_name = name_in.read().strip()
-            saved_runs.append((
-              os.path.splitext(run_fn)[0],
-              run_name))
-    form.fm_runs.choices = saved_runs
     is_hap = dict()
     for marker_set in form.markers.choices:
         with open(os.path.join(markers_root, marker_set, "stats", "params")) as params_in:
@@ -1392,34 +1342,38 @@ def assoc_res(genome):
       offsets = offsets,
       models  = models_dict,
       concat  = concat,
-      is_hap  = is_hap,
-      fm_data = fm_data)
+      is_hap  = is_hap)
 
-###############################################################################
-### Association analysis locus fine-mapping
-###############################################################################
 
 @app.route(
-  "/<genome>/Association_analysis/Locus",
+  "/<genome>/Association_analysis/QTLs",
   methods=["POST"])
-def assoc_locus(genome):
+def assoc_qtls(genome):
     form = AssocResForm(request.form)
+    data = form.data
+
+
+    gdata = load_gdata(genome)
+    config = load_config(genome)
+    errors = list()
 
     task_id = str(uuid.uuid4())
-    task_spec = ("finemap", genome)
+    task_spec = (
+      "extract_qtls",
+      genome,
+      task_id)
     task = (
-      assoc_finemap,
+      extract_qtls,
       {"genome": genome,
-      "params": form.data,
+      "params": data,
       "task_id": task_id})
 
     task_queue.put((task_id, task_spec, task))
-    if not form.data["optimize"]:
-        form["fm_ids"].data.append(task_id)
     return render_template(
       "loading.html",
       genome    = genome,
-      task      = "finemap" if not form.data["optimize"] else "rf_optim",
+      task      = "qtl",
       task_id   = task_id,
       task_spec = task_spec,
-      form      = form.data)
+      errors    = errors,
+      form      = "")

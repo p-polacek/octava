@@ -114,6 +114,7 @@ function showPlot() {
       chrTicks.push(binOffsets[i] + Math.floor(chrSizes[i] / 2));
     }
 
+
     var trace = {
       type: "bar",
       x: data[1],
@@ -132,7 +133,6 @@ function showPlot() {
     traces.push(trace);
 
     var lastChrIdx = chrNames.length - 1;
-    var xMax = sizes.reduce((s, a) => s + a, 0);
     var yMax = Math.max(...data[0]) * 1.05;
     var layout = {
       //plot_bgcolor: "rgba(0, 0, 0, 0)",
@@ -142,8 +142,8 @@ function showPlot() {
         ticktext: chrNames,
         showgrid: false,
         range: [0, xMax],
-        minallowed: 0,
-        maxallowed: xMax,
+        minallowed: -10000000,
+        maxallowed: data[1][data[1].length - 1] + mdbin / 2,
       },
       yaxis: {
         title: "Count",

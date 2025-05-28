@@ -1,19 +1,30 @@
 {% block input_scripts %}
-    helpTexts["fa-regions"] = "<table><tr><th>Gene ID format</th><td>Example: <i>{{ id_fmt }}</i></td></tr>" +
-                         "<tr><th>Coordinate format</th><td><i>chrom:start-end</i> or <i>chrom:position</i><br>May include comma as the thousands separator</td></tr>" +
-                         "<tr><th>Multiple entries</th><td>Separate with comma and space (, )</td></tr></table>";
+    helpTexts["fa-regions"] = "<table><tr><th>Gene ID format</th><td>Example: <i>{{ id_fmt }}</i></td></tr></table>";
 
     var genome = '{{ genome }}';
     var visibleDropdown = null;
     function toggleFormat() {
       var fmt = document.getElementById("fmt-field").value;
-      ["gene", "region", "coord"].forEach( function(sel) {
+      ["gene", "region", "coord", "gid", "gcopy", "vcopy"].forEach( function(sel) {
         var selDiv = document.getElementById(sel + "-div");
-        selDiv.classList.add("collapsed");
+        if (selDiv != null) {
+          selDiv.classList.add("collapsed");
+        }
         if (fmt === sel) {
           selDiv.classList.remove("collapsed");
         }
       });
+      if (fmt === "gene") {
+        if (document.getElementById("gid-div") != null) {
+          document.getElementById("gid-div").classList.remove("collapsed");
+        } else {
+          document.getElementById("gcopy-div").classList.remove("collapsed");
+        }
+      } else if (fmt === "coord") {
+        if (document.getElementById("vcopy-div") != null) {
+          document.getElementById("vcopy-div").classList.remove("collapsed");
+        }
+      }  
     }
     function toggleImpact() {
       var geneOnly = document.getElementById("impact-geneonly").checked;
@@ -29,6 +40,11 @@
           document.getElementById("impact-HIGH").checked = true;
           document.getElementById("impact-MODERATE").checked = true;
           document.getElementById("impact-MODIFIER").checked = false;
+        } else if (target === "full") {
+          document.getElementById("impact-HIGH").checked = true;
+          document.getElementById("impact-MODERATE").checked = true;
+          document.getElementById("impact-LOW").checked = true;
+          document.getElementById("impact-MODIFIER").checked = true;
         } else if (target === "prom") {
           document.getElementById("impact-HIGH").checked = false;
           document.getElementById("impact-MODERATE").checked = false;
@@ -40,7 +56,7 @@
     function noImpact(clickedElem) {
       if (clickedElem.id === "impact-geneonly") {
         if (clickedElem.checked) {
-          var impacts = ["HIGH", "MODERATE", "LOW", "MODIFIER", "SEV"];
+          var impacts = ["HIGH", "MODERATE", "LOW", "MODIFIER"];
           for (let i = 0; i < impacts.length; i++) {
             document.getElementById("impact-" + impacts[i]).checked = false;
           }
@@ -57,10 +73,6 @@
       document.getElementById("help-popup").classList.add("collapsed");
     });
     document.addEventListener("DOMContentLoaded", function() {
-      // Show group members when right-clicking group
-      document.querySelectorAll(".group-option").forEach(checkboxRow => {
-        showGroupContents(checkboxRow);
-      });
       toggleFormat();
       toggleImpact();
     });

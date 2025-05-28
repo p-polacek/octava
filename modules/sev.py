@@ -19,7 +19,6 @@ from app.dirs import data_dir
 
 from app.task_worker import progress
 
-from modules.assoc import popen
 from modules.vcf_reader import VcfReader
 from modules.load_input import load_config
 

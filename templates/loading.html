@@ -21,22 +21,32 @@
 {% block content %}
   <div class="padded-left">
     <div class="padded-top padded-left padded-right">
-       <h2 id="status" class="padded-bottom"></h2>
-       </h3>
-       <h3
-        id="redirect"
-        class="collapsed bold">
-         <a
-          id="redirectLink"
-          {% if form %}
-            href="#"
-            onclick="document.querySelector('form').submit();"
-          {% else %}
+      <h2 id="status" class="padded-bottom"></h2>
+    <div class="padded-top padded-left padded-right relative">
+      <h2 id="status" class="padded-bottom"></h2>
+      <div class="var-buttons padded-top    " style="padding-right: 15px;">
+        <button
+         type="button"
+         class="var-button"
+         style="margin-right: 5px;" 
+         onclick="cancelTask();">
+          <b>Cancel task</b>
+        </button>
+      </div>
+      <h3
+       id="redirect"
+       class="collapsed bold">
+        <a
+         id="redirectLink"
+         {% if form %}
+           href="#"
+           onclick="document.querySelector('form').submit();"
+         {% else %}
             href=""
           {% endif %}
-         >Click here</a>
-         to see results.
-       </h3>
+        >Click here</a>
+        to see results.
+      </h3>
     </div>
   </div>
   <div class="results-wrapper">
@@ -70,12 +80,10 @@
       redirectHref = "{{ url_for('assoc_opts', genome=genome) }}";
     } else if (task === "assoc") {
       redirectHref = "{{ url_for('assoc_res', genome=genome) }}";
-    } else if (task === "rf_optim") {
-      redirectHref = "{{ url_for('rf_optim_view', task_id=task_id) }}";
-    } else if (task === "finemap") {
-       redirectHref = "{{ url_for('assoc_res', genome=genome) }}";
     } else if (task === "sev") {
        redirectHref = "{{ url_for('fa_res', genome=genome) }}";
+    } else if (task === "qtl") {
+      redirectHref = "{{ url_for('serve_qtl', task_id=task_id) }}";
     }
 
     var error = document.getElementById("error");
@@ -146,6 +154,10 @@
               statusText.innerText = "Task is finished!";
               document.getElementById("redirect").classList.remove("collapsed");
               document.getElementById("time-help").innerHTML = " Total time: " + duration;
+            } else if (statusCode === 410) {
+              statusText.innerText = "Task cancelled.";
+              statusText.classList.add("red-text");
+              document.getElementById("time-help").innerHTML = "";
             } else if (statusCode === 500) {
               statusText.innerText = "Task Failed. Check log for more information.";
               statusText.classList.add("red-text");
@@ -161,6 +173,12 @@
         });
     }
         
+    function cancelTask() {
+      fetch("{{ url_for('remove_task', task_id=task_id) }}", {method: "POST"}).then(r => {
+        checkStatus(taskId);
+      });
+    }
+
     document.addEventListener("DOMContentLoaded", function() {
       if (form !== "") {
         var formElem = document.createElement("form");

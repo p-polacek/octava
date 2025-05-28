@@ -108,10 +108,10 @@ def serve_ld(task_id):
       tmp_dir,
       f"{task_id}.r2")
 
-# PIP file for locus fine-mapping
-@app.route("/pip_file/<task_id>")
-def serve_pip(task_id):
+# QTLs table
+@app.route("/qtl_table/<task_id>")
+def serve_qtl(task_id):
     return send_from_directory(
       tmp_dir,
-      f"{task_id}.fm")
+      "QTL_data.xlsx")
 

@@ -1,6 +1,6 @@
 {% extends "header.html" %}
 
-{% block title %} Trait view {% endblock %}
+{% block title %} Trait and sample view {% endblock %}
 
 {% block style %}{% endblock %}
 
@@ -35,9 +35,9 @@
 {# ================================================================ Options #}
   <div class="results-wrapper">
     <div class="row-div">
-      <h2 class="padded-left">
-        View:
-      </h2>
+      <h1 class="padded-left">
+        Trait and sample view
+      </h1>
     </div>
     <div class="results-container padded-top">
       <div class="disp-flex">
@@ -55,7 +55,7 @@
                   {{ form.trait_sgl(
                    class="default-input",
                    id="trait_sgl-field",
-                   onchange="sglPlot();") }}
+                   onchange="sglPlot(); fillTraitCol();") }}
                 </div>
                 <img
                   class="aux-button clickable"
@@ -64,22 +64,18 @@
                   title="Delete trait" />
               </div>
 {# ================================================================ Samples #}
-              <div class="row-div mini-padded-top padded-bottom">
-                <h2>
-                  Filter by sample:
-                </h2>
-                <img
-                  class="aux-button clickable"
-                  src="{{ url_for('serve_button', button='update') }}"
-                  onclick="copyPheSamples();"
-                  title="Copy phenotyped samples" />
-              </div>
+              <h2 class="mini-padded-top padded-bottom">
+                Process trait
+              </h2>
+              <h3 class="bold small-padded-bottom">
+                Filter by sample:
+              </h3>
               <div class="row-div">
                 <button
                  type="button"
                  class="dropdown-button"
                  onclick="toggleSamp();">
-                  {{ form.samples.label(class="default-label bold") }}
+                  {{ form.sample.label(class="default-label bold") }}
                   <span
                    class="default-label counter"
                    id="samples-count">
@@ -91,43 +87,16 @@
                   src="{{ url_for('serve_button', button='save') }}"
                   onclick="makeGroup(event, 'samples');"
                   title="Save selection as group" />
-{#
-                                                                          <div
-                                                                           id="samples-dropdown"
-                                                                           class="dropdown-menu collapsed">
-                                                                            <div class="sticky non-transparent small-padding">
-                                                                              <input
-                                                                               type="text"
-                                                                               class="search-bar"
-                                                                               placeholder="Search..."
-                                                                               onkeyup="filterDropdown(visibleDropdown);">
-                                                                              <button
-                                                                               type="button"
-                                                                               onclick="toggleAll(visibleDropdown);">
-                                                                                Select all
-                                                                              </button>
-                                                                            </div>
-                                                                            {% for choice in form.samples %}
-                                                                              <div class="checkbox-row">
-                                                                                {{ choice(
-                                                                                 class="samples-checkbox",
-                                                                                 onchange="updateCount(
-                                                                                  this.parentElement.parentElement);") }}
-                                                                                {{ choice.label(class="checkbox-label") }}
-                                                                              </div>
-                                                                            {% endfor %}
-                                                                          </div>
-#}
               </div>
-              <div class="row-div small-padded-top">
+              <div class="row-div small-padded-top small-padded-bottom">
                 <button
                  type="button"
                  class="dropdown-button"
                  onclick="showDropdown(event, this);">
-                  {{ form.samples_group.label(class="default-label bold") }}
+                  {{ form.sample_group.label(class="default-label bold") }}
                   <span
                    class="default-label counter"
-                   id="samples_group-count">
+                   id="sample_group-count">
                     0 selected
                   </span>
                 </button>
@@ -137,7 +106,7 @@
                   onclick="deleteGroup(event, 'samples');"
                   title="Delete selected groups" />
                 <div
-                 id="samples_group-dropdown"
+                 id="sample_group-dropdown"
                  class="dropdown-menu collapsed">
                   <div class="sticky non-transparent small-padding">
                     <input
@@ -153,10 +122,10 @@
                       Select all
                     </button>
                   </div>
-                  {% for choice in form.samples_group %}
-                    <div class="checkbox-row samples_group-option">
+                  {% for choice in form.sample_group %}
+                    <div class="checkbox-row group-option">
                       {{ choice(
-                       class="samples_group-checkbox",
+                       class="sample_group-checkbox",
                        onchange="updateCount(
                         this.parentElement.parentElement);
                         filterSamplesTable();") }}
@@ -165,7 +134,7 @@
                   {% endfor %}
                 </div>
               </div>
-              <div class="row-input-div padded-top padded-bottom justified">
+              <div class="row-input-div padded-top padded-bottom justified collapsed">
                 <label
                  for="gt"
                  class="default-label bold" >
@@ -175,130 +144,11 @@
                  type="checkbox"
                  id="gt">
               </div>
-{# ======================================================== Filter by value #}
-              <div class="row-div mini-padded-top padded-bottom">
-                <h2>
-                  Filter by value:
-                </h2>
-              </div>
-              <div class="row-input-div justified small-padded-bottom">
-                <label for="filt-from" class="default-label bold">
-                  Minimum:
-                </label>
-                <input id="filt-from" type="number" class="small-num-input" />
-              </div>
-              <div class="row-input-div justified small-padded-bottom">
-                <label for="filt-to" class="default-label bold">
-                  Maximum:
-                </label>
-                <input id="filt-to" type="number" class="small-num-input" />
-              </div>
-{# ========================================================== Save filtered #}
-              <div class="row-div small-padded-top padded-bottom">
-                <div class="row-input-div justified">
-                  <button
-                   type="button"
-                   value="sel"
-                   onclick="filtPhe();">
-                    <label class="default-label bold">
-                      Apply
-                    </label>
-                  </button>
-                  <button
-                   type="button"
-                   value="sel"
-                   onclick="saveTransform(this.value);">
-                    <label class="default-label bold">
-                      Save filtered
-                    </label>
-                  </button>
-                </div>
-              </div>
-{# ============================================================ Correlation #}
-              <div class="row-div small-padded-top padded-bottom">
-                <h2>
-                  Compare traits:
-                </h2>
-                <img
-                  class="aux-button clickable"
-                  src="{{ url_for('serve_button', button='help') }}"
-                  onclick="showHelp(event, 'cmp-trt');" />
-              </div>
-              {% for field in [
-               "traits",
-               "traits_group"] %}
-                {% set field_count = field + "_count" %}
-                {% set option_class = field + "-option" %}
-                <div class="row-div small-padded-bottom">
-                  <button
-                   type="button"
-                   class="dropdown-button"
-                   onclick="showDropdown(event, this);">
-                    {{ form[field].label(class="default-label bold") }}
-                    <span
-                     id="{{ field_count }}"
-                     class="default-label counter">
-                      0 selected
-                    </span>
-                  </button>
-                  {% if field == "traits" %}
-                <img
-                  class="aux-button clickable"
-                  src="{{ url_for('serve_button', button='save') }}"
-                  onclick="makeGroup(event, 'traits');"
-                  title="Save selection as group" />
-                  {% elif field == "traits_group" %}
-                <img
-                  class="aux-button clickable"
-                  src="{{ url_for('serve_button', button='delete') }}"
-                  onclick="deleteGroup(event, 'traits');"
-                  title="Delete selected groups" />
-                  {% endif %}
-                  <div
-                    class="dropdown-menu collapsed"
-                    id="{{field + '-dropdown' }}">
-                    <div class="sticky non-transparent small-padding">
-                      <input
-                       type="text"
-                       class="search-bar"
-                       placeholder="Search..."
-                       onkeyup="filterDropdown(visibleDropdown);">
-                      <button
-                       type="button"
-                       onclick="toggleAll(visibleDropdown);">
-                        Select all
-                      </button>
-                    </div>
-                    {% for choice in form[field] %}
-                      <div class="checkbox-row {{ option_class }}">
-                        {{ choice(
-                         class=field + "-checkbox",
-                         onchange="updateCount(this.parentElement.parentElement);")}}
-                        {{ choice.label }}
-                      </div>
-                    {% endfor %}
-                  </div>
-                </div>
-              {% endfor %}
-{# =================================================================== Plot #}
-              <div class="
-               row-input-div
-               justified
-               small-padded-top
-               padded-bottom">
-                <button
-                 type="button"
-                 onclick="correlMatrix();">
-                  <label class="default-label bold">
-                   Update plot
-                  </label>
-                </button>
-              </div>
 {# ============================================================== Transform #}
-              <div class="row-div mini-padded-top">
-                <h2>
+              <div class="row-div padded-top">
+                <h3 class="bold">
                   Transform:
-                </h2>
+                </h3>
                 <img
                   class="aux-button clickable"
                   src="{{ url_for('serve_button', button='help') }}"
@@ -349,56 +199,101 @@
                   {{ form.num_pc(id="num-pc", class="promsize-div", size=4) }}
               </div>
               <div id="kq-div" class="collapsed small-padded-bottom">
-                <div class="row-div small-padded-bottom">
-                  <div class="row-input-div">
-                    <button
-                     type="button"
-                     class="dropdown-button"
-                     onclick="showDropdown(event, this);">
-                      {{ form.kq_from.label(
-                       class="default-label bold") }}
-                      <span
-                       class="default-label tracker">
-                      </span>
-                    </button>
-                    <div class="dropdown-menu collapsed">
-                      <div class="sticky non-transparent small-padding">
-                        <input
-                         type="text"
-                         class="search-bar"
-                         placeholder="Search..."
-                         onkeyup="filterDropdown(visibleDropdown);">
-                        <button
-                         type="button"
-                         disabled">
-                          Select all
-                        </button>
-                      </div>
-                      {% for choice in form.kq_from %}
-                        <div
-                         class="checkbox-row"
-                         oncontextmenu="contextMenu(
-                          event,
-                          {'action': 'markers',
-                           'markers': this.querySelector('label').textContent});">
-                          {{ choice(
-                           onchange="updateTracker(this.parentElement.parentElement);")}}
-                          {{ choice.label(
-                           class="checkbox-label") }}
-                        </div>
-                      {% endfor %}
-                    </div>
-                  </div>
-                  <img
-                    class="aux-button clickable"
-                    src="{{ url_for('serve_button', button='help') }}"
-                    onclick="showHelp(event, 'trt-corr');" />
-                </div>
+
                 <div class="row-input-div justified">
+                  {{ form.k.label(
+                   class="default-label") }}
+                  {{ form.k }}
+                </div>
+                <div class="row-input-div justified small-padded-top">
+                  {{ form.q.label(
+                   class="default-label") }}
+                  {{ form.q }}
+                </div>
+                <div class="row-input-div justified small-padded-top">
                   {{ form.q_num.label(
-                   class="default-label bold") }}
+                   class="default-label") }}
                   {{ form.q_num(class="small-num-input") }}
                 </div>
+                <div class="row-div padded-top">
+                  <button
+                   type="button"
+                   class="dropdown-button"
+                   onclick="showDropdown(event, this);">
+                    {{ form.kq_from.label(
+                     class="default-label bold") }}
+                    <span
+                     class="default-label tracker">
+                    </span>
+                  </button>
+                  <div class="dropdown-menu collapsed">
+                    <div class="sticky non-transparent small-padding">
+                      <input
+                       type="text"
+                       class="search-bar"
+                       placeholder="Search..."
+                       onkeyup="filterDropdown(visibleDropdown);">
+                      <button
+                       type="button"
+                       disabled">
+                        Select all
+                      </button>
+                    </div>
+                    {% for choice in form.kq_from %}
+                      <div
+                       class="checkbox-row"
+                       oncontextmenu="contextMenu(
+                        event,
+                        {'action': 'markers',
+                         'markers': this.querySelector('label').textContent});">
+                        {{ choice(
+                         onchange="updateTracker(this.parentElement.parentElement);")}}
+                        {{ choice.label(
+                         class="checkbox-label") }}
+                      </div>
+                    {% endfor %}
+                  </div>
+                </div>
+                <div class="row-div padded-top small-padded-bottom">
+                  <button
+                   type="button"
+                   class="dropdown-button"
+                   onclick="showDropdown(event, this);">
+                    {{ form.cov.label(
+                     class="default-label bold") }}
+                    <span
+                     class="default-label tracker">
+                    </span>
+                  </button>
+                  <div class="dropdown-menu collapsed">
+                    <div class="sticky non-transparent small-padding">
+                      <input
+                       type="text"
+                       class="search-bar"
+                       placeholder="Search..."
+                       onkeyup="filterDropdown(visibleDropdown);">
+                      <button
+                       type="button"
+                       disabled">
+                        Select all
+                      </button>
+                    </div>
+                    {% for choice in form.cov %}
+                      <div
+                       class="checkbox-row"
+                       oncontextmenu="contextMenu(
+                        event,
+                        {'action': 'cov',
+                         'cov': this.querySelector('input').value});">
+                        {{ choice(
+                         onchange="updateCount(this.parentElement.parentElement);")}}
+                        {{ choice.label(
+                         class="checkbox-label") }}
+                      </div>
+                    {% endfor %}
+                  </div>
+                </div>
+
               </div>
               <div
                id="binthr-div"
@@ -406,33 +301,156 @@
                   {{ form.binthr.label(class="default-label bold") }}
                   {{ form.binthr(id="binthr", class="promsize-div", size=4) }}
               </div>
+              <div id="thr-div">
+                <div class="row-input-div justified small-padded-bottom">
+                  {{ form.thr_min.label(class="default-label bold") }}
+                  {{ form.thr_min(id="thr_min", class="promsize-div", size=4) }}
+                </div>
+                <div class="row-input-div justified small-padded-bottom">
+                  {{ form.thr_max.label(class="default-label bold") }}
+                  {{ form.thr_max(id="thr_max", class="promsize-div", size=4) }}
+                </div>
+              </div>
+              <div
+               id="numsd-div"
+               class="row-input-div justified small-padded-bottom collapsed">
+                  {{ form.num_sd.label(class="default-label bold") }}
+                  {{ form.num_sd(id="num_sd", class="promsize-div", size=4) }}
+              </div>
               <div class="row-input-div justified padded-top padded-bottom">
                 <button
                  type="button"
                  onclick="showTransform();">
                   <label class="default-label bold">
-                    Transform
+                    Apply
                   </label>
                 </button>
                 &nbsp;&nbsp;
                 <button
                  type="button"
-                 value="tr"
-                 onclick="saveTransform(this.value);">
+                 onclick="saveTransform();">
                   <label class="default-label bold">
                     Save trait
                   </label>
                 </button>
               </div>
-              {{ form.samples_sel(
+              {{ form.sample_sel(
               class="collapsed",
-                id="samples_sel-field") }}
+                id="sample_sel-field") }}
               {{ form.t_name(
                class="collapsed",
                id="t_name-field") }}
-              {{ form.t_type(
-               class="collapsed",
-               id="t_type-field") }}
+{# ============================================================ Correlation #}
+              <div class="row-div small-padded-top padded-bottom">
+                <h2>
+                  Compare traits:
+                </h2>
+                <img
+                  class="aux-button clickable"
+                  src="{{ url_for('serve_button', button='help') }}"
+                  onclick="showHelp(event, 'cmp-trt');" />
+              </div>
+              <div class="row-div small-padded-bottom">
+                <button
+                 type="button"
+                 class="dropdown-button"
+                 onclick="showDropdown(event, this);">
+                  {{ form.trait.label(class="default-label bold") }}
+                  <span
+                   id="trait_count"
+                   class="default-label counter">
+                    0 selected
+                  </span>
+                </button>
+                <img
+                  class="aux-button clickable"
+                  src="{{ url_for('serve_button', button='save') }}"
+                  onclick="makeGroup(event, 'traits');"
+                  title="Save selection as group" />
+                <div
+                  class="dropdown-menu collapsed"
+                  id="trait-dropdown">
+                  <div class="sticky non-transparent small-padding">
+                    <input
+                     type="text"
+                     class="search-bar"
+                     placeholder="Search..."
+                     onkeyup="filterDropdown(visibleDropdown);">
+                    <button
+                     type="button"
+                     onclick="toggleAll(visibleDropdown);">
+                      Select all
+                    </button>
+                  </div>
+                  {% for choice in form.trait %}
+                    <div class="checkbox-row">
+                      {{ choice(
+                       class="trait-checkbox",
+                       onchange="
+                        updateCount(this.parentElement.parentElement);
+                        if (this.checked) { document.getElementById('trait_sgl-field').value = this.value; sglPlot(); fillTraitCol(); };
+                       ")}}
+                      {{ choice.label }}
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="row-div small-padded-bottom">
+                <button
+                 type="button"
+                 class="dropdown-button"
+                 onclick="showDropdown(event, this);">
+                  {{ form.trait_group.label(class="default-label bold") }}
+                  <span
+                   id="trait_group_count"
+                   class="default-label counter">
+                    0 selected
+                  </span>
+                </button>
+                <img
+                  class="aux-button clickable"
+                  src="{{ url_for('serve_button', button='delete') }}"
+                  onclick="deleteGroup(event, 'traits');"
+                  title="Delete selected groups" />
+                <div
+                  class="dropdown-menu collapsed"
+                  id="trait_group-dropdown">
+                  <div class="sticky non-transparent small-padding">
+                    <input
+                     type="text"
+                     class="search-bar"
+                     placeholder="Search..."
+                     onkeyup="filterDropdown(visibleDropdown);">
+                    <button
+                     type="button"
+                     onclick="toggleAll(visibleDropdown);">
+                      Select all
+                    </button>
+                  </div>
+                  {% for choice in form.trait_group %}
+                    <div class="checkbox-row group-option">
+                      {{ choice(
+                       class="trait_group-checkbox",
+                       onchange="updateCount(this.parentElement.parentElement);")}}
+                      {{ choice.label }}
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+{# =================================================================== Plot #}
+              <div class="
+               row-input-div
+               justified
+               small-padded-top
+               padded-bottom">
+                <button
+                 type="button"
+                 onclick="correlMatrix();">
+                  <label class="default-label bold">
+                   Update plot
+                  </label>
+                </button>
+              </div>
 {# ========================================================= Plot and table #}
             </div>
           </div>
@@ -442,38 +460,9 @@
             id="plot-div"
             class="results-subcontainer">
           </div>
+          </div>
           <table id="samples-table">
           </table>
-{#
-          <div id="table-div">
-            <div class="row-div justified padded-bottom">
-              <button onclick="decrement()">
-                <b>
-                  <
-                </b>
-              </button>
-              <h3>
-               Rows
-                <span id="table-from">
-                  1
-                </span>
-                  -
-                <span id="table-to">
-                  10
-                </span>
-              </h3>
-              <button onclick="increment()">
-              <b>
-                  >
-                </b>
-              </button>
-            </div>
-            <div class="scrollable padded-right">
-              <table id="plot-table">
-              </table>
-            </div>
-          </div>
-#}
         </div>
       </div>
     </div>
@@ -493,9 +482,6 @@
   <script src="{{url_for(
   'static',
    filename='js/popups.js')}}"></script>
-  <script src="{{url_for(
-   'static',
-   filename='js/group.js')}}"></script>
 
   <script
    src="https://cdn.jsdelivr.net/npm/pca-js@1.0.0/pca.min.js">
@@ -541,45 +527,21 @@
     var gtSamples = {{ gt_samples|tojson }};
     var dataTransform;
     var bestL;
-
-    function copyPheSamples() {
-      var trait = document.getElementById("trait_sgl-field").value;
-      var traitIdx = pheCols[trait];
-
-      var table = document.getElementById("samples-table");
-      var rows = table.querySelector("tbody").getElementsByTagName("tr");
-      var toHighlight = false;
-      for (let i = 0; i < rows.length; i++) {
-        var row = rows[i];
-        var sampleId = row.childNodes[0].textContent;
-        if (pheData[sampleId][traitIdx] !== "") {
-          row.classList.remove("collapsed");
-          document.getElementById("samples-table0" + sampleId).checked = "checked";
-        } else {
-          row.classList.add("collapsed");
-          document.getElementById("samples-table0" + sampleId).checked = "";
-          toHighlight = true;
-        }
-      }
-      updateTableCount("samples-table");
-      var header = table.getElementsByTagName("th");
-      header[0].style.color = toHighlight ? "#ff9c78" : "";
-    }
 {# ============================================ Fetch sample and trait data #}
     // Get list of selected traits from dropdown
     function getTraitChoice() {
       var traitChoice = [];
-      document.querySelectorAll(".traits-checkbox").forEach( function(cbox) {
+      document.querySelectorAll(".trait-checkbox").forEach( function(cbox) {
         if (cbox.checked) {
           traitChoice.push(cbox.value);
         }
       });
-      document.querySelectorAll(".traits_group-checkbox").forEach( function(cbox) {
+      document.querySelectorAll(".trait_group-checkbox").forEach( function(cbox) {
         if (cbox.checked) {
         traitChoice = traitChoice.concat(JSON.parse(cbox.value));
         }
       });
-      return traitChoice;
+      return Object.keys(pheCols).filter(t => traitChoice.indexOf(t) > -1);
     }
 
     function getSampleChoice() {
@@ -608,7 +570,7 @@
       }
       // Get list of sample groups
       var sampleGroupChoice = [];
-      document.querySelectorAll(".samples_group-checkbox").forEach( function(cbox) {
+      document.querySelectorAll(".sample_group-checkbox").forEach( function(cbox) {
         if (cbox.checked) {
           // Keep both group contents and name
           var samplesList = JSON.parse(cbox.value);
@@ -630,7 +592,7 @@
     }
     function filterSamplesTable() {
       var groups = [];
-      var checkboxes = document.querySelectorAll(".samples_group-checkbox");
+      var checkboxes = document.querySelectorAll(".sample_group-checkbox");
       // Get filters based on sample groups selection
       for (let i = 0; i < checkboxes.length; i++) {
         if (checkboxes[i].checked) {
@@ -785,16 +747,27 @@
           tracegroupgap: 2,
         },
         xaxis: {
+          title: "Phenotype value",
           exponentformat: "e",
           minexponent: 3,
         },  
         yaxis: {
+          title: "Sample count",
           exponentformat: "e",
           minexponent: 3,
         },
       };
       layout["margin"] = plotMargins;
-      Plotly.newPlot("plot-div", traces, layout);
+
+      var config = {
+        editable: false,
+        modeBarButtonsToAdd: 
+          ["edit", "recolor"]
+          .map(key => buttonsToAdd[key]),
+        modeBarButtonsToRemove: [],
+      };
+
+      Plotly.newPlot("plot-div", traces, layout, config);
 
       if (unzoom) {
         // Allow zoomimg out to the full plot by double-clicking
@@ -814,27 +787,52 @@
       }
     }
 
+    function fillTraitCol() {
+      var trait = document.getElementById("trait_sgl-field").value;
+      var traitIdx = pheCols[trait];
+      var samplesTable = document.getElementById("samples-table");
+      samplesTable.querySelectorAll("tbody tr").forEach((row, i) => {
+        row.lastChild.innerText = pheData[row.firstChild.innerText][traitIdx];
+      });
+      var numCols = samplesTable.querySelector("thead tr").children.length;
+      var colIndex = numCols - 1;
+      var traitDropdown = document.getElementById("samples-tabledropdown_" + colIndex.toString());
+      if (traitDropdown != null) {
+        delete dropdowns["samples-table"][colIndex];
+      }
+    }
+
     // Plot of transformed data, doesn't show individual groups
-    function transformedPlot(plotData) {
+    function transformedPlot(plotData, trait) {
       var trace = {
         x: plotData,
         type: "histogram",
-        marker: { color: plotColorAll },
+        marker: { color: "#014e60" },
         visible: true,
       };
       var layout = {
+        title: trait + " (transformed)",
         showlegend: false,
         xaxis: {
+          title: "Transformed phenotype value",
           exponentformat: "e",
           minexponent: 3,
-        },  
+        },
         yaxis: {
+          title: "Filtered sample count",
           exponentformat: "e",
           minexponent: 3,
         },
       };
       layout["margin"] = plotMargins;
-      Plotly.newPlot("plot-div", [trace], layout);
+      var config = {
+        editable: false,
+        modeBarButtonsToAdd: 
+          ["edit", "recolor"]
+          .map(key => buttonsToAdd[key]),
+        modeBarButtonsToRemove: [],
+      };
+      Plotly.newPlot("plot-div", [trace], layout, config);
     }
 {# ======================================================= Plot correlation #}
     function scatterPlot(traitA, traitB, allSamples, sampleChoice, sampleGroups, xaxis, yaxis, legend) {
@@ -982,9 +980,59 @@
       var [allSamples, sampleChoice, sampleGroupChoice] = getSampleChoice();
       var numTraits = traitChoice.length;
 
-      if (numTraits === 0) {
+      if (numTraits < 2) {
         sglPlot();
         //showHelp(event, this, "Select at least two traits.");
+      } else if (numTraits >= 10) {
+        var request = $.ajax({
+          url: "{{ url_for('fetch_correl') }}",
+          method: "POST",
+          data: {
+            genome: genome,
+            traits: JSON.stringify(traitChoice),
+          },
+          success: function(correl) {
+            var traitRev = traitChoice.slice().reverse();
+            var trace = {
+              type: "heatmap",
+              z: correl.reverse(),
+              x: traitChoice,
+              y: traitRev,
+              colorscale: [
+                [0, "blue"],
+                [0.5, "white"],
+                [1, "red"],
+              ],
+              zmin: -1,
+              zmax: 1,
+              colorbar: {
+                title: "r<sup>2</sup>",
+              },
+            };
+            var layout = {
+              xaxis: {
+                tickangle: -45,
+                showgrid: false,
+              },
+              yaxis: {
+                tickangle: -45,
+                showgrid: false,
+              },
+              margin: {
+                t: 30,
+                pad: 4
+              },
+            }
+            var config = {
+              editable: false,
+              modeBarButtonsToAdd: 
+                ["edit"]
+                .map(key => buttonsToAdd[key]),
+              modeBarButtonsToRemove: [],
+            };
+            Plotly.newPlot("plot-div", [trace], layout, config);
+          }
+        });
       } else {
         var traces = [];
         var plotScheme = [];
@@ -1163,49 +1211,6 @@
         });
       }
     };
-{# ============================================ Filter samples by phenotype #}
-    function filtPhe() {
-      var filtFrom = document.getElementById("filt-from").value;
-      var filtTo = document.getElementById("filt-to").value;
-      if (filtFrom === "" && filtTo === "") {
-        sglPlot();
-        return;
-      }
-      if (filtFrom === "") {
-        filtFrom = -Infinity;
-      }
-      if (filtTo === "") {
-        filtTo = Infinity;
-      }
-      // Remove sample groups, only filter individual samples
-      document.querySelectorAll(".samples_group-checkbox").forEach(function(checkbox) {
-        checkbox.checked = "";
-      });
-      updateCount(document.getElementById("samples_group-dropdown"));
-
-      var trait = document.getElementById("trait_sgl-field").value;
-      var traitIdx = pheCols[trait];
-      var table = document.getElementById("samples-table");
-      var rows = table.querySelector("tbody").getElementsByTagName("tr");
-      var toHighlight = false;
-      for (let i = 0; i < rows.length; i++) {
-        var row = rows[i];
-        var sampleId = row.childNodes[0].textContent;
-        var pheVal = parseFloat(pheData[sampleId][traitIdx]);
-        if (!isNaN(pheVal) && pheVal >= filtFrom && pheVal <= filtTo) {
-          row.classList.remove("collapsed");
-          document.getElementById("samples-table0" + sampleId).checked = "checked";
-        } else {
-          row.classList.add("collapsed");
-          document.getElementById("samples-table0" + sampleId).checked = "";
-          toHighlight = true;
-        }
-      }
-      updateTableCount("samples-table");
-      var header = table.getElementsByTagName("th");
-      header[0].style.color = toHighlight ? "#ff9c78" : "";
-      sglPlot();
-    }
 {# ========================================================= Transform data #}
     function showTransform() {
       document.getElementById("samples-table").classList.add("collapsed");
@@ -1213,8 +1218,8 @@
       dataTransform = null;
       document.getElementById("plot-div").innerHTML = "";
       var transform = document.querySelector("input[name='transform']:checked");
-      if (transform == null) {
-        showHelp(event, this, "Choose a transform method.");
+      if (transform.value === "") {
+        sglPlot();
         return;
       }
       if (transform.value == "pca") {
@@ -1229,13 +1234,28 @@
       t = transform.value;
       var plotData = [];
       var trait = document.getElementById("trait_sgl-field").value;
-      Object.keys(pheData).forEach(function(key) {
+
+      var [allSamples, sampleChoice, sampleGroupChoice] = getSampleChoice();
+      var selectedSamples = sampleChoice;
+      for (var group of sampleGroupChoice) {
+        for (var sample of group[0]) {
+          if (!selectedSamples.includes(sample)) {
+            selectedSamples.push(sample);
+          }
+        }
+      }
+      if (selectedSamples.length === 0) {
+        selectedSamples = allSamples;
+      }
+
+      selectedSamples.forEach(function(key) {
         plotData.push(pheData[key][pheCols[trait]]);
       });
-      plotData = plotData.map( v => parseFloat(v));
+      plotData = plotData.map(v => parseFloat(v)).filter(v => !isNaN(v));
+
       if (t === "corr") {
         if (document.querySelector("input[name='kq_from']:checked") != null) {
-          showHelp(event, this, "Save transform to view.");
+          showHelp(event, this, "Save transformed trait to view.");
         } else {
           showHelp(event, this, "Choose a marker set for correction.");
         }
@@ -1243,7 +1263,7 @@
         return;
       }
       if (t === "log" || t === "bc") {
-        var dataMin = Math.min(...plotData.filter(v => !isNaN(v)));
+        var dataMin = Math.min(...plotData);
         if (dataMin <= 0) {
           showHelp(event, this, "Trait data cannot contain zeros or negative values.");
           return;
@@ -1252,7 +1272,6 @@
       if (t === "log") {
         dataTransform = plotData.map( v => Math.log(v) );
       } else if (t === "bc") {
-        plotData = plotData.filter( v => !isNaN(v) );
 
         function bcTransform(data, l) {
           return data.map(y => l === 0 ? Math.log(y) : (Math.pow(y, l) - 1) / l);
@@ -1278,11 +1297,25 @@
         //console.log(bestL);
         dataTransform = bcTransform(plotData, bestL);
 
-      } else if (t === "zs") {
-        plotData = plotData.filter( v => !isNaN(v) );
+      } else if (t === "zs" || t === "outl") {
         var mean = plotData.reduce((s, v) => s + v, 0) / plotData.length;
         var std = Math.sqrt(plotData.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / plotData.length);
-        dataTransform = plotData.map(v => (v - mean) / std);
+        
+        if (t === "zs") {
+          dataTransform = plotData.map(v => (v - mean) / std);
+        } else {
+          var sdnum = parseFloat(document.getElementById("num_sd").value);
+          if (isNaN(sdnum)) {
+            showHelp(event, this, "Choose a threshold.");
+            return;
+          }
+          var [sdmin, sdmax] = [mean - std * sdnum, mean + std * sdnum];
+          dataTransform = plotData.filter(v => (v >= sdmin && v <= sdmax));
+        }
+      } else if (t === "thr") {
+        var thrMin = document.getElementById("thr_min").value.trim() || -Infinity;
+        var thrMax = document.getElementById("thr_max").value.trim() || Infinity;
+        dataTransform = plotData.filter(v => (v >= thrMin && v <= thrMax))
       } else if (t === "bin") {
         var thresh = parseFloat(document.getElementById("binthr").value);
         if (isNaN(thresh)) {
@@ -1292,7 +1325,7 @@
         dataTransform = plotData.map( v => v >= thresh ? 1 : 0 );
       }
       if (dataTransform !== null) {
-        transformedPlot(dataTransform);
+        transformedPlot(dataTransform, trait);
       }
     }
 
@@ -1316,13 +1349,25 @@
       }
 
       var [allSamples, sampleChoice, sampleGroupChoice] = getSampleChoice();
+      var selectedSamples = sampleChoice;
+      for (var group of sampleGroupChoice) {
+        for (var sample of group[0]) {
+          if (!selectedSamples.includes(sample)) {
+            selectedSamples.push(sample);
+          }
+        }
+      }
+      if (selectedSamples.length === 0) {
+        selectedSamples = allSamples;
+      }
+
       if (numTraits < 2) {
-        showHelp(event, this, "Select at least two traits.");
+        showHelp(event, this, "Select at least two traits through the 'Trait' or 'Trait group' dropdowns.");
         return;
       }
 
       var plottedSamples = [];
-      allSamples.forEach(function(sample) {
+      selectedSamples.forEach(function(sample) {
         var sampleData = [];
         traitChoice.forEach(function(trait) {
           var value = pheData[sample][pheCols[trait]];
@@ -1566,32 +1611,29 @@
       Plotly.newPlot("plot-div", traces, layout, config);
     }
 {# ========================================================= Save transform #}
-    function saveTransform(buttonVal) {
-      if (buttonVal === "sel") {
-        var [allSamples, sampleChoice, sampleGroupChoice] = getSampleChoice();
-        var selectedSamples = sampleChoice;
-        for (var group of sampleGroupChoice) {
-          for (var sample of group[0]) {
-            if (!selectedSamples.includes(sample)) {
-              selectedSamples.push(sample);
-            }
+    function saveTransform() {
+      var [allSamples, sampleChoice, sampleGroupChoice] = getSampleChoice();
+      var selectedSamples = sampleChoice;
+      for (var group of sampleGroupChoice) {
+        for (var sample of group[0]) {
+          if (!selectedSamples.includes(sample)) {
+            selectedSamples.push(sample);
           }
         }
       }
-      if (buttonVal === "tr" && dataTransform == null) {
-        showHelp(event, this, "Apply a valid transform.");
-      } else if (buttonVal === "sel" && selectedSamples.length === 0) {
-        showHelp(event, this, "Make a sample selection.");
+      if (document.querySelector("input[name='transform']:checked").value !== "pca") {
+        var defaultName = document.getElementById("trait_sgl-field").value;
       } else {
-        var transformName = "";
-        while (transformName === "") {
-          var transformName = prompt("Trait name:");
-        }
+        var defaultName = "";
       }
+      var transformName = "";
+      while (transformName === "") {
+        var transformName = prompt("Trait name:", defaultName);
+      }
+
       if (transformName != null) {
-        document.getElementById("samples_sel-field").value = JSON.stringify(selectedSamples);
+        document.getElementById("sample_sel-field").value = JSON.stringify(selectedSamples);
         document.getElementById("t_name-field").value = transformName;
-        document.getElementById("t_type-field").value = buttonVal;
         document.querySelector("form").submit();
       }
     }
@@ -1615,22 +1657,21 @@
 
     function toggleTransform() {
       var transform = document.querySelector("input[name='transform']:checked");
-      if (transform != null && transform.value == "pca") {
-        document.getElementById("numpc-div").classList.remove("collapsed");
-        document.getElementById("binthr-div").classList.add("collapsed");
-        document.getElementById("kq-div").classList.add("collapsed");
-      } else if (transform != null && transform.value == "bin") {
-        document.getElementById("numpc-div").classList.add("collapsed");
-        document.getElementById("binthr-div").classList.remove("collapsed");
-        document.getElementById("kq-div").classList.add("collapsed");
-      } else if (transform != null && transform.value == "corr") {
-        document.getElementById("kq-div").classList.remove("collapsed");
-        document.getElementById("numpc-div").classList.add("collapsed");
-        document.getElementById("binthr-div").classList.add("collapsed");
-      } else {
-        document.getElementById("numpc-div").classList.add("collapsed");
-        document.getElementById("binthr-div").classList.add("collapsed");
-        document.getElementById("kq-div").classList.add("collapsed");
+      ["numpc", "binthr", "thr", "kq", "numsd"].forEach(function(i) {
+        document.getElementById(i + "-div").classList.add("collapsed");
+      });
+      if (transform != null) {
+        if (transform.value == "pca") {
+          document.getElementById("numpc-div").classList.remove("collapsed");
+        } else if (transform.value == "bin") {
+          document.getElementById("binthr-div").classList.remove("collapsed");
+        } else if (transform.value == "thr") {
+          document.getElementById("thr-div").classList.remove("collapsed");
+        } else if (transform.value == "corr") {
+          document.getElementById("kq-div").classList.remove("collapsed");
+        } else if (transform.value == "outl") {
+          document.getElementById("numsd-div").classList.remove("collapsed");
+        }
       }
     }
 
@@ -1645,9 +1686,15 @@
     document.addEventListener("DOMContentLoaded", function() {
       // Construct samples table
       var table = document.getElementById("samples-table");
-      createTable({{ samp_info|tojson }}, table);
+      var sampleInfo = {{ samp_info|tojson }};
+      sampleInfo[0].push("Selected&nbsp;trait");
+      for (let i = 1; i < sampleInfo.length; i++) {
+        sampleInfo[i].push("")
+      }
+      createTable(sampleInfo, table);
       table.classList.add("collapsed");
       updateTableCount("samples-table");
+      filterSamplesTable();
 
       var radioBtn = document.getElementsByName("kq_from")[0];
       updateTracker(radioBtn.parentElement.parentElement);
@@ -1661,6 +1708,7 @@
       toggleTransform();
       document.getElementById("trait_sgl-field").selectedIndex = 0;
       sglPlot();
+      fillTraitCol();
     });
   </script>
 {% endblock %}
