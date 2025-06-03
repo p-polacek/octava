@@ -17,7 +17,9 @@ from app.dirs import data_dir
 from app.task_worker import progress
 
 from modules.snpeff import snpeff_annotate
-from modules.assoc_f import run_qc
+from modules.assoc import (
+  popen,
+  run_qc)
 from modules.sev import (
   make_db,
   run_blastp,
@@ -165,7 +167,7 @@ def genome_setup(
 ### Get genome and sample data
 ###############################################################################
 
-    progress(task_id, "Parsing VCF file")
+    progress(task_id, "Parsing vcf file")
     vcf_path = os.path.join(
       data_dir,
       genome,
@@ -181,10 +183,6 @@ def genome_setup(
     # Get chromosome names, sizes and offsets
     vcf = pysam.VariantFile(vcf_path)
     chroms = list(vcf.header.contigs)
-    if params["concat"]:
-        chroms = (
-          [c for c in chroms if c not in params["concat"]] + 
-          [c for c in chroms if c in params["concat"]]) 
     sizes = [vcf.header.contigs[c].length for c in chroms]
     offsets = [sum(sizes[:i]) for i in range(len(sizes))]
     gdata["chr_names"] = chroms
@@ -310,7 +308,7 @@ def genome_setup(
             sep="\t"))
 
     # Initialise empty list for groups
-    gdata["group"] = dict()
+    gdata["groups"] = dict()
 
     # Save genome data to JSON file
     with open(gdata_path, "w") as gdata_out:
@@ -349,18 +347,12 @@ def genome_setup(
       "assoc")
     if not os.path.exists(assoc_dir):
         os.mkdir(assoc_dir)
-    cof_dir = os.path.join(
+    fm_dir = os.path.join(
       data_dir,
       genome,
-      "covariates")
-    if not os.path.exists(cof_dir):
-        os.mkdir(cof_dir)
-    log_dir = os.path.join(
-      data_dir,
-      genome,
-      "logs")
-    if not os.path.exists(log_dir):
-        os.mkdir(log_dir)
+      "fm")
+    if not os.path.exists(fm_dir):
+        os.mkdir(fm_dir)
 
     init_path = os.path.join(
       data_dir,
@@ -424,13 +416,12 @@ def calc_enr(
       index_col=[0])
 
     enr = dict()
+    enr["num_genes"] = num_genes
     for col in enr_cols:
-        attrs = []
-        for row_attrs in info_df[col].dropna():
-            attrs += list(
-              set(
-                [attr.strip() for attr
-                 in row_attrs.strip().split(";") if attr]))
+        enr_vals = dict()
+        attrs = [
+          attr.strip() for row_attrs in info_df[col].dropna()
+          for attr in row_attrs.split(",") if attr]
         enr[col] = Counter(attrs)
 
     enr_path = os.path.join(
@@ -438,4 +429,4 @@ def calc_enr(
       genome,
       ".enr")
     with open(enr_path, "w") as enr_out:
-        json.dump([enr, num_genes], enr_out)
+        json.dump(enr, enr_out)

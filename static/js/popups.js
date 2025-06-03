@@ -52,7 +52,7 @@ function filterDropdown(dropdownData) {
     var dropdown = dropdownData[0];
     var term = dropdown.querySelector("input[type='text']").value
     term = term.toUpperCase();
-    var term = term.split(" ").map(i => {
+    var term = term.split(", ").map(i => {
       return i.trim();
     }).filter(i => {
       return i !== "";
@@ -101,11 +101,16 @@ function updateCount(dropdown, counter) {
   }
   if (counter != null) {
     var checkboxes = dropdown.querySelectorAll("input[type='checkbox']");
-    var count = 0;
-    checkboxes.forEach(function(checkbox) {
-      if (checkbox.checked) { count++ }
-    });
-    counter.innerHTML = count + " selected";
+    if (checkboxes.length > 0) {
+      var count = 0;
+      checkboxes.forEach(function(checkbox) {
+        if (checkbox.checked) { count++ }
+      });
+      counter.innerHTML = count + " selected";
+    } else {
+      var options = dropdown.querySelectorAll(".dropdown-tag");
+      counter.innerHTML = options.length + " selected";
+    }
   }
 }
 function updateTracker(dropdown, choice) {
@@ -180,7 +185,10 @@ function showGroupContents(checkboxRow) {
 
 
 document.addEventListener("DOMContentLoaded", function() {
-  document.querySelectorAll(".group-option").forEach(opt => {
+  document.querySelectorAll(".traits_group-option").forEach(opt => {
+    showGroupContents(opt);
+  });
+  document.querySelectorAll(".samples_group-option").forEach(opt => {
     showGroupContents(opt);
   });
   document.querySelectorAll(".scrollable").forEach( container => {

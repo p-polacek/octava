@@ -2,8 +2,11 @@
 
 import os
 import json
-import portalocker
 import configparser
+
+from flask_app import (
+  get_lock,
+  master_lock)
 
 from app.dirs import data_dir
 
@@ -12,11 +15,11 @@ def load_gdata(genome):
       data_dir,
       genome,
       ".gdata")
-    with open(gdata_path) as locked_f:
-        portalocker.lock(locked_f, portalocker.LOCK_SH)
-        contents = locked_f.read()
-        portalocker.unlock(locked_f)
-    gdata = json.loads(contents)
+    with master_lock:
+        lock = get_lock(gdata_path)
+    with lock:
+        with open(gdata_path, "r") as gdata_in:
+            gdata = json.load(gdata_in)
     return gdata
 
 def load_config(genome):
@@ -25,8 +28,8 @@ def load_config(genome):
       data_dir,
       genome,
       "config.ini")
-    with open(conf_path) as locked_f:
-        portalocker.lock(locked_f, portalocker.LOCK_SH)
-        _ = config.read_file(locked_f)
-        portalocker.unlock(locked_f)
+    with master_lock:
+        lock = get_lock(conf_path)
+    with lock:
+        _ = config.read(conf_path)
     return config["setup"]

@@ -14,6 +14,7 @@ from app.dirs import (
 app = Flask(__name__)
 app.secret_key = "275b250b2816223102a047d297676ce0"
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
+app.config["UPLOAD_FOLDER"] = os.path.join("static", "icons")
 
 Compress(app)
 
@@ -22,10 +23,8 @@ master_lock = Lock()
 def get_lock(obj):
     return lock_dict.setdefault(obj, Lock())
 
-running_pr = dict()
 task_queue = queue.Queue()
 task_status = {"specs": []}
-cancelled_tasks = []
 
 from app.task_worker import task_worker
 
@@ -43,7 +42,8 @@ from app.routes import (
   assoc_qc,
   assoc_res,
   assoc_filt,
-  assoc_opts)
+  assoc_opts,
+  assoc_locus)
 
 if __name__ == "__main__":
     app.run(

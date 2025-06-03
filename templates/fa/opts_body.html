@@ -14,6 +14,10 @@
               <h2>
                 Input:
               </h2>
+              <img
+                class="aux-button clickable"
+                src="{{ url_for('serve_button', button='help') }}"
+                onclick="showHelp(event, 'fa-input');" />
             </div>
             <div class="row-input-div justified">
               {{ form.dataset.label(class="default-label bold") }}
@@ -48,37 +52,19 @@
               <h2>
                 Region(s) of interest:
               </h2>
+              <img
+                class="aux-button clickable"
+                src="{{ url_for('serve_button', button='help') }}"
+                onclick="showHelp(event, 'fa-regions');" />
             </div>
-            <div class="row-div small-padded-top padded-bottom">
-              <div class="row-input-div justified">
-                {{ form.fmt.label(class="default-label bold") }}
+            <div class="row-input-div justified small-padded-top padded-bottom">
+              {{ form.fmt.label(class="default-label bold") }}
+              <div class="row-div justified">
                 {{ form.fmt(
                   class="default-input",
                  id="fmt-field",
                  onchange="toggleFormat();") }}
               </div>
-              {% if anns %}
-                <img
-                  id="vcopy-div"
-                  class="aux-button clickable"
-                  src="{{ url_for('serve_button', button='update') }}"
-                  onclick="varsToQuery();"
-                  title="Fetch selected variants" />
-              {% endif %}
-              {% if genes %}
-                <img
-                  id="gcopy-div"
-                  class="aux-button clickable"
-                  src="{{ url_for('serve_button', button='update') }}"
-                  onclick="genesToQuery();"
-                  title="Fetch selected genes" />
-              {% else %}
-                <img
-                  id="gid-div"
-                  class="aux-button clickable"
-                  src="{{ url_for('serve_button', button='help') }}"
-                  onclick="showHelp(event, 'fa-regions');" />
-              {% endif %}
             </div>
   {# ============================================================ Input genes #}
             <span id="gene-div" class="small-padded-bottom">
@@ -88,13 +74,13 @@
                       {{ form.gene.label(class="default-label bold") }}
                       {{ form.gene(
                        class="default-input",
-                       id="gene-field") }}
+                       id="genes-field") }}
                   </div>
                 </div>
                 <img
                   class="aux-button clickable"
                   src="{{ url_for('serve_button', button='save') }}"
-                  onclick="makeGroup(event, 'gene');"
+                  onclick="makeGroup(event, 'genes');"
                   title="Save input as group" />
               </div>
               <div class="row-div small-padded-top">
@@ -103,16 +89,16 @@
                    type="button"
                    class="dropdown-button"
                    onclick="showDropdown(event, this);">
-                    {{ form.gene_group.label(class="default-label bold") }}
+                    {{ form.gene_groups.label(class="default-label bold") }}
                     <span
                      class="default-label counter"
-                     id="gene_group-count">
+                     id="gene_groups-count">
                       0 selected
                     </span>
                   </button>
                   <div
                    class="dropdown-menu collapsed"
-                   id="gene_group-dropdown">
+                   id="genes_group-dropdown">
                     <div class="sticky non-transparent small-padding">
                       <input
                        type="text"
@@ -125,10 +111,10 @@
                         Select all
                       </button>
                     </div>
-                    {% for choice in form.gene_group %}
+                    {% for choice in form.gene_groups %}
                       <div class="checkbox-row group-option">
                         {{ choice(
-                         class="gene_group-checkbox",
+                         class="genes_group-checkbox",
                          onchange="updateCount(
                           this.parentElement.parentElement);") }}
                         {{ choice.label(class="checkbox-label") }}
@@ -139,7 +125,7 @@
                 <img
                   class="aux-button clickable"
                   src="{{ url_for('serve_button', button='delete') }}"
-                  onclick="deleteGroup(event, 'gene');"
+                  onclick="deleteGroup(event, 'genes');"
                   title="Delete selected groups" />
               </div>
             </span>
@@ -164,12 +150,12 @@
                 <div class="row-input-div">
                   {{ form.coord(
                    class="fullwidth-input row-input-sized",
-                   id="coord-field") }}
+                   id="coords-field") }}
                  </div>
                 <img
                   class="aux-button clickable"
                   src="{{ url_for('serve_button', button='save') }}"
-                  onclick="makeGroup(event, 'coord');"
+                  onclick="makeGroup(event, 'coords');"
                   title="Save input as group" />
               </div>
               <div class="row-div small-padded-top">
@@ -178,16 +164,16 @@
                    type="button"
                    class="dropdown-button"
                    onclick="showDropdown(event, this);">
-                    {{ form.coord_group.label(class="default-label bold") }}
+                    {{ form.coord_groups.label(class="default-label bold") }}
                     <span
                      class="default-label counter"
-                     id="coord_group-count">
+                     id="coord_groups-count">
                       0 selected
                     </span>
                   </button>
                   <div
                    class="dropdown-menu collapsed"
-                   id="coord_group-dropdown">
+                   id="coords_group-dropdown">
                     <div class="sticky non-transparent small-padding">
                       <input
                        type="text"
@@ -200,10 +186,10 @@
                         Select all
                       </button>
                     </div>
-                    {% for choice in form.coord_group %}
+                    {% for choice in form.coord_groups %}
                       <div class="checkbox-row group-option">
                         {{ choice(
-                         class="coord_group-checkbox",
+                         class="coords_group-checkbox",
                          onchange="updateCount(
                           this.parentElement.parentElement);") }}
                         {{ choice.label(class="checkbox-label") }}
@@ -214,7 +200,7 @@
                 <img
                   class="aux-button clickable"
                   src="{{ url_for('serve_button', button='delete') }}"
-                  onclick="deleteGroup(event, 'coord');"
+                  onclick="deleteGroup(event, 'coords');"
                   title="Delete selected groups" />
               </div>
             </span>
@@ -229,6 +215,10 @@
               <h2>
                 {{ form.impact.label }}
               </h2>
+              <img
+                class="aux-button clickable"
+                src="{{ url_for('serve_button', button='help') }}"
+                onclick="showHelp(event, 'fa-impact');" />
             </div>
             {% for choice in form.impact %}
               <div class="row-div">
@@ -267,21 +257,25 @@
               <h2>
                 Filter by:
               </h2>
+              <img
+                class="aux-button clickable"
+                src="{{ url_for('serve_button', button='help') }}"
+                onclick="showHelp(event, 'fa-filter');" />
             </div>
             <div class="row-div small-padded-bottom">
               <button
                type="button"
                class="dropdown-button"
                onclick="showDropdown(event, this);">
-                {{ form.sample_group.label(class="default-label bold") }}
+                {{ form.samples_group.label(class="default-label bold") }}
                 <span
                  class="default-label counter"
-                 id="sample_group-count">
+                 id="samples_group-count">
                   0 selected
                 </span>
               </button>
               <div
-               id="sample_group-dropdown"
+               id="samples_group-dropdown"
                class="dropdown-menu collapsed">
                 <div class="sticky non-transparent small-padding">
                   <input
@@ -295,10 +289,10 @@
                     Select all
                   </button>
                 </div>
-                {% for choice in form.sample_group %}
+                {% for choice in form.samples_group %}
                   <div class="checkbox-row group-option">
                     {{ choice(
-                     class="sample_group-checkbox",
+                     class="samples_group-checkbox",
                      onchange="updateCount(
                       this.parentElement.parentElement);") }}
                     {{ choice.label(class="checkbox-label") }}
@@ -390,8 +384,8 @@
                 onclick="showHelp(event, 'fa-skip');" />
             </div>
             {% for field in [
-             "skip_samp",
-             "skip_var"] %}
+             "skip_samples",
+             "skip_variants"] %}
               {% for choice in form[field] %}
                 <div class="row-div">
                   {{ choice }}

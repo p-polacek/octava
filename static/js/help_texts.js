@@ -5,10 +5,23 @@ var helpTexts = {
  "cmp-trt":
   "Double-click a subplot to zoom in/out.",
  "transform":
-  "<table><tr><th>Log(e) transform</th><td>Values must be positive</td></tr><tr><th>PCA transform</th><td>Only considers samples that are phenotyped for all selected traits<br>Number of PCs cannot be larger than number of selected traits<br>PCs saved as (name)_PC(number)</td></tr><tr><th>Outlier removal</th><td>Remove outliers above or below given number of standard deviations from the mean</td><tr><th>Make binary</th><td>Values at or above threshold converted to 1, below converted to 0</td></tr></table>",
+  "<table><tr><th>Log(e) transform</th><td>Values must be positive</td></tr><tr><th>PCA transform</th><td>Only considers samples that are phenotyped for all selected traits<br>Number of PCs cannot be larger than number of selected traits<br>PCs saved as (name)_PC(number)</td></tr><tr><th>Make binary</th><td>Values at or above threshold converted to 1, below converted to 0</td></tr></table>",
  "trt-corr":
   "Correct phenotype values for sample relatedness<br>Values regressed with kinship (random effect) and principal compponents (fixed effect),<br> residuals from the model are saved as corrected values",
 
+ "fa-input":
+  "<table><tr><th>Coding regions</th><td>Start to end of each gene in query</td></tr>" +
+  "<tr><th>Promoter regions</th><td><i>n</i> bp upstream of each gene in query</td></tr>" +
+  "<tr><th>Entire region</th><td>Entire span of the query</td></tr></table>",
+ "fa-impact":
+  "<table><tr><th>High</th><td>Likely disruptive to the protein</td></tr>" +
+  "<tr><th>Moderate</th><td>Might change protein effectiveness</td></tr>" +
+  "<tr><th>Low</th><td>Likely to have no effect on the protein</td></tr>" +
+  "<tr><th>Modifier</th><td>Usually non-coding, difficult to predict impact</td></tr></table>",
+ "fa-filter":
+  "<table><tr><th>Sample groups</th><td>Created in Phenotype/sample view</td></tr>" +
+  "<tr><th>Types</th><td>Structural variant types may be annotated by the variant caller used<br>SNP, MNP and indel variants are annotated based on length</td></tr>" +
+  "<tr><th>Consequence</th><td>H: High, M: Moderate, L: Low, -: Modifier<br>Sequence Ontology nomenclature, see <a target='_blank' href='http://www.sequenceontology.org/'>here</a></td></tr></table>",
  "fa-skip":
   "<table><tr><th>Reference-only samples</th><td>Skip samples identical to the reference across the region specified</td></tr>" +
   "<tr><th>Reference-only variants</th><td>Skip variants where each sample is identical to the reference</td></tr>" +
@@ -42,6 +55,17 @@ var helpTexts = {
    "<td style='width:45px; background-color: rgba(102, 204, 0, 0.65);'>0.375</td>" +
    "<td style='width:45px; background-color: rgba(0, 204, 0, 0.65);'>0.5</td></tr></table>" +
   "</td></tr></table>",
+
+ "filt-ext":
+  "Use an existing marker set as the input for filtering<br>Use for reapplying filters or constructing haplotype block from existing marker sets",
+ "ld-prune":
+  "For each marker, removes all markers within <i>Window</i> with r-squared above <i>Threshold</i>",
+ "impute":
+  "Imputation and phasing carried out by <a target='_blank' href='http://faculty.washington.edu/browning/beagle/beagle.html'>BEAGLE</a>",
+ "haps":
+  "<table><tr><th>LD-based</th><td>Constructed using the <a target='_blank' href='https://doi.org/10.1126/science.1069424'>Gabriel 2002</a> method<br>Blocks larger than <i>Max size</i> will be split.</td></tr>" +
+  "<tr><th>SNP number window</th><td>Blocks of <i>span</i> markers, moving by <i>step</i> each time</td></tr>" +
+  "<tr><th>Base-pair window</th><td>Blocks of <i>span</i> base pairs, moving by <i>step</i> each time</td></tr></table>",
 
  "model":
   "<table><tr><th>GLM</th><td>Generalized linear model via <a target='_blank' href='https://doi.org/10.1038/ng.2310'>GEMMA</a><br>Does not correct for kinship</td></tr>" +

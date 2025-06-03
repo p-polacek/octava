@@ -41,10 +41,8 @@ var buttonsToAdd = {
         gd.id,
         gd.data,
         gd.layout,
-        { ...gd._context, editable: !gd._context.editable, edits: {shapePosition: false} });
-      if (typeof setPlotEventListeners === "function") {
-        setPlotEventListeners();
-      }
+        { ...gd._context, editable: !gd._context.editable});
+      setPlotEventListeners();
     }
   },
   recolor: {
@@ -69,20 +67,8 @@ var buttonsToAdd = {
           traceIds.push(trace.Id || "");
         }
       });
-      if (traceIdxs.length === 0) {
-        return;
-      }
 
-      var currColor;
-      if (gd.data[traceIdxs[0]].marker != null && gd.data[traceIdxs[0]].marker.color != null) {
-        currColor = gd.data[traceIdxs[0]].marker.color;
-      } else if (gd.data[traceIdxs[0]].line != null && gd.data[traceIdxs[0]].line.color != null) {
-        currColor = gd.data[traceIdxs[0]].line.color;
-      } else {
-        currColor = "#ff0000";
-      }
-
-      showHelp(clickEvent, null, `<input type="color" id="colorPicker" value="${currColor}" />`);
+      showHelp(clickEvent, null, '<input type="color" id="colorPicker" value="#ff0000" />');
       document.getElementById("colorPicker").click();
       document.getElementById("help-popup").classList.add("collapsed");
       document.getElementById("colorPicker").addEventListener("input", function() {
@@ -110,23 +96,6 @@ var buttonsToAdd = {
           traceIdxs);
       });
     },
-  },
-  reshade: {
-    name: "Swap chromosome shading",
-    icon: {
-      "width": 100,
-      "height": 100,
-      "path": "M 10,9 A 6,6 0 0 0 3,15 v 68 a 6,6 0 0 0 6,6 h 79 a 6,6 0 0 0 6,-6 V 15 A 6,6 0 0 0 89,9 Z M 16,21 H 83 V 78 H 16 Z m 11,3 a 6,6 0 0 0 -6,6 v 36 a 6,6 0 0 0 6,6 6,6 0 0 0 6,-6 V 31 a 6,6 0 0 0 -6,-6 z m 17,0 a 6,6 0 0 0 -6,6 v 36 a 6,6 0 0 0 6,6 6,6 0 0 0 6,-6 V 31 a 6,6 0 0 0 -6,-6 z",
-    },
-    click: function(gd) {
-      var shapes = gd.layout.shapes;
-      for (shape of shapes) {
-        if (shape.shapeType === "chrom") {
-          shape.visible = !shape.visible;
-        }
-      }
-      Plotly.relayout("live-plot", {shapes: shapes});
-    }
   },
   opacity: {
     name: "Change transparency of visible traces",
@@ -223,10 +192,10 @@ var buttonsToAdd = {
           visibleData.push(trace);
         }
       });
-      if (visibleData.length < 2) {
-        return;
-      }
-
+      // Create a combined trace
+//      var yAxes = Object.keys(gd.layout)
+//        .filter(v => v.startsWith("yaxis"))
+//        .map(v => v.replace("axis", ""));
       var tracesByY = {};
       visibleData.forEach((trace, index) => {
         let yAxis = trace.yaxis || "y";
@@ -247,141 +216,12 @@ var buttonsToAdd = {
           }
         }
         cmb.name = "Combined";
+        cmb.legendgroup = "Combined";
         newTraces.push(cmb);
       }
 
       Plotly.deleteTraces(gd, visibleIdxs);
       Plotly.addTraces(gd, newTraces);
-    }
-  },
-  group_mp: {
-    name: "Combine visible traces",
-    icon: {
-      "width": 100,
-      "height": 100,
-      "path": "M 8 9 A 6 6 0 0 0 1 15 L 1 84 A 6 6 0 0 0 8 90 L 28 90 A 6 6 0 0 0 35 84 A 6 6 0 0 0 28 78 L 14 78 L 14 21 L 28 21 A 6 6 0 0 0 35 15 A 6 6 0 0 0 28 9 L 8 9 z M 71 9 A 6 6 0 0 0 64 15 A 6 6 0 0 0 71 21 L 85 21 L 85 78 L 71 78 A 6 6 0 0 0 64 84 A 6 6 0 0 0 71 90 L 91 90 A 6 6 0 0 0 98 84 L 98 15 A 6 6 0 0 0 91 9 L 71 9 z M 50 27 A 6 6 0 0 0 43 33 L 43 43 L 33 43 A 6 6 0 0 0 27 50 A 6 6 0 0 0 33 56 L 43 56 L 43 66 A 6 6 0 0 0 50 72 A 6 6 0 0 0 56 66 L 56 56 L 66 56 A 6 6 0 0 0 72 50 A 6 6 0 0 0 66 43 L 56 43 L 56 33 A 6 6 0 0 0 50 27 z",
-    },
-    click: function(gd) {
-      var visibleIdxs = [];
-      var traces = [];
-      gd.data.forEach( function(trace, idx) {
-        if (trace.visible === true && trace.traceType === "mp_sgl") {
-          visibleIdxs.push(idx);
-          traces.push(trace);
-        }
-      });
-      if (traces.length < 2) {
-        return;
-      }
-
-      var cmb = traces[0];
-      for (let i = 1; i < traces.length; i++) {
-        cmb.x = cmb.x.concat(traces[i].x);
-        cmb.y = cmb.y.concat(traces[i].y);
-        if (cmb.text != null) {
-          cmb.text = cmb.text.concat(traces[i].text);
-        }
-      }
-      cmb.name = "Combined";
-      cmb.Id = null;
-      var legendGroup = crypto.randomUUID();
-      cmb.legendgroup = legendGroup;
-
-      traces = [cmb];
-
-      var hapTraces = [];
-      gd.data.forEach( function(trace, idx) {
-        if (trace.visible === true && trace.traceType === "hapline") {
-          visibleIdxs.push(idx);
-          hapTraces.push(trace);
-        }
-      });
-
-      if (hapTraces.length > 0) {
-        var cmbHap = hapTraces[0];
-        for (let i = 1; i < hapTraces.length; i++) {
-          cmbHap.x = cmbHap.x.concat(hapTraces[i].x);
-          cmbHap.y = cmbHap.y.concat(hapTraces[i].y);
-        }
-        cmbHap.legendgroup = legendGroup;
-        cmbHap.line.color = cmb.marker.color;
-        traces.push(cmbHap);
-      }
-
-      Plotly.deleteTraces(gd, visibleIdxs);
-      Plotly.addTraces(gd, traces);
-    }
-  },
-  group_bbl: {
-    name: "Combine visible traces",
-    icon: {
-      "width": 100,
-      "height": 100,
-      "path": "M 8 9 A 6 6 0 0 0 1 15 L 1 84 A 6 6 0 0 0 8 90 L 28 90 A 6 6 0 0 0 35 84 A 6 6 0 0 0 28 78 L 14 78 L 14 21 L 28 21 A 6 6 0 0 0 35 15 A 6 6 0 0 0 28 9 L 8 9 z M 71 9 A 6 6 0 0 0 64 15 A 6 6 0 0 0 71 21 L 85 21 L 85 78 L 71 78 A 6 6 0 0 0 64 84 A 6 6 0 0 0 71 90 L 91 90 A 6 6 0 0 0 98 84 L 98 15 A 6 6 0 0 0 91 9 L 71 9 z M 50 27 A 6 6 0 0 0 43 33 L 43 43 L 33 43 A 6 6 0 0 0 27 50 A 6 6 0 0 0 33 56 L 43 56 L 43 66 A 6 6 0 0 0 50 72 A 6 6 0 0 0 56 66 L 56 56 L 66 56 A 6 6 0 0 0 72 50 A 6 6 0 0 0 66 43 L 56 43 L 56 33 A 6 6 0 0 0 50 27 z",
-    },
-    click: function(gd) {
-      var visibleIdxs = [];
-      var traces = [];
-      gd.data.forEach( function(trace, idx) {
-        if (trace.visible === true && trace.traceType === "mp_bbl") {
-          visibleIdxs.push(idx);
-          traces.push(trace);
-        }
-      });
-      if (traces.length < 2) {
-        return;
-      }
-
-      var cmb = traces[0];
-      for (let i = 1; i < traces.length; i++) {
-        var tr = traces[i];
-        var cmbX = [...new Set([...cmb.x, ...tr.x])];
-
-        var cmbPos = [...cmb.positions, ...tr.positions.filter(v => !cmb.positions.includes(v))];
-
-        var cmbRuns = cmbX
-          .map( v => [
-            cmb.runs[cmb.x.indexOf(v)],
-            tr.runs[tr.x.indexOf(v)]])
-          .map( arr => arr.filter(item => item != undefined).flat());
-
-        var cmbSize = cmbRuns.map(v => v.length * 4 + 2);
-
-        var cmbY = [];
-        for (v of cmbX) {
-          var cmbVal = [];
-          if (cmb.x.indexOf(v) !== -1) {
-            cmbVal.push(cmb.y[cmb.x.indexOf(v)] * cmb.runs[cmb.x.indexOf(v)].length);
-          }
-          if (tr.x.indexOf(v) !== -1) {
-            cmbVal.push(tr.y[tr.x.indexOf(v)] * tr.runs[tr.x.indexOf(v)].length);
-          }
-          cmbY.push(cmbVal.reduce((a, b) => a + b) / cmbRuns[cmbX.indexOf(v)].length);
-        }
-
-        var cmbText = cmbX.map( (_, i) => {
-          return `${cmbPos[i]}<br><br>${cmbRuns[i].join("<br>")}`;
-        });
-
-//        cmbText = cmbX
-//          .map( v => [
-//            cmb.text[cmb.x.indexOf(v)],
-//            tr.text[tr.x.indexOf(v)]])
-//          .map( arr => arr.filter(item => item != undefined));
-//        console.log(cmbText.flat());
-//        iofj
-
-        cmb.x = cmbX;
-        cmb.y = cmbY;
-        cmb.runs = cmbRuns;
-        cmb.marker.size = cmbSize;
-        cmb.positions = cmbPos;
-        cmb.text = cmbText;
-      }
-      cmb.name = "Combined";
-
-      Plotly.deleteTraces(gd, visibleIdxs);
-      Plotly.addTraces(gd, [cmb]);
     }
   },
   _delete: {
@@ -394,7 +234,7 @@ var buttonsToAdd = {
     click: function(gd) {
       var visibleIdxs = [];
       gd.data.forEach( function(trace, idx) {
-        if ((trace.visible === true) && (!trace.permanent)) {
+        if (trace.visible === true) {
           visibleIdxs.push(idx);
         }
       });

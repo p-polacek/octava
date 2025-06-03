@@ -1,6 +1,6 @@
 {% extends "header.html" %}
 
-{% block title %} Genotype data preparation {% endblock %}
+{% block title %} Association analysis QC {% endblock %}
 
 {% block style %}{% endblock %}
 
@@ -11,7 +11,7 @@
   <div class="results-wrapper">
     <div class="row-div">
       <h1 class="padded-left">
-        Genotype data preparation
+        Filters:
       </h1>
     </div>
     <div class="results-container padded-top">
@@ -45,11 +45,22 @@
             </div>
             <div id="pca-sample-div"></div>
 {# =========================================================== Filters from #}
-            <h2 class="padded-top">
-              Subset genotype data
-            </h2>
-            <span id="filt-from-div">
-              <div class="row-div padded-top small-padded-bottom">
+            <div class="row-div padded-top">
+              <div class="
+               row-input-div
+               justified">
+                {{ form.filt_ext.label(
+                 for="filt_ext-field",
+                 class="default-label bold") }}
+                {{ form.filt_ext(id="filt_ext-field", onchange="toggleFiltFrom();") }}
+              </div>
+              <img
+               class="aux-button clickable"
+               src="{{ url_for('serve_button', button='help') }}"
+               onclick="showHelp(event, 'filt-ext');" />
+            </div>
+            <span id="filt-from-div" class="collapsed">
+              <div class="row-div small-padded-top small-padded-bottom">
                 <button
                  type="button"
                  class="dropdown-button"
@@ -60,11 +71,6 @@
                    class="default-label tracker">
                   </span>
                 </button>
-                <img
-                  class="aux-button clickable"
-                  src="{{ url_for('serve_button', button='delete') }}"
-                  onclick="clearFiltFrom();"
-                  title="Clear selection" />
                 <div id="filt_from-tracker" class="dropdown-menu collapsed">
                   <div class="sticky non-transparent small-padding">
                     <input
@@ -97,22 +103,25 @@
               </div>
             </span>
 {# ======================================================= Filter by sample #}
+            <h2 class="padded-top">
+              Filter samples:
+            </h2>
             <div
              id="sample-div"
-             class="row-div small-padded-bottom">
+             class="row-div small-padded-top small-padded-bottom">
               <button
                type="button"
                class="dropdown-button"
                onclick="showDropdown(event, this);">
-                {{ form.sample_group.label(class="default-label bold") }}
+                {{ form.samples_group.label(class="default-label bold") }}
                 <span
                  class="default-label counter"
-                 id="sample_group-count">
+                 id="samples_group-count">
                   0 selected
                 </span>
               </button>
               <div
-               id="sample_group-dropdown"
+               id="samples_group-dropdown"
                class="dropdown-menu collapsed">
                 <div class="sticky non-transparent small-padding">
                   <input
@@ -127,52 +136,10 @@
                     Select all
                   </button>
                 </div>
-                {% for choice in form.sample_group %}
-                  <div class="checkbox-row sample_group-option">
+                {% for choice in form.samples_group %}
+                  <div class="checkbox-row samples_group-option">
                     {{ choice(
-                     class="sample_group-checkbox",
-                     onchange="updateCount(
-                      this.parentElement.parentElement);") }}
-                    {{ choice.label(class="checkbox-label") }}
-                  </div>
-                {% endfor %}
-              </div>
-            </div>
-{# ======================================================== Limit to regions #}
-            <div
-             id="coord-div"
-             class="row-div padded-bottom">
-              <button
-               type="button"
-               class="dropdown-button"
-               onclick="showDropdown(event, this);">
-                {{ form.coord.label(class="default-label bold") }}
-                <span
-                 class="default-label counter"
-                 id="coord-count">
-                  0 selected
-                </span>
-              </button>
-              <div
-               id="coord-dropdown"
-               class="dropdown-menu collapsed">
-                <div class="sticky non-transparent small-padding">
-                  <input
-                   type="text"
-                   class="search-bar"
-                   placeholder="Search..."
-                   onkeyup="filterDropdown(visibleDropdown);">
-                  <button
-                   type="button"
-                   onclick="
-                    toggleAll(visibleDropdown);">
-                    Select all
-                  </button>
-                </div>
-                {% for choice in form.coord %}
-                  <div class="checkbox-row group-option">
-                    {{ choice(
-                     class="coord-checkbox",
+                     class="samples_group-checkbox",
                      onchange="updateCount(
                       this.parentElement.parentElement);") }}
                     {{ choice.label(class="checkbox-label") }}
@@ -182,17 +149,14 @@
             </div>
 {# ============================================================ Missingness #}
             <h2 class="padded-top">
-              Quality filters
-            </h2>
-            <h3 class="padded-top bold">
               Missingness per:
-            </h3>
+            </h2>
             {% for thr_input in ("smiss", "vmiss") %}
               <div class="row-input-div justified small-padded-top">
                 {% set input_id = thr_input + "-thresh" %}
                 {{ form[thr_input].label(
                  for=input_id,
-                 class="default-label") }}
+                 class="default-label bold") }}
                 {{ form[thr_input](
                  class="small-num-input",
                  id=input_id,
@@ -200,15 +164,15 @@
               </div>
             {% endfor %}
 {# ========================================================= Heterozygosity #}
-            <h3 class="padded-top bold">
+            <h2 class="padded-top">
               Heterozygosity per:
-            </h3>
+            </h2>
             {% for thr_input in ("shet", "vhet") %}
               <div class="row-input-div justified small-padded-top">
                 {% set input_id = thr_input + "-thresh" %}
                 {{ form[thr_input].label(
                  for=input_id,
-                 class="default-label") }}
+                 class="default-label bold") }}
                 {{ form[thr_input](
                 class="small-num-input",
                 id=input_id,
@@ -216,26 +180,26 @@
               </div>
             {% endfor %}
 {# ==================================================================== MAF #}
-            <h3 class="padded-top bold">
-              Minor allele frequency:
-            </h3>
+            <h2 class="padded-top">
+              Allele frequency:
+            </h2>
             <div class="row-input-div justified small-padded-top">
               {{ form.maf.label(
                for="maf-thresh",
-               class="default-label") }}
+               class="default-label bold") }}
               {{ form.maf(
                class="small-num-input",
                id="maf-thresh",
                onchange="showPlot();") }}
             </div>
+            <h2 class="padded-top">
 {# ==================================================================== HWE #}
-            <h3 class="padded-top bold">
-              Hardy-Weinberg equilibrium:
-            </h3>
-            <div class="row-input-div justified small-padded-top padded-bottom">
+              HW equilibrium:
+            </h2>
+            <div class="row-input-div justified small-padded-top">
               {{ form.hwe.label(
                for="hwe-thresh",
-               class="default-label") }}
+               class="default-label bold") }}
               {{ form.hwe(
                class="small-num-input",
                id="hwe-thresh",
@@ -244,12 +208,16 @@
 {# ================================================================ Pruning #}
             <div class="row-div padded-top">
               <h2>
-                LD pruning
+                LD pruning:
               </h2>
+              <img
+                class="aux-button clickable"
+                src="{{ url_for('serve_button', button='help') }}"
+                onclick="showHelp(event, 'ld-prune');" />
             </div>
             <div class="row-input-div justified small-padded-top">
               {{ form.prune.label(
-               class="default-label") }}
+               class="default-label bold") }}
               {{ form.prune(
                class="small-num-input",
                id="prune-thresh") }}
@@ -260,13 +228,13 @@
              small-padded-top
              padded-bottom">
               {{ form.window.label(
-               class="default-label") }}
+               class="default-label bold") }}
               {{ form.window(
                class="small-num-input",
                id="window") }}
             </div>
 {# ==================================================Imputation, haplotypes #}
-            <div class="row-div small-padded-top padded-bottom">
+            <div class="row-div padded-bottom">
               <div class="
                row-input-div
                justified">
@@ -274,6 +242,10 @@
                  class="default-label bold") }}
                 {{ form.imp(id="imp") }}
               </div>
+              <img
+               class="aux-button clickable"
+               src="{{ url_for('serve_button', button='help') }}"
+               onclick="showHelp(event, 'impute');" />
             </div>
             <div class="row-div padded-bottom">
               <div class="
@@ -283,6 +255,10 @@
                  class="default-label bold") }}
                 {{ form.hap(id="hap", onchange="bMethod();") }}
               </div>
+              <img
+               class="aux-button clickable"
+               src="{{ url_for('serve_button', button='help') }}"
+               onclick="showHelp(event, 'haps');" />
             </div>
 {# ====================================================== Haplotype options #}
             <div id="bopt-div" class="padded-bottom collapsed">
@@ -423,11 +399,17 @@
     }
 
     function toggleFiltFrom() {
+      var filtExt = document.getElementById("filt_ext-field").checked;
       var filtFields = ["smiss", "vmiss", "shet", "vhet", "maf", "hwe"];
+      if (filtExt) {
+        document.getElementById("filt-from-div").classList.remove("collapsed");
+      } else {
+        document.getElementById("filt-from-div").classList.add("collapsed");        
+      }
       // Fetch plot data
       var markers;
       var filtFrom = document.querySelector("input[name='filt_from']:checked");
-      if (filtFrom) {
+      if (filtExt && filtFrom) {
         markers = filtFrom.value;
       } else {
         markers = null;
@@ -436,15 +418,6 @@
         histData = results;
         showPlot();
       });
-    }
-
-    function clearFiltFrom() {
-      var fromSel = document.querySelector("input[name='filt_from']:checked");
-      if (fromSel != null) {
-        fromSel.checked = "";
-        updateTracker(fromSel.parentElement.parentElement);
-        toggleFiltFrom();
-      }
     }
 
     function bParams(methodChoice) {
@@ -484,7 +457,6 @@
       showPlot();
       bMethod();
       updateTracker(document.getElementById("filt_from-tracker"));
-
     });
     window.addEventListener("resize", function() { resizePlot() });
 

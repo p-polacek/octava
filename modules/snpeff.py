@@ -13,6 +13,8 @@ from Bio.bgzf import BgzfWriter
 from app.dirs import data_dir
 from app.task_worker import progress
 
+from modules.assoc import popen
+
 def snpeff_annotate(
   genome,
   vcf_file,
@@ -59,7 +61,7 @@ def snpeff_annotate(
     gff_renamed = gff_intmd = "genes"
     cds_renamed = cds_intmd = "cds.fa"
     pep_renamed = pep_intmd = "protein.fa"
-
+    """
     if os.path.splitext(seq_file)[1] == ".gz":
         seq_intmd += ".gz"
     if cds_file and os.path.splitext(cds_file)[1] == ".gz":
@@ -144,7 +146,7 @@ def snpeff_annotate(
 ###############################################################################
 ### Annotate and index VCF file
 ###############################################################################
-
+    """
     progress(task_id, "Annotating VCF file")
     pr = subprocess.Popen(
       ["java", "-jar",
@@ -163,7 +165,6 @@ def snpeff_annotate(
     for line in pr.stdout:
         ann_out.write(line)
     pr.wait()
-    ann_out.close()
 
     progress(task_id, "Indexing VCF file")
     pysam.tabix_index(

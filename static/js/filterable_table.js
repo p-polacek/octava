@@ -55,9 +55,6 @@ function createTable(tableData, table) {
           subcell.className = "subcell";
           subcell.style.width = subcellWidth + "%";
           subcell.textContent = cellData[i];
-          //if (cellData[i] === "—") {
-          //  subcell.style.backgroundColor = "red";
-          //}
           td.appendChild(subcell);
         }       
       } else {

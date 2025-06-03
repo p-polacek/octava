@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-from markupsafe import Markup
 from flask_wtf import FlaskForm
 
 from wtforms import (
@@ -22,9 +21,6 @@ models = [
   ("glm", "GLM"),
   ("mlm", "MLM"),
   ("mtmlm", "Multi-trait MLM"),
-  ("bslmm", "Bayesian sparse LMM"),
-  ("rr", "Ridge regression / GBLUP"),
-  #("bin", "Binary trait MLM"),
   ("blink", "BLINK"),
   ("B", "BayesB"),
   ("C", "BayesC"),
@@ -55,10 +51,8 @@ class MultiCheckboxField(SelectMultipleField):
     option_widget = widgets.CheckboxInput()
 
 class AddForm(FlaskForm):
-    name = SelectField("Name:", choices=[])
-
-    setup_from = SelectField(
-      "Dataset:",
+    name = SelectField(
+      "Name:",
       choices=[])
     vcf = SelectField(
       "Variants:",
@@ -112,12 +106,27 @@ class AddForm(FlaskForm):
     concat = MultiCheckboxField(
       "Concatenate contigs:",
       choices=[])
+    edit = BooleanField(
+      "Enable editing dataset later:",
+      default=True)
+    igv_vis = IntegerField(
+      "Visibility window:",
+      default=1000000)
+    igv_h = IntegerField(
+      "Track height:",
+      default=150)
 
 class EditForm(FlaskForm):
+    icon = FileField(
+      "Icon:")
     phe = FileField(
-      "File:")
-    cof = FileField(
-      "File:")
+      "Phenotype:")
+    run = FileField(
+      "Run info:")
+    proj = FileField(
+      "Project info:")
+    samp = FileField(
+      "Sample names:")
 
 class RegionForm(FlaskForm):
     fmt = SelectField(
@@ -138,8 +147,6 @@ class RegionForm(FlaskForm):
       "End:")
     coord = StringField(
       "")
-    gene = StringField(
-      "Gene:")
 
 class FuncAnalysisForm(RegionForm):
     dataset = SelectField(
@@ -148,16 +155,18 @@ class FuncAnalysisForm(RegionForm):
     target = SelectField(
       "Target:",
       choices = [
-        ("full",
-         "Entire region"),
-         ("cds",
+        ("cds",
          "Coding regions"),
         ("prom",
-         "Promoter regions")])
-    gene_group = MultiCheckboxField(
+         "Promoter regions"),
+        ("full",
+         "Entire region")])
+    gene = StringField(
+      "Gene:")
+    gene_groups = MultiCheckboxField(
       "Gene group:",
       choices = [])
-    coord_group = MultiCheckboxField(
+    coord_groups = MultiCheckboxField(
       "Region group:",
       choices = [])
     prom_size = IntegerField(
@@ -176,13 +185,15 @@ class FuncAnalysisForm(RegionForm):
          "Modifier"),
         ("geneonly",
          "Don't show variants"),
+#        ("SEV",
+#         "Only deleterious variants")
        ])
     ann_sev = HiddenField("")
 
-    sample = MultiCheckboxField(
+    samples = MultiCheckboxField(
       "Sample:",
       choices = [])
-    sample_group = MultiCheckboxField(
+    samples_group = MultiCheckboxField(
       "Sample group:",
       choices = [])
     types = MultiCheckboxField(
@@ -199,7 +210,7 @@ class FuncAnalysisForm(RegionForm):
     maf = DecimalField(
       "MAF:")
 
-    skip_samp = MultiCheckboxField(
+    skip_samples = MultiCheckboxField(
       "",
       choices=[
         ("·",
@@ -207,7 +218,7 @@ class FuncAnalysisForm(RegionForm):
         ("—",
          "Absent-only samples")],
      default = [])
-    skip_var = MultiCheckboxField(
+    skip_variants = MultiCheckboxField(
       "",
       choices=[
         ("·",
@@ -218,7 +229,7 @@ class FuncAnalysisForm(RegionForm):
     skip_no_var = BooleanField(
       "Variants without variation")
 
-    exprun_group = MultiCheckboxField(
+    exprun_groups = MultiCheckboxField(
       "Run group:",
       choices = [])
     exp_col = RadioField(
@@ -233,60 +244,41 @@ class TraitViewForm(FlaskForm):
     trait_sgl = SelectField(
       "Trait:",
       choices=[])
-    trait = MultiCheckboxField(
+    traits = MultiCheckboxField(
       "Trait:",
       choices=[])
-    trait_group = MultiCheckboxField(
+    traits_group = MultiCheckboxField(
       "Trait group:",
       choices = [])
-    sample = MultiCheckboxField(
+    samples = MultiCheckboxField(
       "Sample:",
       choices = [])
-    sample_group = MultiCheckboxField(
+    samples_group = MultiCheckboxField(
       "Sample group:",
       choices = [])
     transform = RadioField(
       "Method:",
       choices=[
-        ("", "(none)"),
         ("log", "Log(e) transform"),
         ("bc", "Box-cox transform"),
         ("pca", "PCA transform"),
         ("zs", "Z-score normalization"),
         ("corr", "Relatedness correction"),
-        ("thr", "Threshold cutoff"),
-        ("outl", "Outlier removal"),
-        ("bin", "Make binary")],
-      default="")
-    k = BooleanField(
-      "Kinship (K) correction",
-      default = True)
-    q = BooleanField(
-      "PC (Q) correction",
-      default = True)
-    q_num = IntegerField(
-      "Number of PCs:",
-      default = 3)
+        ("bin", "Make binary")])
     kq_from = RadioField(
       "K/Q from:",
       choices=[])
-    cov = MultiCheckboxField(
-      "Additional covariates:",
-      choices = [])
+    q_num = IntegerField(
+      "Number of PCs:",
+      default = 3)
     num_pc = IntegerField(
       "Number of PCs:",
       default=5)
-    num_sd = IntegerField(
-      "±SD from the mean ≥",
-      default=3)
-    binthr = FloatField(
+    binthr = IntegerField(
       "Threshold:")
-    thr_min = FloatField(
-      "Minimum:")
-    thr_max = FloatField(
-      "Maximum:")
-    sample_sel = StringField("")
+    samples_sel = StringField("")
     t_name = StringField("")
+    t_type = StringField("")
 
 class PlotForm(FlaskForm):
     plot = SelectField(
@@ -307,7 +299,7 @@ class PlotForm(FlaskForm):
         ("maf",
          "Minor allele frequency"),
         ("hwe",
-         "-log10(p) HW equilibrium")
+         "-log10(P) HW equilibrium")
         ])
     plothap = SelectField(
       "Plot:",
@@ -344,15 +336,14 @@ class PlotForm(FlaskForm):
       choices=[])
 
 class AssocQCform(PlotForm):
+    filt_ext = BooleanField(
+      "Apply to existing:")
+    samples_group = MultiCheckboxField(
+      "By sample group:",
+      choices = [])
     filt_from = RadioField(
-      "From marker set:",
+      "Markers:",
       choices=[])
-    sample_group = MultiCheckboxField(
-      "Limit to samples:",
-      choices = [])
-    coord = MultiCheckboxField(
-      "Limit to regions:",
-      choices = [])
     smiss = DecimalField(
       "sample ≤",
       places  = None,
@@ -374,12 +365,12 @@ class AssocQCform(PlotForm):
       #default = 0.1
       )
     maf = DecimalField(
-      "MAF ≥",
+      "Minor AF ≥",
       places  = None,
       #default = 0.05
       )
     hwe = DecimalField(
-      Markup("-log<sub>10</sub>(p) HWE ≤"),
+      "-log10(P) HWE ≤",
       places  = None)
     prune = DecimalField(
       "Threshold <",
@@ -388,10 +379,11 @@ class AssocQCform(PlotForm):
       )
     window = IntegerField(
       "Window (kb):",
-      #default = 5000
+      #default = 200
       )
     imp = BooleanField(
-      "Impute")
+      "Impute",
+      default="checked")
     hap = BooleanField(
       "Make Haplotypes")
     btype = SelectField(
@@ -423,19 +415,32 @@ class AssocResForm(RegionForm, PlotForm):
     models = MultiCheckboxField(
       "Model:",
       choices = models)
-    sample_group = MultiCheckboxField(
+    samples_group = MultiCheckboxField(
       "By sample group:",
       choices = [])
-    trait = MultiCheckboxField(
+    traits = MultiCheckboxField(
       "Trait:",
       choices = [])
-    trait_group = MultiCheckboxField(
+    traits_group = MultiCheckboxField(
       "Trait group:",
       choices = [])
+    new_phe = FileField()
+    mtryvals = StringField(
+      "Test markers:")
+    ntreevals = StringField(
+      "Trees per forest:")
+    optimize = BooleanField()
     mtry = IntegerField(
       "Test markers:")
     ntree = IntegerField(
-      "Trees per forest:")
+      "Trees per forest:",
+      default = 100)
+    niter = IntegerField(
+      "Iterations:",
+      default = 20)
+    nperm = IntegerField(
+      "Permutations:",
+      default = 100)
 
     b_burn = IntegerField(
       "Burn-in iterations:")
@@ -444,11 +449,39 @@ class AssocResForm(RegionForm, PlotForm):
     b_thin = IntegerField(
       "Thinning:")
 
-    hgl_coord_group = MultiCheckboxField(
-      "Saved regions:",
+    pm_w = IntegerField(
+      "Burn-in steps:")
+    pm_s = IntegerField(
+      "Sampling steps:")
+    pm_num = IntegerField(
+      "Thinning:")
+    pm_hmin = FloatField(
+      "Min heritability:")
+    pm_hmax = FloatField(
+      "Max heritability:")
+    pm_pmin = IntegerField(
+      "Min causal SNPs:")
+    pm_pmax = IntegerField(
+      "Max causal SNPs:")
+    pm_nstart = IntegerField(
+      "Init causal SNPs:")
+    pm_smin = IntegerField(
+      "Model min SNPs:")
+    pm_smax = IntegerField(
+      "Model max SNPs:")
+
+    fm_ids = MultiCheckboxField(
+      "",
       choices=[])
-    hgl_gene_group = MultiCheckboxField(
-      "Gene groups:",
+    fm_runs = MultiCheckboxField(
+      "Saved analyses:",
+      choices=[])
+
+    assoc_loci = MultiCheckboxField(
+      "Saved loci:",
+      choices=[])
+    gene_groups = MultiCheckboxField(
+      "Gene group:",
       choices = [])
 
     k = BooleanField(
@@ -463,22 +496,25 @@ class AssocResForm(RegionForm, PlotForm):
     kq_from = RadioField(
       "K/Q from:",
       choices=[])
-    cov = MultiCheckboxField(
-      "Additional covariates:",
-      choices = [])
+    cov = StringField(
+      "")
     overwrite = BooleanField(
       "Overwrite existing")
-
-    plot_thr = DecimalField(
-      "Plot threshold:",
-      default=8,
-      places=None
-      )
-    window_ld = IntegerField(
-      "Window (kb):",
-      default=5000)
-    r2_ld = DecimalField(
-      "r<sup>2</sup> to peak ≥",
-      default=0.2,
-      places=None)
-    qtl_runs = StringField()
+    fm_method = RadioField(
+      "Method:",
+      choices=[
+        ("", "(none)"),
+        ("glm", "GLM"),
+        ("mlm", "MLM"),
+        ("pm", "PiMASS"),
+        ("B", "BayesB"),
+        ("C", "BayesC"),
+        ("rf", "Random forest")])
+    mrk  = StringField(
+      "")
+    mod  = StringField(
+      "")
+    trt  = StringField(
+      "")
+    pval = HiddenField(
+      "")

@@ -46,12 +46,17 @@
             <h1
              class="clickable"
              onclick="toggleSection(this, 'vars-div'); showToggleVars();">
-              Variants: &#9013;
+              Variants:
             </h1>
               <img
                 class="aux-button clickable"
                 src="{{ url_for('serve_button', button='help') }}"
-                onclick="showHelp(event, 'vars-table');" />
+                onclick="showHelp(event, 'vars-table');" />
+              <img
+                class="aux-button clickable"
+                src="{{ url_for('serve_button', button='update') }}"
+                onclick="genesToVars();"
+                title="Copy selection from Genes table" />
           </div>
           <div class="relative">
             <div class="var-buttons">
@@ -293,7 +298,7 @@
       </div>
       {% else %}
         <h1 class="clickable" onclick="toggleSection(this, 'var-phe-div');">
-          Variant-phenotype correlation: &#9013;
+          Variant-phenotype correlation:
         </h1>
       </div>
       <div
@@ -391,8 +396,13 @@
         <h1
          class="clickable"
          onclick="toggleSection(this, 'genes-div');">
-          Genes: &#9013;
+          Genes:
         </h1>
+        <img
+          class="aux-button clickable"
+          src="{{ url_for('serve_button', button='update') }}"
+          onclick="varsToGenes();"
+          title="Copy selection from Variants table" />
       </div>
       <div
        id="genes-div"
@@ -408,7 +418,7 @@
           <h1
            class="clickable"
            onclick="toggleSection(this, 'genexp-div');">
-            Gene expression: &#9013;
+            Gene expression:
           </h1>
         </div>
         <div
@@ -451,8 +461,8 @@
                 <img
                   class="aux-button clickable"
                   src="{{ url_for('serve_button', button='save') }}"
-                  onclick="makeGroup(event, 'exprun');"
-                  title="Save selection as group" />
+                  onclick="makeGroup(event, 'expruns');"
+                  title="Save selection as group" />
               </div>
               <div class="row-div padded-bottom">
                 <button
@@ -471,10 +481,10 @@
                 <img
                   class="aux-button clickable"
                   src="{{ url_for('serve_button', button='delete') }}"
-                  onclick="deleteGroup(event, 'exprun');"
-                  title="Delete selected groups" />
+                  onclick="deleteGroup(event, 'expruns');"
+                  title="Delete selected groups" />
                 <div
-                 id="exprun_group-dropdown"
+                 id="expruns_group-dropdown"
                  class="dropdown-menu collapsed">
                   <div class="sticky non-transparent small-padding">
                     <input
@@ -490,11 +500,12 @@
                       Select all
                     </button>
                   </div>
-                  {% for choice in form.exprun_group %}
+                  {% for choice in form.exprun_groups %}
                     <div
-                     class="checkbox-row group-option">
+                     class="checkbox-row"
+                     oncontextmenu="showGroupContents(this);">
                       {{ choice(
-                       class="exprun_group-checkbox",
+                       class="expruns_group-checkbox",
                        onchange="
                         updateCount(this.parentElement.parentElement);
                         filterRunsTable();") }}
@@ -605,7 +616,7 @@
           <h1
            class="clickable"
            onclick="toggleSection(this, 'genenr-div');">
-            Gene enrichment: &#9013;
+            Gene enrichment:
           </h1>
         </div>
         <div
@@ -691,8 +702,13 @@
          onclick="
           toggleSection(this, 'geneview-div');
           genesToIGV('all');">
-          Gene view: &#9013;
+          Gene view:
         </h1>
+        <img
+          class="aux-button clickable"
+          src="{{ url_for('serve_button', button='update') }}"
+          onclick="genesToIGV();"
+          title="Copy selction from Genes and Variants table" />
       </div>
       <div
        id="geneview-div"
@@ -728,7 +744,7 @@
          onclick="
           makeClustersTable();
           toggleSection(this, 'clusters-div');">
-          Sample clusters: &#9013;
+          Sample clusters:
         </h1>
       </div>
       <div
@@ -745,7 +761,7 @@
       <h1
        class="clickable"
        onclick="toggleSection(this, 'params-div');">
-        Edit query: &#9013;
+        Edit query:
       </h1>
     </div>
     <div
@@ -768,10 +784,16 @@
    filename='js/plotly_config.js')}}"></script>
   <script src="{{url_for(
    'static',
+   filename='js/contextmenu.js')}}"></script>
+  <script src="{{url_for(
+   'static',
    filename='js/help_texts.js')}}"></script>
   <script src="{{url_for(
   'static',
   filename='js/popups.js')}}"></script>
+  <script src="{{url_for(
+   'static',
+   filename='js/group.js')}}"></script>
 
   <script
    src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js">
@@ -800,7 +822,6 @@
     const igvConfig = {{ igv_conf|tojson|safe }};
     var igvDiv = document.getElementById("igv-div");
     if (igvDiv != null) {
-      var browser;
       var igvParent = igvDiv.parentElement;
 
 {# ============================================================= Render IGV #}
@@ -808,15 +829,9 @@
       igvParent.removeChild(igvDiv);
       igvDiv.classList.add("hidden");
       document.body.appendChild(igvDiv);
-      //var browserPromise = (async () => {
-      //  return await igv.createBrowser(igvDiv, igvConfig);
-      //})();
-      async function initBrowser() {
-        browser = await igv.createBrowser(igvDiv, igvConfig);
-        await browser.initialized;
-      }
-      initBrowser();
-
+      var browserPromise = (async () => {
+        return await igv.createBrowser(igvDiv, igvConfig);
+      })();
       document.body.removeChild(igvDiv);
       igvParent.appendChild(igvDiv);
       igvDiv.classList.remove("hidden");
@@ -960,7 +975,7 @@
       }
 
       var groupRuns = [];
-      var checkboxes = document.querySelectorAll(".exprun_group-checkbox");
+      var checkboxes = document.querySelectorAll(".expruns_group-checkbox");
       // Get filters based on run groups selection
       for (let i = 0; i < checkboxes.length; i++) {
         if (checkboxes[i].checked) {
@@ -1258,7 +1273,7 @@
 
       if (byGroup) {
         var groups = [];
-        var checkboxes = document.querySelectorAll(".exprun_group-checkbox");
+        var checkboxes = document.querySelectorAll(".expruns_group-checkbox");
         for (let i = 0; i < checkboxes.length; i++) {
           if (checkboxes[i].checked) {
             groups.push([
@@ -1403,9 +1418,9 @@
         yaxis: {
           title: "Expression quantile",
           tickformat: ".2f",
-          range: [0,1.05],
+          range: [0,1],
           minallowed: 0,
-          maxallowed: 1.05,
+          maxallowed: 1,
           autorange: false,
         },
         xaxis: {
@@ -1521,6 +1536,16 @@
               "P-value: " + (10**(-attrData[2])).toExponential(3).toString()));
           }
 
+          // Calculate colorbar ticks
+          var logpMin = Math.floor(Math.min(0, ...pVals));
+          var logpMax = Math.ceil(Math.max(2, ...pVals));
+          var tickValues = [];
+          var tickLabels = [];
+          for (var i = logpMin; i <= logpMax; i++) {
+            tickValues.push(i);
+            tickLabels.push(10**(-i));
+          }
+
           var trace = {
             x: xVals,
             y: yVals,
@@ -1534,9 +1559,11 @@
               cmin: Math.min(0, ...pVals),
               cmax: Math.max(2, ...pVals),
               colorbar: {
-                title: "-log10(p)",
+                title: "P-value",
                 thickness: 20,
                 ticks: "outside",
+                tickvals: tickValues,
+                ticktext: tickLabels,
               }
             },
             hoverinfo: "x+text",
@@ -1601,13 +1628,35 @@
       });
     }
 {# ======================================================= Update functions #}
-    function genesToQuery() {
-      document.getElementById("gene-field").value = visGenes().join(" ");
+    function genesToVars() {
+      var varBoxes = document.querySelectorAll(".var-checkbox");
+      var visibleGenes = visGenes();
+      for (let i = 0; i< varBoxes.length; i++) {
+        var checkbox = varBoxes[i];
+        if (!visibleGenes.includes(checkbox.getAttribute("gene"))) {
+          checkbox.checked = false;
+          document.getElementById("varbar" + i).classList.toggle("var-sel", checkbox.checked);
+        }
+      }
     }
 
-    function varsToQuery() {
+    function varsToGenes() {
       var varBoxes = document.querySelectorAll(".var-checkbox:checked");
-      document.getElementById("coord-field").value = [...varBoxes].map(v => v.getAttribute("pos")).join(" ");
+      var varGenes = [];
+      for (let i = 0; i< varBoxes.length; i++) {
+        var affectedGenes = varBoxes[i].getAttribute("gene").split(" ");
+        for (gene of affectedGenes) {
+          varGenes.push(gene);
+        }
+      }
+      var visibleGenes = visGenes();
+      for (gene of visibleGenes) {
+        if (!varGenes.includes(gene)) {
+          var checkbox = document.getElementById("genes-table0" + gene);
+          checkbox.checked = false;
+        }
+      }
+      applyFilters([dropdowns["genes-table"][0], "genes-table"], [], false);
     }
 
     function genesToIGV(toAll) {
@@ -1624,9 +1673,9 @@
             var [id, chrom, start, end] = cellData.map(cell => {
               return cell.innerText;
             });
-            start = parseInt(start);
+            start = parseInt(start) - 1;
             end = parseInt(end);
-            var offset = 0; //Math.floor((end - start) / 10);
+            var offset = Math.floor((end - start) / 10);
             genesLoc += chrom + ":"
             genesLoc += (start - offset) + "-";
             genesLoc += (end + offset) + " ";
@@ -1659,9 +1708,11 @@
           }
         }
         roiConfig.push(varROIs);
-        browser.clearROIs();
-        browser.loadROI(roiConfig);
 
+        browserPromise.then(browser => {
+          browser.clearROIs();
+          browser.loadROI(roiConfig);
+        });
       } else {
         var fmt = document.getElementById("fmt-field").value;
         if (fmt === "region") {
@@ -1675,18 +1726,8 @@
           genesLoc = "all";
         }
       }
-      browser.goto(genesLoc).then(() => {
-        if (document.getElementById("to-locus-btn") == null) {
-          var btn = document.createElement("div");
-          btn.id = "to-locus-btn";
-          btn.classList.add("igv-navbar-button");
-          btn.style.sisplay = "block";
-          btn.innerText = "view genes/variants";
-          btn.addEventListener("click", function() {genesToIGV(); });
-
-          var navBar = document.querySelector(".igv-navbar-toggle-button-container");
-          navBar.insertBefore(btn, navBar.firstChild);
-        }
+      browserPromise.then(browser => {
+        browser.goto(genesLoc);
       });
     }
 {# ====================================================== Annotate severity #}
@@ -1815,7 +1856,7 @@
       }
 
       // Uncheck all groups selected
-      var checkboxes = document.querySelectorAll(".exprun_group-checkbox");
+      var checkboxes = document.querySelectorAll(".expruns_group-checkbox");
       for (let i = 0; i < checkboxes.length; i++) {
         checkboxes[i].checked = false;
       }
