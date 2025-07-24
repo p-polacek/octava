@@ -330,7 +330,7 @@ def am_pipeline(genome, form):
                           [rec.chrom,
                            max(region[1], start),
                            min(region[2], end)])
-                elif target == "gene":
+                elif target == "cds":
                     # Clip region if partly outside query
                     regions.append(
                       [rec.chrom,
