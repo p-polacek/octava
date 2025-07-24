@@ -99,8 +99,8 @@ def run_blastp(task_id, prot_file, db_prefix):
     #if not os.path.exists(split_dir):
     #    os.mkdir(split_dir)
 
-    #with gzip.open(prot_file, "rt") as f_in, open("prot.fasta", "w") as f_out:
-    #    f_out.write(f_in.read())
+    with gzip.open(prot_file, "rt") as f_in, open("prot.fasta", "w") as f_out:
+        f_out.write(f_in.read())
 
     prot_order = dict()
     for idx, prot in enumerate(
@@ -158,6 +158,8 @@ def run_blastp(task_id, prot_file, db_prefix):
     # Index blastp file
     pysam.tabix_compress(out_path, out_path + ".gz", force=True)
     os.remove(out_path)
+    os.remove("prot.fasta")
+
     pysam.tabix_index(
       out_path + ".gz",
       seq_col=0,
