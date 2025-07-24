@@ -1,13 +1,15 @@
 #!/bin/bash
 
-# Pull the latest code from GitHub
-echo "Pulling the latest code from GitHub"
+if [ ! -d data/noupdate ]; then
+  # Pull the latest code from GitHub
+  echo "Pulling the latest code from GitHub"
 
-if git pull origin main; then
+  if git pull origin main; then
     echo "Update done"
-else
+  else
     echo "Update failed"
-    touch .noupdate
+    touch updatefailed
+  fi
 fi
 
 # Set the FLASK_APP environment variable

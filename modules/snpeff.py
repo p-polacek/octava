@@ -11,9 +11,6 @@ import subprocess
 from Bio.bgzf import BgzfWriter
 
 from app.dirs import data_dir
-from app.task_worker import progress
-
-from modules.assoc import popen
 
 def snpeff_annotate(
   genome,

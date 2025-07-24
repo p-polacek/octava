@@ -15,6 +15,7 @@ def mqplot(
   genome,
   in_df,
   out_fn,
+  plot_title,
   concat,
   ch_col="Chr",
   pos_col="Pos",
@@ -49,6 +50,7 @@ def mqplot(
       zorder=-1,
       axis="y",
       color="#dbdbdb")
+    in_df = in_df.sort_values(by=pos_col)
     for ch, data in in_df.groupby(
       ch_col,
       sort=False):
@@ -89,12 +91,13 @@ def mqplot(
 
     ax1.set_xticks(ticks=ticks, labels=labels, rotation=45, ha="right")
     ax1.set_xlabel("Chromosome")
-    ax1.set_ylabel("$-log_{10}$(p) value / PIP / importance")
+    #ax1.set_ylabel("$-log_{10}$(p) value / PIP / importance")
+    ax1.set_ylabel("$-log_{10}$p-value" if qqplot else "Importance")
 
     # QQ plot
     if qqplot:
         in_df = in_df.sort_values(
-          by=sig_col)
+          by=sig_col).dropna()
         num_tests = in_df.shape[0]
         theor_quant = -np.log10(
                         np.linspace(
@@ -111,12 +114,16 @@ def mqplot(
           [0, theor_quant[-1]],
           color  = "#47b023",
           zorder = 0)
-        ax2.set_xlabel("Expected $-log_{10}$(p)")
-        ax2.set_ylabel("Observed $-log_{10}$(p)")
+        ax2.set_xlabel("Expected $-log_{10}$p-value")
+        ax2.set_ylabel("Observed $-log_{10}$p-value")
+    else:
+        ax2.set_visible(False)
 
+    plt.suptitle(plot_title)
     plt.tight_layout()
 
     fig.savefig(
       out_fn,
       dpi=300,
       format="png")
+    plt.close(fig)

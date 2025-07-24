@@ -7,10 +7,16 @@ import gffutils
 import bed_reader
 import numpy as np
 import pandas as pd
+from collections import (
+  Counter,
+  defaultdict)
 
 from .csq import var_csq
 from .vcf_reader import VcfReader
-from .load_input import load_config
+
+from .load_input import (
+  load_gdata,
+  load_config)
 
 from flask_app import (
   get_lock,
@@ -22,8 +28,6 @@ from app.dirs import data_dir, tool_dir
 Allele mining pipeline
 v1.0 author: Martijn van Kaauwen
 v2.0 author: Peter Poláček
-
-Usage: To be called from within app.py
 """
 
 def compress_sv(seq):
@@ -45,21 +49,6 @@ def compress_sv(seq):
     else:
         return seq
 
-def genes_list(genes, gene_attrs):
-    # Convert genes and annotations from dict to list, add header
-    if genes:
-        genes = list(genes.values())
-        gene_attrs = [
-        "ID",
-        "Chromosome",
-        "Start",
-        "End",
-        "Length",
-        "Strand",
-        "Variants"] + gene_attrs
-        genes = [gene_attrs] + genes
-    return genes
-
 def am_pipeline(genome, form):
     """Pipeline generating allele mining output"""
 
@@ -74,9 +63,8 @@ def am_pipeline(genome, form):
     # Later converted to list of (key, value) tuples
     groups = dict()
 
-    # {gene_1: [gene_attributes], ...}
-    # Later converted to list of [gene_attributes]
-    genes = dict()
+    # [[gene1_attributes], ...]
+    genes = list()
 
     # [[chr1, pos1, [affected_genes], ref, [csq_list], [sev_list]], ...]
     anns = list()
@@ -125,18 +113,19 @@ def am_pipeline(genome, form):
                 sev_reader = None
     except Exception as e:
         errors.append("Problem loading VCF file.")
-        
+
     try:
         db_path = os.path.join(
           data_dir,
           genome,
+          "stats",
           "gff.db")
         db = gffutils.FeatureDB(db_path)
     except:
         errors.append("Problem loading GFFutils DB file.")
 
     if errors:
-        # Without any of these, the program aborts and returns error message
+        # Without these, the program aborts and returns the error message
         # All structures returned to avoid errors with output unpacking
         return (
           gts,
@@ -167,8 +156,8 @@ def am_pipeline(genome, form):
             axis=1)["Name"]
           .to_dict())
 
-    for group in query["samples_group"]:
-        query["samples"] += json.loads(group)
+    for group in query["sample_group"]:
+        query["sample"] += json.loads(group)
 
     # Get attribute names of additional information for genes
     if gconfig["info"]:
@@ -190,6 +179,7 @@ def am_pipeline(genome, form):
     prom_size = query["prom_size"]
 
     regions = list()
+    regions_concat = list()
 
 ###############################################################################
 ### Get list of genes and regions to search through - gene input
@@ -199,11 +189,11 @@ def am_pipeline(genome, form):
         if query["gene"]:
             query["gene"] = [
               gene.strip() for gene in
-              query["gene"].split(", ")]
+              query["gene"].split(" ")]
         else:
             query["gene"] = []
 
-        for group in query["gene_groups"]:
+        for group in query["gene_group"]:
             query["gene"] += json.loads(group)
 
         recs = list()
@@ -227,13 +217,13 @@ def am_pipeline(genome, form):
 
         # Compose a list of records
         for rec in recs:
+            transcripts = db.children(
+              rec.id,
+              featuretype="mRNA")
+
             if target == "prom":
                 # Get promoter upstream of transcription start
                 # (for genes with multiple transcripts, get each promoter)
-                transcripts = db.children(
-                  rec.id,
-                  featuretype="mRNA")
-
                 for t in transcripts:
                     if t.strand == "+":
                         start = t.start - prom_size
@@ -245,18 +235,18 @@ def am_pipeline(genome, form):
             else:
                 regions.append([rec.chrom, rec.start, rec.end])
 
-            genes[rec.id] = [
-              rec.id,
-              rec.chrom,
-              rec.start,
-              rec.end,
-              abs(rec.start - rec.end) + 1,
-              rec.strand,
-              0 if query["impact"] != ["geneonly"] else "-",
-              *[
-                rec.attributes.get(attr, [""])[0]
-                for attr in gene_attrs]
-            ]
+            for t in transcripts:
+                genes.append([
+                  rec.id,
+                  t.id,
+                  rec.chrom,
+                  rec.start,
+                  rec.end,
+                  abs(rec.start - rec.end) + 1,
+                  rec.strand,
+                  0 if query["impact"] != ["geneonly"] else "-",
+                  *[t.attributes.get(attr, [""])[0]
+                    for attr in gene_attrs]])
 
 ###############################################################################
 ### Get list of genes and regions to search through - region/coord input
@@ -264,7 +254,17 @@ def am_pipeline(genome, form):
 
     else:
         if query["fmt"] == "coord":
-            for region in query["coord"].split(", "):
+
+            if query["coord"]:
+                query["coord"] = query["coord"].split(" ")
+            else:
+                query["coord"] = []
+
+            if query["coord_group"]:
+                for group in query["coord_group"]:
+                    query["coord"] += json.loads(group)
+
+            for region in query["coord"]:
                 if region.strip():
                     if region.count(":") != 1 or region.count("-") > 1:
                         errors.append("Invalid coordinates: " + region)
@@ -273,8 +273,8 @@ def am_pipeline(genome, form):
                     chrom, span = region.split(":")
                     start, end = span.split("-") if "-" in span else (span, span)
                     try:
-                        start = int(start.replace(",", "").replace(" ", ""))
-                        end   = int(end.replace(",", "").replace(" ", ""))
+                        start = int(start.replace(",", ""))
+                        end = int(end.replace(",", ""))
                         assert start <= end
                     except:
                         errors.append("Invalid coordinates: " + region)
@@ -298,7 +298,7 @@ def am_pipeline(genome, form):
             regions = list()
 
         else:
-            query["region"] = [(query["chrom"], query["start"], query["end"])]
+            query["region"] = [[query["chrom"], query["start"], query["end"]]]
 
         for region in query["region"]:
             if target == "full":
@@ -311,13 +311,13 @@ def am_pipeline(genome, form):
 
             # Compose a list of records
             for rec in recs:
+                transcripts = db.children(
+                  rec.id,
+                  featuretype="mRNA")
+
                 if target == "prom":
                     # Get promoter upstream of transcription start
                     # (for genes with multiple transcripts, get each promoter)
-                    transcripts = db.children(
-                      rec.id,
-                      featuretype="mRNA")
-
                     for t in transcripts:
                         if t.strand == "+":
                             start = t.start - prom_sise
@@ -330,32 +330,31 @@ def am_pipeline(genome, form):
                           [rec.chrom,
                            max(region[1], start),
                            min(region[2], end)])
-                else:
+                elif target == "gene":
                     # Clip region if partly outside query
                     regions.append(
                       [rec.chrom,
                        max(region[1], rec.start),
                        min(region[2], rec.end)])
 
-                genes[rec.id] = [
-                  rec.id,
-                  rec.chrom,
-                  rec.start,
-                  rec.end,
-                  abs(rec.start - rec.end) + 1,
-                  rec.strand,
-                  0 if query["impact"] != ["geneonly"] else "-",
-                  *[
-                    rec.attributes.get(attr, [""])[0]
-                    for attr in gene_attrs]
-                ]
+                for t in transcripts:
+                    genes.append([
+                      rec.id,
+                      t.id,
+                      rec.chrom,
+                      rec.start,
+                      rec.end,
+                      abs(rec.start - rec.end) + 1,
+                      rec.strand,
+                      0 if query["impact"] != ["geneonly"] else "-",
+                      *[t.attributes.get(attr, [""])[0]
+                        for attr in gene_attrs]])
 
 ###############################################################################
 ### Iterate over variant records in regions
 ###############################################################################
 
     if query["impact"] == ["geneonly"]:
-        genes = genes_list(genes, gene_attrs)
         return (
           gts,
           groups,
@@ -366,11 +365,11 @@ def am_pipeline(genome, form):
     ann_positions = set()
 
     # Filter by sample
-    if query["samples"]:
+    if query["sample"]:
         samples = [
           sample for sample
           in vcf_reader.header.samples
-          if sample in query["samples"]]
+          if sample in query["sample"]]
     else:
         samples = vcf_reader.header.samples
 
@@ -378,7 +377,35 @@ def am_pipeline(genome, form):
     for sample in samples:
         gts.append([])
 
-    for region in regions:
+    # Concatenate nearby markers into single region for faster querying
+    if query["fmt"] == "coord":
+        unmerged_regions = regions[:]
+
+        spans = [r for r in regions if r[1] != r[2]]
+        regions_concat = [False for s in spans]
+
+        markers = [r for r in regions if r[1] == r[2]]
+        chr_groups = defaultdict(list)
+        for chrom, pos, _ in markers:
+            chr_groups[chrom].append(pos)
+
+        merged_spans = []
+        for chrom, positions in chr_groups.items():
+            positions.sort()
+            curr_start = curr_end = positions[0]
+            for pos in positions[1:]:
+                if pos - curr_end < 10000:
+                    curr_end = pos
+                else:
+                    merged_spans.append([chrom, curr_start, curr_end])
+                    curr_start = curr_end = pos
+
+            merged_spans.append([chrom, curr_start, curr_end])
+
+        regions_concat += [True for s in merged_spans]
+        regions = spans + merged_spans
+
+    for region_idx, region in enumerate(regions):
         chrom = region[0]
         # VcfReader is 0-based
         vcf_reader.set_region(
@@ -395,16 +422,20 @@ def am_pipeline(genome, form):
 ###############################################################################
 
         for var in vcf_reader:
+            if regions_concat and regions_concat[region_idx]:
+                if [var.CHROM, var.POS, var.POS] not in unmerged_regions:
+                    continue
+
             # Filter by type
             if query["dataset"] == "":
                 if query["types"] and (var.VAR_TYPE not in query["types"]):
                     continue
 
-                if "SEV" in query["impact"]:
-                    if all([
-                      sev.rsplit("|", 1)[1] == "TOLERATED"
-                      for sev in var.parsed_info_fields().get("SEV", "")]):
-                        continue
+                #if "SEV" in query["impact"]:
+                #    if all([
+                #      sev.rsplit("|", 1)[1] == "TOLERATED"
+                #      for sev in var.parsed_info_fields().get("SEV", "")]):
+                #        continue
 
 ###############################################################################
 ### Iterate over annotations, extract those matching query
@@ -575,8 +606,10 @@ def am_pipeline(genome, form):
             min_c = 0
             mis_c = 0
             het_c = 0
-            for samp_idx, sample in enumerate(samples):
-                data = var.get_sample_call(sample)
+            
+            gt_data = [var.get_sample_call(sample) for sample in samples]
+            allele_data = list()
+            for samp_idx, data in enumerate(gt_data):
                 gt = data["GT"]
 
                 for delim in ("/", "|", "\\"):
@@ -584,16 +617,18 @@ def am_pipeline(genome, form):
                         a, b = gt.split(delim)
                         if a == "." or b == ".":
                             mis_c += 1
-                        else:
-                            min_c += sum(1 for v in (a, b) if v != "0")
-                            if a != b:
-                                het_c += 1
+                        elif a != b:
+                            het_c += 1
+                        allele_data += [a, b]
                         a = "·" if a == "0" else "—" if a == "." else typ + a
                         b = "·" if b == "0" else "—" if b == "." else typ + b
                         genotype = delim.join((a, b)) if a != b else a
                         break
                 else:
                     genotype = "·" if gt == "0" else "—" if gt == "." else gt
+                    allele_data += [gt, gt]
+                    if gt == ".":
+                        mis_c += 1 
 
 ###############################################################################
 ### Get allelic depths and qualities for a call
@@ -624,6 +659,11 @@ def am_pipeline(genome, form):
                             except ValueError:
                                 pass
                         qual = sorted(quals)[1] * -10 if quals else ""
+                    #if qual == "" and "DP" in data.keys():
+                    #    try:
+                    #        qual = int(data["DP"])*2
+                    #    except ValueError:
+                    #        pass
                 else:
                     qual = ""
 
@@ -632,8 +672,9 @@ def am_pipeline(genome, form):
             gen_c = (len(samples) - mis_c) * 2
             mis = mis_c / len(samples)
             if gen_c > 0:
-                het = het_c / gen_c
-                maf = min(min_c / gen_c, 1 - min_c / gen_c)
+                het = het_c / (gen_c / 2)
+                maj_c = Counter([a for a in allele_data if a != "."]).most_common()[0][1]
+                maf = min(maj_c / gen_c, 1 - maj_c / gen_c)
             if (gen_c == 0 and query["mis"]) or (
               (query["mis"] is not None and mis > query["mis"]) or 
               (query["het"] is not None and het > query["het"]) or
@@ -657,7 +698,7 @@ def am_pipeline(genome, form):
     for pos in range(len(gts[0])):
         # Check if pos has gts other than those to be filtered out (".", "—")
         calls = {samp_gts[pos][0] for samp_gts in gts}
-        if calls.issubset(query["skip_variants"]):
+        if calls.issubset(query["skip_var"]):
             pos_rmv.append(pos)
 
         # If skipping variants with no variation
@@ -675,7 +716,6 @@ def am_pipeline(genome, form):
     # If there are no valid genotypes
     if not gts[0]:
         gts = list()
-        genes = genes_list(genes, gene_attrs)
         return (
           gts,
           groups,
@@ -705,7 +745,7 @@ def am_pipeline(genome, form):
         for samp_idx, (samp, samp_gts) in enumerate(zip(samples, gts)):
             calls = {samp_gts[pos][0] for pos in range(var_num)}
 
-            if calls.issubset(query["skip_samples"]):
+            if calls.issubset(query["skip_samp"]):
                 samp_rmv.append(samp_idx)
 
         gts = [
@@ -719,10 +759,9 @@ def am_pipeline(genome, form):
 ### Keep track of variant count
 ###############################################################################
 
-    for ann in anns:
-        for gene in ann[2]:
-            if gene in genes.keys():
-                genes[gene][6] += 1
+    var_cntr = Counter([g for ann in anns for g in ann[2]])
+    for gene in genes:
+        gene[7] = var_cntr[gene[0]]
 
 ###############################################################################
 ### Rename sample names and append to genotypes
@@ -756,7 +795,6 @@ def am_pipeline(genome, form):
 ### Return
 ###############################################################################
 
-    genes = genes_list(genes, gene_attrs)
     return (
       gts,
       groups,

@@ -10,9 +10,12 @@ matplotlib
 numpy==1.26.4
 pandas
 Pgenlib
+portalocker
+psutil
 pysam
 pytabix
 scikit-learn
 skranger
 tables
 WTForms
+xlsxwriter

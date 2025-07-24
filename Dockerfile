@@ -27,18 +27,21 @@ RUN chmod 600 /root/.ssh/id_rsa &&\
     cd ./modules/tools/ &&\
     wget https://cnsgenomics.com/software/gctb/download/gctb_2.5.2_Linux.zip -O gctb.zip &&\
     unzip gctb.zip &&\
+    wget https://github.com/rgcgithub/regenie/releases/download/v4.1/regenie_v4.1.gz_x86_64_Linux.zip -O regenie.zip &&\
+    unzip regenie.zip &&\
+    mv regenie_v4.1.gz_x86_64_Linux regenie &&\
     wget https://s3.amazonaws.com/plink1-assets/plink_linux_x86_64_20241022.zip -O plink1.9.zip &&\
     unzip plink1.9.zip &&\
     wget https://s3.amazonaws.com/plink2-assets/alpha6/plink2_linux_x86_64_20241124.zip -O plink2.zip &&\
     unzip plink2.zip &&\
     wget http://faculty.washington.edu/browning/beagle/beagle.06Aug24.a91.jar -O beagle.jar &&\
-    wget https://www.haplotype.org/download/pimass-latest.tar.gz -O pimass.tar.gz &&\
-    tar -zxf pimass.tar.gz &&\
     git clone https://github.com/Menggg/BLINK.git &&\
     unzip BLINK/blink_linux.zip -d BLINK/ &&\
     apt-get update &&\
     apt-get install -y emboss gemma
 
+#    wget https://www.haplotype.org/download/pimass-latest.tar.gz -O pimass.tar.gz &&\
+#    tar -zxf pimass.tar.gz &&\
 #    wget https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/ncbi-blast-2.16.0+-x64-linux.tar.gz -O blast.tar.gz &&\
 #    mkdir blast/ &&\
 #    tar -zxf blast.tar.gz -C blast/ --strip-components=1 &&\

@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 import os
+import gzip
 import json
 import pysam
 import pgenlib
 import bed_reader
 import numpy as np
 import pandas as pd
-
-from app.task_worker import progress
 
 def win_block(
   gt_root,
@@ -39,7 +38,6 @@ def win_block(
     last_block = None
     out = open(f"{gt_root}.blocks", "w")
 
-    progress(task_id, "Constructing haplotype blocks")
     for ch, data in bim.groupby("Chr", sort=False):
         if btype == "bpwin":
             last_marker = data.iloc[-1, 2]
@@ -52,11 +50,7 @@ def win_block(
             pct = int((start + done_cnt) / total * 100)
             if pct > pct_done:
                 pct_done = pct
-                progress(
-                  task_id,
-                  f"\rProgress: {pct}%",
-                  bold=False,
-                  newline=False)
+                print(f"\rProgress: {pct}%", end="")
             end = start + span
             block = data.loc[start:end, "ID"].tolist()
             if len(block) < 2:
@@ -66,8 +60,7 @@ def win_block(
             _ = out.write(" ".join(["*"] + block) + "\n")
         done_cnt += last_marker + 1
 
-    progress(task_id, "\rProgress: 100%", bold=False)
-    progress(task_id, "", bold=False)
+    print("\rProgress: 100%\n")
     out.close()
 
 def block_genotype(
@@ -78,6 +71,7 @@ def block_genotype(
   maf,
   min_haps,
   concat,
+  chr_names,
 #  group_minor,
 #  include_singles
   task_id):
@@ -123,17 +117,13 @@ def block_genotype(
     _ = vcf_out.write(("\t".join(columns) + "\n").encode())
 
     #                                                                                     CONSIDER INCLUDING SINGLES
-    progress(task_id, "Genotyping haplotype blocks")
+    print("<b>Genotyping haplotype blocks</b>")
     # Skip leading "*", split on space
     for block_idx, block in enumerate(in_b):
         pct = int(block_idx / total * 100)
         if pct > pct_done:
             pct_done = pct
-            progress(
-              task_id,
-              f"\rProgress: {pct}%",
-              bold=False,
-              newline=False)
+            print(f"\rProgress: {pct}%", end="")
         m1, mn = block.split(None, 2)[1], block.rsplit(None, 1)[1].strip()
         start, end = marker_map[m1], marker_map[mn] + 1
         mcnt = end - start
@@ -224,19 +214,11 @@ def block_genotype(
              *[f"{a1}|{a2}" for a1, a2 in idx_array])
           ) + "\n").encode())
 
-    progress(task_id, f"\rProgress: 100%", bold=False)
-    progress(task_id, "", bold=False)
-    progress(task_id, "Saving genotyped blocks")
+    print(f"\rProgress: 100%\n")
+    print("<b>Saving genotyped blocks</b>")
 
     in_b.close()
     # Filtered data
-    alleles_1 = list()
-    alleles_2 = list()
-    for (fhcnt, span) in zip(fhcnts, spans):
-        for i in range(fhcnt):
-            alleles_1.append("A")
-            alleles_2.append("T")
-
     (pd
       .DataFrame(
         {"chr": bchrs,
@@ -246,6 +228,8 @@ def block_genotype(
         gt_root + ".blockmap",
         sep="\t",
         index=False))
+    if not out_gt:
+        raise OSError("<b>No haplotype blocks were constructed.</b>")
     bed_reader.to_bed(
       out_bed,
       np.stack(out_gt, axis=0).transpose(),
@@ -265,8 +249,8 @@ def block_genotype(
       .set_axis(
         ["CHR", "ID", "_", "POS", "A1", "A2"],
         axis=1)
-      .assign(A1 = alleles_1)
-      .assign(A2 = alleles_2)
+      .assign(A1 = "A")
+      .assign(A2 = "T")
       .to_csv(
         f"{gt_root}.bim",
         sep="\t",
@@ -306,6 +290,17 @@ def block_genotype(
               compression="gzip")
     block_num = block_map.shape[0]
 
+    block_chrs = block_map[0].unique()
+    for chrom in chr_names:
+        if chrom not in block_chrs:
+            (gzip
+              .open(
+                os.path.join(
+                  stats_dir,
+                  f"{chrom}.bdist.gz"),
+                "wb")
+              .close())
+
     smiss = {k: v/block_num for k, v in smiss.items()}
     shet  = {k: v/block_num for k, v in shet.items()}
     # Save histogram data
@@ -339,10 +334,9 @@ def block_genotype(
         step = (1000 if stat == spans else 1)
         hgts, bins = np.histogram(
           stat,
-          bins=range(0, max(stat) + 2, step))
+          bins=range(0, max(stat) + step, step))
         with open(os.path.join(stats_dir, ext), "w") as hist_out:
             json.dump([hgts.tolist(), bins.tolist()], hist_out)
-
     afs = [
       np.histogram(afs[k],
         bins=[i / 100 for i in range(0, 101, 1)])

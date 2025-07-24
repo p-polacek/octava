@@ -7,27 +7,25 @@
 }
 
 body {
-	font-family: Courier New, monospace;
 	font-family: Trebuchet MS;
 	background-color: #ffffff;
-
 	display: flex;
 	flex-direction: column;
 	min-height: 100vh;
-	justify-content: flex-start; /* Align content at the top */
+	justify-content: flex-start;
 	margin: 0px;
 	padding: 0px;
 }
 
 h1 {
 	font-size: 1.1em;
-	padding: 0px;
 	margin: 0px;
+	padding: 0px;
 }
 
 h2 {
 	font-size: 1em;
-	margin: 2px 0px 2px 0px;
+	margin: 2px 0px;
 }
 
 h3 {
@@ -36,10 +34,12 @@ h3 {
 	margin: 0px 0px 2px 0px;
 }
 
+/* Progress window text */
 .monospace {
-    font-family: monospace, monospace;
-    font-size: 0.8em;
+    font-family: monospace;
+    font-size: 0.9em;
 }
+
 /*
 ####################               Hyperlinks              ####################
 */
@@ -61,19 +61,8 @@ a:active {
 	color: #002900;
 }
 
-.plain-link {
-	text-decoration: none;
-}
-
-#index-buttons {
-    margin: 0px 6px 2px 0px;
-    position: absolute;
-    bottom: 0;
-    right: 0;
-}
-  
 /*
-####################               Containers              ####################
+####################      Header and index containers      ####################
 */
 
 .header {
@@ -86,28 +75,16 @@ a:active {
 
 .page {
 	display: flex;
-	flex-grow: 1; /* Allow the container to grow and push content down */
-	justify-content: center; /* Center horizontally */
-	align-items: center; /* Center vertically */
+	flex-grow: 1;
+	justify-content: center;
+	align-items: center;
 }
 
 .centered-div {
 	display: flex;
 	justify-content: center;
 	align-items: center;
-	flex-wrap: wrap; /* Allows the grid to wrap if it exceeds the container */
-}
-
-.tool-selection-div {
-	max-width: 700px;
-	text-align: center;
-}
-
-.object-div {
-	display: inline-flex;
-	box-sizing: border-box;
-	align-self: flex-start;
-	flex-direction: column;
+	flex-wrap: wrap;
 }
 
 .genome-icon-div {
@@ -115,6 +92,22 @@ a:active {
 	width: 128px;
 	padding: 10px;
 	flex-wrap: wrap;
+}
+
+.tool-selection-div {
+	max-width: 700px;
+	text-align: center;
+}
+
+/*
+####################          Content containers           ####################
+*/
+
+.object-div {
+	display: inline-flex;
+	box-sizing: border-box;
+	align-self: flex-start;
+	flex-direction: column;
 }
 
 .row-div {
@@ -167,7 +160,7 @@ a:active {
 }
 
 .static-plot {
-	height: 100%;
+    display: block;
 	width: 100%;
 	object-fit: contain;
 }
@@ -232,24 +225,12 @@ a:active {
 	padding: 10px;
 }
 
-.padded-top {
-	padding-top: 10px;
-}
-
-.padded-left {
-	padding-left: 10px;
-}
-
-.padded-bottom {
-	padding-bottom: 10px;
-}
-
-.padded-right {
-	padding-right: 10px;
-}
-
 .small-padding {
 	padding: 2px;
+}
+
+.padded-top {
+	padding-top: 10px;
 }
 
 .small-padded-top {
@@ -260,21 +241,30 @@ a:active {
 	padding-top: 5px;
 }
 
-.small-padded-bottom {
-	padding-bottom: 7px;
-}
-
 .margin-top {
 	margin-top: 10px;
 }
 
-.gray-bg {
-	background-color: #f4f4f4;
+.padded-left {
+	padding-left: 10px;
+}
+
+.padded-bottom {
+	padding-bottom: 10px;
+}
+
+.small-padded-bottom {
+	padding-bottom: 7px;
+}
+
+.padded-right {
+	padding-right: 10px;
 }
 
 .grayed-out {
 	background-color: lightgray;
 }
+
 .gray-text {
 	color: #888;
 }
@@ -283,12 +273,12 @@ a:active {
 	border-radius: 6px;
 }
 
-.unbold {
-	font-weight: normal;
-}
-
 .bold {
 	font-weight: bold;
+}
+
+.unbold {
+	font-weight: normal;
 }
 
 .taller-line {
@@ -348,6 +338,14 @@ a:active {
 	width: 128px;
 }
 
+.icon-width {
+    width: 128px;
+}
+
+.edit-field-width {
+    width: 170px;
+}
+
 .tool-icon {
 	width: 300px;
 	height: auto;
@@ -363,7 +361,7 @@ a:active {
 */
 
 #add-new-label {
-     visibility: hidden;
+    visibility: hidden;
     text-align: center;
 }
 
@@ -372,30 +370,15 @@ a:active {
 }
 
 /*
-####################                 Input                 ####################
+####################              Input fields             ####################
 */
 
-button {
-	padding: 4px;
-}
-
-.back-button {
-    padding: 5px;
-}
-
-.icon-width {
-    width: 128px;
-}
-
-.input-sized-button {
-    display: inline-flex;
-	align-items: center;
-}
-
-.default-label {
-	font-size: 0.85em;
-	margin: 0px;
-	padding: 0px;
+.locus-textarea {
+    font-family: Trebuchet MS;
+    font-size: 0.85em;
+    min-width: 200px;
+    min-height: 30px;
+    max-width: 200px;
 }
 
 .default-input {
@@ -406,6 +389,12 @@ button {
 	border-radius: 4px;
 	padding: 2.5px;
 	height: 25px;
+}
+
+.default-label {
+	font-size: 0.85em;
+	margin: 0px;
+	padding: 0px;
 }
 
 .fullwidth-input {
@@ -431,7 +420,81 @@ button {
 	border-radius: 4px;
 	padding: 2.5px;
 	height: 25px;
-	/*background-color: #fafafa;*/
+}
+
+.plot-choice-input {
+	font-size: 0.8em;
+	box-sizing: border-box;
+	border: 1px solid #999;
+	border-radius: 4px;
+	padding: 2.5px;
+}
+
+.checkbox-label {
+	font-size: 0.95em;
+}
+
+/* Hide increment arrows for number input field */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 0;
+}
+
+/* For Firefox */
+input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+/*
+####################        Help popup and dropdowns       ####################
+*/
+
+.help-popup {
+    position: absolute;
+	z-index: 500;
+	font-size: 1em;
+	line-height: 1.4em;
+    background-color: #f4f4f4;
+    border: 1px solid #ccc;
+	border-radius: 8px;
+	padding: 6px;
+    margin-right: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+	max-height: 700px;
+	max-width: 700px;
+    /* resize: both; */
+	overflow: auto;
+	white-space: nowrap;
+	word-break: keep-all;
+}
+/*
+.help-popup[style*="height"] {
+  max-height: unset;
+}
+
+.help-popup[style*="width"] {
+  max-width: unset;
+}
+*/
+.dropdown-menu {
+	z-index: 200;
+	position: absolute;
+	min-height: 200px;
+	min-width: 200px;
+	height: 200px;
+	width: 200px;
+    resize: both;
+	overflow: scroll;
+    background-color: white;
+	white-space: nowrap;
+	box-sizing: border-box;
+	border: 1px solid #999;
+	border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    background-color: #f9f9f9;
+    padding-bottom: 10px;
 }
 
 .dropdown-button {
@@ -456,70 +519,16 @@ button {
 	height: 25px;
 }
 
-.select-multiple {
-	height: 100%;
-	width: 100%;
-	overflow-x: auto;
-}
-
-.plot-choice-input {
-	font-size: 0.8em;
-	box-sizing: border-box;
-	border: 1px solid #999;
-	border-radius: 4px;
-	padding: 2.5px;
-}
-
-.help-popup {
-    position: absolute;
-	z-index: 500;
-	font-size: 1em;
-	line-height: 1.4em;
-    background-color: #f4f4f4;
-    border: 1px solid #ccc;
-	border-radius: 8px;
-	padding: 6px;
-    margin-right: 20px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-	max-height: 700px;
-	max-width: 700px;
-	overflow: auto;
-	white-space: nowrap;
-	word-break: keep-all;
-}
-
-.dropdown-menu {
-	z-index: 200;
-	position: absolute;
-	min-height: 200px;
-	min-width: 200px;
-	height: 200px;
-	width: 200px;
-    resize: both;
-	overflow: auto;
-	background-color: white;
-	white-space: nowrap;
-	box-sizing: border-box;
-	border: 1px solid #999;
-	border-radius: 4px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    background-color: #f9f9f9;
+.tracker, .counter {
+    max-width: 80px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .dropdown-item {
 	display: block;
 	white-space: nowrap;
-}
-
-.dropdown-tag {
-    background-color: #014e60;
-	font-size: 0.9em;
-	color: #fff;
-    border-radius: 4px;
-    padding: 5px 10px;
-    margin: 5px 5px 0px 5px;
-	display: inline-flex;
-	align-items: center;
 }
 
 .dropdown-choice-label {
@@ -534,26 +543,22 @@ button {
 	height: 25px;
 	border: 1px solid #999;
 	border-radius: 4px;
-}
-
-.search-bar:focus {
-	outline: none;
+    outline: none;
 }
 
 /*
-.aux-button {
-	border: 0px solid #999;
-	border-radius: 50%;
-	padding: 2px;
-	margin-left: 8px;
-	color: #fff;
-	cursor: pointer;
-	font-size: 0.75em;
-	font-weight: bold;
-	height: 19px;
-	width: 19px;
+.search-bar:focus {
+	outline: none;
 }
 */
+
+/*
+####################                 Buttons               ####################
+*/
+
+button {
+	padding: 4px;
+}
 
 .aux-button {
 	margin-left: 8px;
@@ -562,34 +567,15 @@ button {
 	width: 18px;
 }
 
-.manual-button {
+#header-button-div {
+    padding-right: 20px;
+    padding-top: 20px;
+}
+
+.header-button {
 	cursor: pointer;
 	height: 26px;
 	width: 26px;
-}
-
-.button-help {
-	background-color: #014e60;
-}
-
-.button-save {
-	background-color: #00a360;
-}
-
-.button-delete {
-	background-color: #d22b2b;
-}
-
-.button-update {
-	background-color: #d99058;
-}
-
-.checkbox-label {
-	font-size: 0.95em;
-}
-
-.bp-text {
-	font-size: 1em;
 }
 
 .var-buttons {
@@ -599,22 +585,19 @@ button {
 	white-space: nowrap;
 }
 
-.tracker {
-    max-width: 100px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;}
-
-/* Hide increment arrows for number input field */
-input[type="number"]::-webkit-inner-spin-button,
-input[type="number"]::-webkit-outer-spin-button {
-    -webkit-appearance: none;
-    appearance: none;
-    margin: 0;
+.heading-button {
+    font-size: 0.85em;
+	padding: 4px 20px;
+    /* background-color: #d5f0f0; */
+    border: 1px solid #999;
+	border-radius: 4px;
 }
 
-input[type="number"] {
-    -moz-appearance: textfield; /* For Firefox */ 
+.line {
+  flex-grow: 1;
+  height: 1px;
+  background-color: #999;
+  margin: 0px 4px;
 }
 
 /*

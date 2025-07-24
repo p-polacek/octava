@@ -1,44 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title> {% block title %} {% endblock %} </title>
-    <link 
+    <title> {% block title %}{% endblock %} </title>
+    <link
      rel="stylesheet"
      type="text/css"
      href="{{ url_for('static', filename='style.css') }}">
     <link
      rel="icon"
-     {#
-     type="image/vnd.microsoft.icon"
-     href="{{ url_for('favicon') }}"
-     #}
      type="image/svg+xml"
-     href="{{ url_for('static', filename='favicon.svg') }}"
-    >
-    {% block style %} {% endblock %}
+     href="{{ url_for('static', filename='favicon.svg') }}">
+    {% block style %}{% endblock %}
   </head>
   <body>
-    <div class="row-div padded-bottom">
-      <a href="{{ url_for('index') }}">
-        <img
-         class="logo"
-         {# 
-           src="{{ url_for('static', filename='WUR_RGB_standard_2021.png') }}"
-         #}
+    <div class="row-div padded-bottom justified">
+      <div class="row-div">
+        <a href="{{ url_for('index') }}">
+          <img
+           class="logo"
            src="{{ url_for('static', filename='logo.svg') }}"
-         alt="octava" />
-      </a>
-      <div
-        {% if not genome %}
-          class="logo-sep collapsed"
-        {% else %}
-          class="logo-sep"
-        {% endif %}
-        id="logo-sep"></div>
-      <div class="genome-label">
-	     <h1 id="genome-title">
-          {{ genome }}
-        </h1>
+           alt="octava" />
+        </a>
+        <div
+          {% if not genome %}
+            class="logo-sep collapsed"
+          {% else %}
+            class="logo-sep"
+          {% endif %}
+          id="logo-sep"></div>
+        <div class="genome-label">
+	      <h1 id="genome-title">
+            {{ genome }}
+          </h1>
+        </div>
+      </div>
+      <div id="header-button-div">
+        <img
+         id="back-button"
+         class="header-button collapsed"
+         src="{{ url_for('serve_button', button='back') }}"
+         title="Back to genome selection"
+         onclick="back();" />
+        <img
+         id="manual-button"
+         class="header-button"
+         src="{{ url_for('serve_button', button='help') }}"
+         title="Open the manual"
+         onclick="openManual();" />
       </div>
     </div>
 
@@ -48,8 +56,8 @@
 
     {% block errors %}{% endblock %}
 
-    {% block content %} {% endblock %}
-    <div id="empty"></div>
+    {% block content %}{% endblock %}
+    <div id="empty" style="height: 30px;"></div>
 
     <script
      src="https://cdn.plot.ly/plotly-2.35.2.min.js">
@@ -57,7 +65,7 @@
 
     <script>
       // Scripts used at multiple parts that require jinja
-      function contextMenu(event, payload) {
+      function contextMenu(event, payload, highlightOnClick = false) {
         event.preventDefault();
         payload["genome"] = genome;
   
@@ -68,13 +76,17 @@
           success: function (results) {
             var varData = results[0];
             var keys = results[1];
-  
+
             if (keys.length > 0) {
               var fieldText = "<table>";
               for (let i = 0; i < varData[0].length; i++) {
                 fieldText += "<tr><th>" + keys[i] + "</th>";
                 varData.forEach( function(elem) {
-                  fieldText += "<td>" + elem[i] + "</td>";
+                  if (highlightOnClick) {
+                    fieldText += '<td onclick="selectContent(this);">' + elem[i] + "</td>";
+                  } else {
+                    fieldText += "<td>" + elem[i] + "</td>";
+                  }
                 });
                 fieldText += "</tr>";
               }
@@ -87,46 +99,61 @@
           }
         });
       }
-  
+
+      function selectContent(cell) {
+        const range = document.createRange();
+        range.selectNodeContents(cell);
+
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+
       function makeGroup(event, setToGroup) {
-        if (setToGroup === "genes") {
-          var selectedItems = document.getElementById("genes-field").value.split(",");
-          for (let i = 0; i < selectedItems.length; i++) {
-            selectedItems[i] = selectedItems[i].trim();
-          }
-        } else if (setToGroup === "expruns") {
-          var runsTable = document.getElementById("runs-table")
-          var runRows = runsTable.querySelector("tbody").querySelectorAll("tr");
-          var selectedItems = [];
-          for (let i = 0; i < runRows.length; i++) {
-            if (!runRows[i].classList.contains("collapsed")) {
-              selectedItems.push(runRows[i].querySelector("td").innerHTML);
+        switch (setToGroup) {
+          // Select items from a space-separated text input field
+          case "gene":
+            var selectedItems = document.getElementById("gene-field").value.split(" ");
+            for (let i = 0; i < selectedItems.length; i++) {
+              selectedItems[i] = selectedItems[i].trim();
             }
-          }
-        } else if (setToGroup === "samples") {
-          var samplesTable = document.getElementById("samples-table")
-          var sampleRows = samplesTable.querySelector("tbody").querySelectorAll("tr");
-          var selectedItems = [];
-          for (let i = 0; i < sampleRows.length; i++) {
-            if (!sampleRows[i].classList.contains("collapsed")) {
-              selectedItems.push(sampleRows[i].querySelector("td").innerHTML);
+            break;
+          case "coord":
+            var selectedItems = document.getElementById("coord-field").value.split(" ");
+            for (let i = 0; i < selectedItems.length; i++) {
+              selectedItems[i] = selectedItems[i].trim();
             }
-          }
-        } else if (setToGroup === "coords") {
-          var selectedItems = document.getElementById("coords-field").value.split(",");
-          for (let i = 0; i < selectedItems.length; i++) {
-            selectedItems[i] = selectedItems[i].trim();
-          }
-        } else if (setToGroup === "assoc-locus") {
-          var selectedItems = [document.getElementById("assoc-locus-field").value];
-        } else {
-          var allItems = document.querySelectorAll("." + setToGroup + "-checkbox");
-          var selectedItems = [];
-          for (var item of allItems) {
-            if (item.checked) {
-              selectedItems.push(item.value);
+            break;
+          // Select items from a filterable table
+          case "exprun":
+            var runsTable = document.getElementById("runs-table")
+            var runRows = runsTable.querySelector("tbody").querySelectorAll("tr");
+            var selectedItems = [];
+            for (let i = 0; i < runRows.length; i++) {
+              if (!runRows[i].classList.contains("collapsed")) {
+                selectedItems.push(runRows[i].querySelector("td").innerHTML);
+              }
             }
-          }
+            break;
+          case "sample":
+            var samplesTable = document.getElementById("samples-table")
+            var sampleRows = samplesTable.querySelector("tbody").querySelectorAll("tr");
+            var selectedItems = [];
+            for (let i = 0; i < sampleRows.length; i++) {
+              if (!sampleRows[i].classList.contains("collapsed")) {
+                selectedItems.push(sampleRows[i].querySelector("td").innerHTML);
+              }
+            }
+            break;
+          // For all others: select items from a dropdown menu
+          default: // "trait"
+            var selectedItems = [];
+            var allItems = document.querySelectorAll("." + setToGroup + "-checkbox");
+            for (var item of allItems) {
+              if (item.checked) {
+                selectedItems.push(item.value);
+              }
+            }
         }
   
         if (selectedItems.length !== 0) {
@@ -157,14 +184,15 @@
                   checkbox.checked = "checked";
                   checkbox.classList.add(setToGroup + "_group-checkbox");
                   checkbox.id = setToGroup + "_group-dropdown" + groupName;
+                  checkbox.name = setToGroup + "_group-dropdown";
                   checkbox.value = JSON.stringify(selectedItems);
   
                   checkbox.addEventListener("change", function(event) {
                     updateCount(this.parentElement.parentElement);
-                    if (setToGroup === "expruns") {
+                    if (setToGroup === "exprun") {
                       filterRunsTable();
                     }
-                    if (setToGroup === "samples") {
+                    if (setToGroup === "sample") {
                       filterSamplesTable();
                     }
                     if (setToGroup === "assoc-locus") {
@@ -187,7 +215,7 @@
                   dropdown.appendChild(checkboxRow);
                   updateCount(dropdown);
 
-                  if (!["expruns", "samples"].includes(setToGroup)) {
+                  if (!["exprun", "sample"].includes(setToGroup)) {
                     var allItems = document.querySelectorAll("." + setToGroup + "-checkbox");
                     for (var item of allItems) {
                       item.checked = "";
@@ -200,7 +228,7 @@
                     }
                   }
                 } else {
-                  alert(request.responseText);
+                  alert("Something went wrong.");
                 }
               }
             };
@@ -290,17 +318,9 @@
         event.preventDefault();
       }
 
-      // Enable scrolling past the bottom of the page
-      function extendScroll() {
-        var empty = document.getElementById("empty");
-        //empty.style.height = window.outerHeight / 2 + "px";
-        empty.style.height = "30px";
+      function openManual() {
+        window.open("{{ url_for('static', filename='manual.pdf') }}", "_blank");
       }
-
-      extendScroll();
-      window.addEventListener("resize", function() {
-        extendScroll()
-      });
 
     // Hide shown popup on click
     var visibleDropdown = null;
@@ -316,6 +336,14 @@
     helpPopup.addEventListener("click", function(event) {
       event.stopPropagation();
     });
+
+    document.addEventListener("DOMContentLoaded", function() {
+      // Show group members when right-clicking group
+      document.querySelectorAll(".group-option").forEach(checkboxRow => {
+        showGroupContents(checkboxRow);
+      });
+    });
+
     </script>
     {% block script %} {% endblock %}
   </body>

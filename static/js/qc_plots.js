@@ -182,7 +182,9 @@ function showPlot() {
   } else if (plotChoice === "pca") {
     var[plottedSamples, PCAdata, PVEs] = data;
     var sampleGroupChoice = [];
-    document.querySelectorAll(".samples_group-checkbox").forEach( function(cbox) {
+    var pcNumChoice = document.querySelectorAll("input[name='pc_nums']:checked");
+    var pcNums = [...pcNumChoice].map(v => parseInt(v.value));
+    document.querySelectorAll(".sample_group-checkbox").forEach( function(cbox) {
       if (cbox.checked) {
         // Keep both group contents and name
         var samplesList = JSON.parse(cbox.value);
@@ -192,17 +194,26 @@ function showPlot() {
             cbox.nextElementSibling.textContent]);
       }
     });
-    var legend = (sampleGroupChoice.length > 0);
-    var opacity = legend ? 0.5 : 1;
+
+    var trait = document.querySelector("input[name='by_phe']:checked");
+    var sampleChoice;
+    if (sampleGroupChoice.length > 0 && trait != null) {
+      sampleChoice = sampleGroupChoice.map(v => v[0]).flat();
+      sampleChoice = plottedSamples.filter(s => sampleChoice.includes(s));
+    } else {
+      sampleChoice = plottedSamples;
+    }
+
+    var legend = (sampleGroupChoice.length > 0 && trait == null);
+    var opacity = legend ? 0.6 : 1;
 
     var trace = {
-      x: PCAdata[0],
-      y: PCAdata[1],
-      z: PCAdata[2],
+      x: PCAdata[pcNums[0]].filter((v, i) => sampleChoice.includes(plottedSamples[i])),
+      y: PCAdata[pcNums[1]].filter((v, i) => sampleChoice.includes(plottedSamples[i])),
       name: "<i>All samples</i>",
-      type: "scatter3d",
+      type: "scatter",
       mode: "markers",
-      text: plottedSamples,
+      text: sampleChoice,
       opacity: opacity,
       showlegend: legend,
       hovertemplate: "%{text}",
@@ -211,22 +222,28 @@ function showPlot() {
         bgcolor: "white",
       },
       marker: {
-         size: 4,
+         size: 6,
+         color: "#47b023",
       },
       visible: true,
+    }
+
+    if (pcNums.length > 2) {
+      trace.z = PCAdata[pcNums[2]];
+      trace.type = "scatter3d";
+      trace.marker.size = 4;
     }
     traces.push(trace);
 
     // Plot of sample groups
-    if (sampleGroupChoice.length > 0) {
+    if (sampleGroupChoice.length > 0 && trait == null) {
       for (var [idx, group] of sampleGroupChoice.entries()) {
         var [members, groupName] = group;
         var trace = {
-          x: PCAdata[0].filter((_, idx) => members.includes(plottedSamples[idx])),
-          y: PCAdata[1].filter((_, idx) => members.includes(plottedSamples[idx])),
-          z: PCAdata[2].filter((_, idx) => members.includes(plottedSamples[idx])),
+          x: PCAdata[pcNums[0]].filter((_, idx) => members.includes(plottedSamples[idx])),
+          y: PCAdata[pcNums[1]].filter((_, idx) => members.includes(plottedSamples[idx])),
           name: groupName,
-          type: "scatter3d",
+          type: "scatter",
           mode: "markers",
           text: plottedSamples.filter(v => members.includes(v)),
           opacity: opacity,
@@ -238,25 +255,97 @@ function showPlot() {
           },
           marker: {
              color: plotColors[idx],
-             size: 4,
+             size: 6,
           },
           visible: true,
         }
+
+        if (pcNums.length > 2) {
+          trace.z = PCAdata[pcNums[2]].filter((_, idx) => members.includes(plottedSamples[idx]));
+          trace.type = "scatter3d";
+          trace.marker.size = 4;
+        }
         traces.push(trace);
       }
+    }
+
+    var layout;
+    if (pcNums.length > 2) {
+      layout = {
+        legend: {
+          x: 1.1,
+          y: 0.95,
+          xanchor: "left",
+          yanchor: "top",
+        },
+        showlegend: true,
+        scene: {
+          camera: {
+            eye: {
+              x: 0,
+              y: 0,
+              z: 2,
+            }
+          },
+          xaxis: {
+            title: `PC ${pcNums[0]+1}`,
+            showgrid: false,
+          },
+          yaxis: {
+            title: `PC ${pcNums[1]+1}`,
+            showgrid: false,
+           },
+          zaxis: {
+            title: `PC ${pcNums[2]+1}`,
+            showgrid: false,
+          },
+        },
+        margin: {
+          t: 30,
+          b: 10,
+          l: 10,
+          r: 100,
+          pad: 4
+        },
+      };
+    } else {
+      layout = {
+        legend: {
+          x: 1.1,
+          y: 0.95,
+          xanchor: "left",
+          yanchor: "top",
+        },
+        showlegend: true,
+        xaxis: {
+          title: `PC ${pcNums[0]+1}`,
+        },
+        yaxis: {
+          title: `PC ${pcNums[1]+1}`,
+        },
+        margin: {
+          t: 80,
+          b: 40,
+          l: 50,
+          r: 100,
+          pad: 4
+        },
+      };
     }
 
     var annotations = [];
     annotations.push({
       text: "PVE:",
       x: 1,
-      y: 1,
+      y: 0.95,
       showarrow: false,
       yanchor: "middle",
+      xanchor: "left",
       valign: "top",
       xref: "paper",
       yref: "paper",
       font: { family: "monospace", size: 14 },
+      visible: true,
     });
     PVEs.forEach(function(PVE, idx) {
       idx ++;
@@ -268,48 +357,56 @@ function showPlot() {
       annotations.push({
         text: annText,
         x: 1,
-        y: 1 - (idx * Math.min(0.05, (1 / PVEs.length))),
+        y: 0.95 - (idx * Math.min(0.05, (1 / PVEs.length))),
         showarrow: false,
         yanchor: "middle",
+        xanchor: "left",
         valign: "top",
         xref: "paper",
         yref: "paper",
         font: { family: "monospace", size: 14 },
+        visible: true,
       });
     });
-    var layout = {
-      annotations: annotations,
-      showlegend: true,
-      scene: {
-        camera: {
-          eye: {
-            x: 0,
-            y: 0,
-            z: 2,
+    layout.annotations = annotations;
+
+    if (trait != null) {
+      traitIndex = pheCols[trait.value];
+      if (traitIndex !== -1) {
+        traceText = sampleChoice.map(s => {
+          if (pheData[s][traitIndex] !== "") {
+            return `${s}<br>Value: ${parseFloat(pheData[s][traitIndex]).toFixed(3)}`;
+          } else {
+            return s;
           }
-        },
-        xaxis: {
-          title: "PC1",
-          showgrid: false,
-        },
-        yaxis: {
-          title: "PC2",
-          showgrid: false,
-         },
-        zaxis: {
-          title: "PC3",
-          showgrid: false,
-        },
-      },
-      margin: {
-        t: 30,
-        b: 10,
-        l: 10,
-        r: 10,
-        pad: 4
-      },
+        });
+        trace.marker.color = sampleChoice.map(s => pheData[s][traitIndex]);
+        trace.text = traceText;
+        trace.marker.colorscale = [
+          [0, "rgb(242,242,187)"],
+          [0.5, "rgb(245,184,78)"],
+          [1, "rgb(238,62,10)"]
+        ];
+        trace.marker.colorbar = {
+          title: "Phenotype",
+          x: 1.1,
+          xref: "paper",
+        };
+        trace.marker.showscale = true;
+      }
     }
+
   } else if (plotChoice === "kin") {
+    //var filt = ['GPC000030', 'GPC006530', 'GPC005200', 'GPC003300', 'GPC008400', 'GPC003370', 'GPC000280', 'GPC000300', 'GPC022320', 'GPC022660', 'GPC022480', 'GPC001460', 'GPC035440', 'GPC045230', 'GPC003910', 'GPC005130', 'GPC008580', 'GPC029030', 'GPC003030', 'GPC010110', 'GPC003050', 'GPC017170', 'GPC007520', 'GPC007580', 'GPC073010', 'GPC093160', 'GPC010190', 'GPC017030', 'GPC017680', 'GPC017710', 'GPC060460', 'GPC007370', 'GPC117100', 'GPC003500', 'GPC027630', 'GPC000150', 'GPC017910', 'GPC019610', 'GPC020060', 'GPC007810', 'GPC008090', 'GPC007880', 'GPC007840', 'GPC015880', 'GPC027390'];
+    //const indices = data[1]
+    //  .map((l, i) => filt.includes(l) ? i : -1)
+    //  .filter(i => i !== -1);
+    //var newMatrix = indices.map(rowIdx =>
+    //  indices.map(colIdx => data[0][rowIdx][colIdx]));
+    //data = [
+    //  newMatrix,
+    //  data[1].filter(l => filt.includes(l))];
+
     var trace = {
       type: "heatmap",
       z: data[0],
@@ -382,6 +479,7 @@ function showPlot() {
       zmin: 0,
       zmax: 1,
       autocolorscale: false,
+      showscale: true,
       colorbar: {
         title: {
           text: "LD",
@@ -516,12 +614,14 @@ function showPlot() {
   var config = {
     editable: false,
     modeBarButtonsToAdd: 
-      ["edit", "recolor"]
+      ["edit", "recolor", "opacity", "legend"]
       .map(key => buttonsToAdd[key]),
     modeBarButtonsToRemove: [],
   };
+  if (plotChoice === "pca") {
+    config.modeBarButtonsToAdd.push(buttonsToAdd["pve"]);
+  }
   if (["pca", "baf"].includes(plotChoice)) {
-    config.modeBarButtonsToAdd.push(buttonsToAdd["legend"]);
     config.modeBarButtonsToAdd.push(buttonsToAdd["move_down"]);
     config.modeBarButtonsToAdd.push(buttonsToAdd["_delete"]);
   }

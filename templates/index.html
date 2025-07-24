@@ -42,20 +42,6 @@
 {% endblock %}
 
 {% block content %}
-  <div id="index-buttons">
-    <img
-     id="back-button"
-     class="manual-button clickable collapsed"
-     src="{{ url_for('serve_button', button='back') }}"
-     title="Back to genome selection"
-     onclick="back();" />
-    <img
-     class="manual-button clickable"
-     src="{{ url_for('serve_button', button='help') }}"
-     title="Open the manual"
-     onclick="openManual();" />
-  </div>
-
   <div class="page">
     <div
      class="centered-div clickable"
@@ -131,7 +117,7 @@
 {% block script %}
   <script>
     var links = {{ links|tojson }};
-    var noUpdate = {{ no_update|tojson }};
+    var updateFailed = {{ update_failed|tojson }};
     
     function addNew() {
       window.location.href = "{{ url_for('new') }}";
@@ -144,10 +130,6 @@
       document.getElementById("genome-title").innerHTML = name;
       document.getElementById("logo-sep").classList.remove("collapsed");
       document.getElementById("back-button").classList.remove("collapsed");
-    }
-
-    function openManual() {
-      window.open("{{ url_for('static', filename='manual.pdf') }}", "_blank");
     }
 
     function back() {
@@ -167,7 +149,7 @@
     document.getElementById("empty").classList.add("collapsed");
 
     document.addEventListener("DOMContentLoaded", function() {
-      if (noUpdate) {
+      if (updateFailed) {
         alert("Automatic update failed.");
       }
     });

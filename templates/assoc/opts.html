@@ -4,36 +4,13 @@
 
 {% block style %}{% endblock %}
 
-{% block errors %}
-  {% if errors == 0 %}
-    <div class="padded-left">
-      <h3 class="padded-left bold">
-        Phenotypes saved successfully.
-      </h3>
-    </div>
-  {% elif errors %}
-    <div class="padded-left">
-      <h2 class="padded-left">
-        Warnings:
-      </h2>
-      {% for error in errors %}
-        <h3 class="padded-left mini-padded-top taller-line">
-          {{ error|safe }}
-        <br>
-        </h3>
-      {% endfor %}
-      <h3 class="padded-left mini-padded-top taller-line bold red-text">
-        Phenotype files were not saved, check input files and re-submit.
-      </h3>
-    </div>
-  {% endif %}
-{% endblock %}
+{% block errors %}{% endblock %}
 
 {% block content %}
   <div class="results-wrapper">
     <div class="row-div">
       <h1 class="padded-left">
-        Parameters:
+        Association analysis options
       </h1>
     </div>
 {# ========================================================== Input options #}
@@ -47,6 +24,22 @@
           {{ form.hidden_tag() }}
         <div class="scrollable results-subcontainer flex">
           <div class="object-div param-div-flexheight">
+            <div class="row-input-div centered-div padded-bottom">
+              <button
+               type="button"
+               class="heading-button"
+               onclick="location.href='{{
+                url_for(
+                 'assoc_qc',
+                 genome=genome ) }}'">
+                <label class="default-label bold">
+                  Create a new marker set
+                </label>
+              </button>
+            </div>
+            <div class="row-input-div padded-bottom">
+              <hr style="width: 100%;">
+            </div>
             <div
              class="row-input-div justified small-padded-bottom"
              id="plot-sel">
@@ -77,50 +70,143 @@
                  onchange="fetchChr();") }}
               </div>
             </div>
-            <div
-             id="pca-sample-div"
-             class="row-div small-padded-bottom collapsed">
-              <button
-               type="button"
-               class="dropdown-button"
-               onclick="showDropdown(event, this);">
-                {{ form.samples_group.label(class="default-label bold") }}
-                <span
-                 class="default-label counter"
-                 id="samples_group-count">
-                  0 selected
-                </span>
-              </button>
-              <div
-               id="samples_group-dropdown"
-               class="dropdown-menu collapsed">
-                <div class="sticky non-transparent small-padding">
-                  <input
-                   type="text"
-                   class="search-bar"
-                   placeholder="Search..."
-                   onkeyup="filterDropdown(visibleDropdown);">
-                  <button
-                   type="button"
-                   onclick="
-                    toggleAll(visibleDropdown);
-                    showPlot();">
-                    Select all
-                  </button>
-                </div>
-                {% for choice in form.samples_group %}
-                  <div class="checkbox-row samples_group-option">
-                    {{ choice(
-                     class="samples_group-checkbox",
-                     onchange="updateCount(
-                      this.parentElement.parentElement);
-                      showPlot();") }}
-                    {{ choice.label(class="checkbox-label") }}
+            <span id="pca-sample-div" class="collapsed">
+              <div class="row-div mini-padded-top small-padded-bottom">
+                <button
+                 type="button"
+                 class="dropdown-button"
+                 onclick="showDropdown(event, this);">
+                  {{ form.pc_nums.label(class="default-label bold") }}
+                  <span
+                   class="default-label counter"
+                   id="pc_nums-count">
+                    0 selected
+                  </span>
+                </button>
+                <div
+                 id="pc_nums-dropdown"
+                 class="dropdown-menu collapsed">
+                  <div class="sticky non-transparent small-padding">
+                    <input
+                     type="text"
+                     class="search-bar"
+                     placeholder="Search..."
+                     onkeyup="filterDropdown(visibleDropdown);">
+                    <button
+                     type="button"
+                     disabled >
+                      Select all
+                    </button>
                   </div>
-                {% endfor %}
+                  {% for choice in form.pc_nums %}
+                    <div class="checkbox-row group-option">
+                      {{ choice(
+                       class="pc_nums-checkbox",
+                       onchange="
+                        checkPcNums(this);
+                        updateCount(
+                         this.parentElement.parentElement);
+                        showPlot();") }}
+                      {{ choice.label(class="checkbox-label") }}
+                    </div>
+                  {% endfor %}
+                </div>
               </div>
-            </div>
+              <div class="row-div mini-padded-top">
+                <h3 class="bold">
+                  Color:
+                </h3>
+              </div>
+              <div class="row-div mini-padded-top small-padded-bottom">
+                <button
+                 type="button"
+                 class="dropdown-button"
+                 onclick="showDropdown(event, this);">
+                  {{ form.sample_group.label(class="default-label bold") }}
+                  <span
+                   class="default-label counter"
+                   id="sample_group-count">
+                    0 selected
+                  </span>
+                </button>
+                <div
+                 id="sample_group-dropdown"
+                 class="dropdown-menu collapsed">
+                  <div class="sticky non-transparent small-padding">
+                    <input
+                     type="text"
+                     class="search-bar"
+                     placeholder="Search..."
+                     onkeyup="filterDropdown(visibleDropdown);">
+                    <button
+                     type="button"
+                     onclick="
+                      toggleAll(visibleDropdown);
+                      showPlot();">
+                      Select all
+                    </button>
+                  </div>
+                  {% for choice in form.sample_group %}
+                    <div class="checkbox-row group-option">
+                      {{ choice(
+                       class="sample_group-checkbox",
+                       onchange="updateCount(
+                        this.parentElement.parentElement);
+                        showPlot();") }}
+                      {{ choice.label(class="checkbox-label") }}
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="row-div small-padded-bottom">
+                <button
+                 type="button"
+                 class="dropdown-button"
+                 onclick="showDropdown(event, this);">
+                  {{ form.by_phe.label(
+                   class="default-label bold") }}
+                  <span
+                   class="default-label tracker">
+                  </span>
+                </button>
+                <div class="dropdown-menu collapsed">
+                  <div class="sticky non-transparent small-padding">
+                    <input
+                     type="text"
+                     class="search-bar"
+                     placeholder="Search..."
+                     onkeyup="filterDropdown(visibleDropdown);">
+                    <button
+                     type="button"
+                     disabled>
+                      Select all
+                    </button>
+                  </div>
+                  {% for choice in form.by_phe %}
+                    <div
+                     class="checkbox-row">
+                      {{ choice(
+                       onchange="
+                        updateTracker(this.parentElement.parentElement);
+                        showPlot();")}}
+                      {{ choice.label(
+                       class="checkbox-label") }}
+                    </div>
+                  {% endfor %}
+                </div>
+                <img
+                  class="aux-button clickable"
+                  src="{{ url_for('serve_button', button='delete') }}"
+                  onclick="
+                   clearByPhe();
+                   showPlot();"
+                  title="Clear selection" />
+              </div>
+            </span>
 {# ========================================================== Markers input #}
+            <h2 class="padded-top">
+              Input parameters
+            </h2>
             <div class="row-div padded-top small-padded-bottom">
               <button
                type="button"
@@ -132,14 +218,6 @@
                  class="default-label tracker">
                 </span>
               </button>
-              <img
-                class="aux-button clickable"
-                src="{{ url_for('serve_button', button='save') }}"
-                onclick="location.href='{{
-                  url_for(
-                   'assoc_qc',
-                   genome=genome ) }}'"
-                title="Create new marker set" />
               <div class="dropdown-menu collapsed">
                 <div class="sticky non-transparent small-padding">
                   <input
@@ -213,8 +291,8 @@
             </div>
 {# ================================================================= Traits #}
               {% for field in [
-               "traits",
-               "traits_group"] %}
+               "trait",
+               "trait_group"] %}
                 {% set field_count = field + "_count" %}
                 {% set option_class = field + "-option" %}
                 <div class="row-div small-padded-bottom">
@@ -243,7 +321,7 @@
                       </button>
                     </div>
                     {% for choice in form[field] %}
-                      <div class="checkbox-row {{ option_class }}">
+                      <div class="checkbox-row {{ option_class }} {% if field == 'trait_group' %} group-option {% endif %}">
                         {{ choice(
                          class=field + "-checkbox",
                          onchange="updateCount(this.parentElement.parentElement);")}}
@@ -253,40 +331,10 @@
                   </div>
                 </div>
               {% endfor %}
-{# ========================================================== Add phenotype #}
-{#              {% if phe_upl %}
-                <div class="row-div padded-top">
-                  <h2>
-                    Add phenotype file:
-                  </h2>
-                  <button
-                   type="button"
-                   class="aux-button clickable button-help"
-                   title="Help"
-                   onclick="showHelp(event, 'new-phe');">
-                    &#63;
-                  </button>
-                </div>
-                <div class="row-div small-padded-top small-padded-bottom">
-                  <div class="row-input-div input-field-sized">
-                    {{ form.new_phe(
-                     id="new-phe",
-                     class="row-input-sized",
-                     accept=".txt,.tsv,.csv") }}
-                  </div>
-                  <button
-                   type="submit"
-                   class="aux-button clickable button-save"
-                   title="Upload phenotype file"
-                   onclick="submitPhe(event);">
-                    &#43;
-                  </button>
-                </div>
-            {% endif %} #}
 {# ======================================================= Bayes parameters #}
-            <span id="bayes-params" class="collapsed padded-top small-padded-bottom">
-              <div class="row-div">
-                <h2>
+            <span id="bayes-params" class="collapsed small-padded-bottom">
+              <div class="row-div small-padded-top">
+                <h3 class="bold">
                   Bayes options:
                 </h2>
                 <img
@@ -297,125 +345,47 @@
               {% for field in ("b_burn", "b_chain", "b_thin") %}
                 <div class="row-input-div justified small-padded-top">
                   {{ form[field].label(
-                   class="default-label bold") }}
+                   class="default-label") }}
                   {{ form[field](class="small-num-input") }}
                 </div>
               {% endfor %}
             </span>
 {# ========================================================== RF parameters #}
-            <span id="rf-params" class="collapsed padded-top small-padded-bottom">
-              <div class="row-div">
-                <h2>
-                  Random forest options:
-                </h2>
-                <img
-                 class="aux-button clickable"
-                 src="{{ url_for('serve_button', button='help') }}"
-                 onclick="showHelp(event, 'rf-options');" />
-              </div>
-              <div class="row-div padded-top">                <h3 class="bold">                  Optimize parameters:                </h3>              </div>              {% for field in ("mtryvals", "ntreevals") %}                <div class="row-input-div justified small-padded-top">                    {{ form[field].label(                     class="default-label bold") }}                    {{ form[field](class="small-num-input") }}                </div>              {% endfor %}              <div class="row-input-div justified padded-top">                <button onclick="RFOptimize();">                  <label                   class="default-label bold">                    Optimize                  </label>                </button>              </div>              <div class="row-div padded-top">
+            <span id="rf-params" class="collapsed small-padded-bottom">
+              <div class="row-div small-padded-top">
                 <h3 class="bold">
-                  Number of:
+                  Random forest - number of:
                 </h3>
               </div>
-              {% for field in ("mtry", "ntree", "niter", "nperm") %}
+              {% for field in ("mtry", "ntree") %}
                 <div class="row-input-div justified small-padded-top">
                     {{ form[field].label(
-                     class="default-label bold") }}
+                     class="default-label") }}
                     {{ form[field](class="small-num-input") }}
                 </div>
               {% endfor %}
-              {{ form.optimize(id="optimize", class="collapsed") }}
             </span>
-{# ======================================================== Limit to region #}
-{#            <div class="row-div padded-top">
-              <h2>
-                Limit to region:
-              </h2>
-              <button
-               type="button"
-               class="aux-button clickable button-help"
-               title="Help"
-               onclick="showHelp(event, 'gwas-limit');">
-                &#63;
-              </button>
-            </div>
-            <div class="row-input-div justified small-padded-top">
-                {{ form.chrom.label(
-                 class="default-label bold") }}
-                {{ form.chrom(
-                 class="default-input",
-                 id="chrom-field") }}       
-            </div>
-            <div class="row-input-div justified small-padded-top">
-                {{ form.start.label(
-                 class="default-label bold") }}
-                {{ form.start(
-                 class="default-input",
-                  id="start-field") }}
-            </div>
-            <div class="row-input-div justified small-padded-top padded-bottom">
-                {{ form.end.label(
-                 class="default-label bold") }}
-                {{ form.end(
-                 class="default-input",
-                 id="end-field") }}
-            </div>
-#}
 {# ========================================================== KQ correction #}
-            <div class="row-div small-padded-top">
+            <div class="row-div padded-top">
               <h2>
-                Population structure:
+                Relatedness correction
               </h2>
             </div>
             <div class="row-input-div justified padded-top">
               {{ form.k.label(
-               class="default-label bold") }}
+               class="default-label") }}
               {{ form.k }}
             </div>
             <div class="row-input-div justified small-padded-top">
               {{ form.q.label(
-               class="default-label bold") }}
+               class="default-label") }}
               {{ form.q }}
             </div>
             <div class="row-input-div justified small-padded-top">
               {{ form.q_num.label(
-               class="default-label bold") }}
+               class="default-label") }}
               {{ form.q_num(class="small-num-input") }}
             </div>
-{# ================================================== Additional covariates #}
-            <div class="row-div padded-top justified">
-              <div class="row-input-div">
-                <h2>
-                  Additional covariates:
-                </h2>
-              </div>
-              <img
-               class="aux-button clickable"
-               src="{{ url_for('serve_button', button='help') }}"
-               onclick="showHelp(event, 'cov');" />
-            </div>
-            <div class="row-div">
-              <div class="wide-input-div justified small-padded-top small-padded-bottom">
-                <label for="cov-file" class="default-label bold">
-                  File:
-                </label>
-                <input
-                 type="file"
-                 id="cov-file"
-                 class="icon-width"
-                 accept=".txt,.tsv"
-                 onchange="parseCov();" />
-              </div>
-              <img
-                class="aux-button clickable"
-                src="{{ url_for('serve_button', button='delete') }}"
-                onclick="
-                  document.getElementById('cov-file').value = '';
-                  document.getElementById('cov-field').value = '';"
-                title="Reset file" />
-            </div>
-            {{ form.cov(id="cov-field", class="collapsed") }}
 {# ========================================================== KQ from input #}
             <div class="row-div padded-top">
               <button
@@ -456,6 +426,47 @@
                 {% endfor %}
               </div>
             </div>
+{# ================================================== Additional covariates #}
+            <div class="row-div padded-top small-padded-bottom">
+              <button
+               type="button"
+               class="dropdown-button"
+               onclick="showDropdown(event, this);">
+                {{ form.cov.label(
+                 class="default-label bold") }}
+                <span
+                 class="default-label tracker">
+                </span>
+              </button>
+              <div class="dropdown-menu collapsed">
+                <div class="sticky non-transparent small-padding">
+                  <input
+                   type="text"
+                   class="search-bar"
+                   placeholder="Search..."
+                   onkeyup="filterDropdown(visibleDropdown);">
+                  <button
+                   type="button"
+                   disabled">
+                    Select all
+                  </button>
+                </div>
+                {% for choice in form.cov %}
+                  <div
+                   class="checkbox-row"
+                   oncontextmenu="contextMenu(
+                    event,
+                    {'action': 'cov',
+                     'cov': this.querySelector('input').value});">
+                    {{ choice(
+                     onchange="updateCount(this.parentElement.parentElement);")}}
+                    {{ choice.label(
+                     class="checkbox-label") }}
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+{# ================================================================= Submit #}
             <div class="row-input-div justified padded-top small-padded-bottom">
               {{ form.overwrite.label(
                class="default-label bold") }}
@@ -485,40 +496,12 @@
 {# ========================================================= Plot and table #}
         <div class="padded-top flex disp-flex results-subcontainer">
           <div
-            id="plot-div"
-            class="flex no-min-width">
-              <h1 class="center-text">
-                Select a marker set
-              </h1>
-            </div>
-{#          <div id="table-div" class="collapsed">
-            <div class="row-div justified padded-bottom">
-              <button onclick="decrement()">
-                <b>
-                  <
-                </b>
-              </button>
-              <h3>
-                Rows
-                <span id="table-from">
-                  1
-                </span>
-                  -
-                <span id="table-to">
-                  10
-                </span>
-              </h3>
-              <button onclick="increment()">
-                <b>
-                  >
-                </b>
-              </button>
-            </div>
-            <div class="scrollable padded-right">
-              <table id="plot-table">
-              </table>
-            </div>
-          </div> #}
+           id="plot-div"
+           class="flex no-min-width">
+            <h1 class="center-text">
+              Select a marker set
+            </h1>
+          </div>
         </div>
       </div>
     </div>
@@ -531,9 +514,6 @@
    filename='js/plotly_config.js')}}"></script>
   <script src="{{url_for(
    'static',
-   filename='js/contextmenu.js')}}"></script>
-  <script src="{{url_for(
-   'static',
    filename='js/help_texts.js')}}"></script>
   <script src="{{url_for(
    'static',
@@ -541,9 +521,6 @@
   <script src="{{url_for(
   'static',
    filename='js/popups.js')}}"></script>
-  <script src="{{url_for(
-   'static',
-   filename='js/group.js')}}"></script>
 
   <script
    src="https://code.jquery.com/jquery-3.6.4.min.js">
@@ -554,8 +531,6 @@
     var chrData;
     var genome = '{{ genome }}';
     var visibleDropdown = null;
-    var allowPhe = '{{ phe_upl }}';
-    {# var submitPheURL = "{{ url_for('add_phe', genome=genome) }}" #}
 
     var varNum;
     var sampNum;
@@ -565,32 +540,16 @@
     var sizes       = {{ chr_sizes|tojson }};
     var offsets     = {{ chr_offsets|tojson }};
     var concatNames = {{ concat|tojson }};
-    var haps        = {{ haps| tojson }};
+    var haps        = {{ haps|tojson }};
 
-    function submitPhe(event) {
-      var form = document.querySelector("form");
-      if (allowPhe !== "") {
-        var pheFiles = document.getElementById("new-phe").files;
-        if (pheFiles.length === 0) {
-          event.preventDefault();
-          return;
-        }
-
-        // Validate submitted files
-        for (let i = 0; i < pheFiles.length; i++) {
-          var fn = pheFiles[i].name;
-          if (
-           !(fn.endsWith(".txt") ||
-           fn.endsWith(".tsv") ||
-           fn.endsWith(".csv"))) {
-            alert("Unsupported extension (.txt, .tsv, .csv allowed).");
-            event.preventDefault();
-            return;
-          }
-        }
-        form.enctype = "multipart/form-data";
-        form.action = submitPheURL;
-      }
+    var phe = {{ phe|tojson }};
+    if (phe.length > 0) {
+      var pheCols = Object.fromEntries(phe[0].slice(1).map( (x, index) => {
+        return [x, index]
+      }));
+      var pheData = Object.fromEntries(phe.slice(1).map( x => {
+        return [x[0], x.slice(1)]
+      }));
     }
 
     {% if rm_markers %}
@@ -620,6 +579,23 @@
       }
     {% endif %}
 
+    function checkPcNums(box) {
+      var pcNumChoice = document.querySelectorAll("input[name='pc_nums']:checked");
+      if (pcNumChoice.length > 3) {
+        pcNumChoice[0].checked = "";
+      } else if (pcNumChoice.length < 2) {
+        box.checked = "checked";
+      }
+    }
+
+    function clearByPhe() {
+      var pheSel = document.querySelector("input[name='by_phe']:checked");
+      if (pheSel != null) {
+        pheSel.checked = "";
+        updateTracker(pheSel.parentElement.parentElement);
+      }
+    }
+
     function setKQ(model) {
       var kbox = document.getElementById("k");
       if (["blink", "mlm", "mtmlm"].includes(model)) {
@@ -647,25 +623,10 @@
         bayesParams.classList.add("collapsed");
       }
     }
-    function RFOptimize() {      var form = document.querySelector("form");      document.getElementById("optimize").checked = "checked";      form.target = "_blank";      form.submit();    }    function setAction() {      var form = document.querySelector("form");      document.getElementById("optimize").checked = "";      form.target = "";      form.submit();    }
-
-    function parseCov() {
-      var file = document.getElementById("cov-file").files[0];
-      if (file) {
-        var sep = file.name.endsWith(".csv") ? "," : "\t";
-        var reader = new FileReader();
-        reader.onload = function (event) {
-          document.getElementById("cov-field").value = JSON.stringify(event.target.result);
-        }
-        reader.onerror = function () {
-          alert("Error reading file.");
-        };
-      reader.readAsText(file);
-      }
-    }
+    function setAction() {      var form = document.querySelector("form");      form.target = "";      form.submit();    }
 
     function nameGroups() {
-      var traitGroups = document.querySelectorAll(".traits_group-checkbox:checked");
+      var traitGroups = document.querySelectorAll(".trait_group-checkbox:checked");
       for (let i = 0; i < traitGroups.length; i++) {
         var group = traitGroups[i];
         var groupData = JSON.parse(group.value);
@@ -681,15 +642,12 @@
       //}
 
       // Set trackers
-      for (dropdownType of ["markers_sgl",  "model_sgl", "kq_from"]) {
+      for (dropdownType of ["markers_sgl",  "model_sgl", "kq_from", "by_phe"]) {
         var radioBtn = document.getElementsByName(dropdownType)[0];
         updateTracker(radioBtn.parentElement.parentElement);
       }
 
       // Show samples list when right-clicking group
-      document.querySelectorAll(".traits_group-option").forEach(checkboxRow => {
-        showGroupContents(checkboxRow);
-      });
       // Set fields dependent on model
       var model = document.querySelector("input[name='model_sgl']:checked")
       if (model != null) {

@@ -3,13 +3,19 @@
 {% block title %} Error {% endblock %}
 
 {% block content %}
-  <div class="padded-top padded-left padded-right">
-     <h1>
-       Error:
-     </h1>
-     <h2>
-       {{ error }}
-     </h2>
+  <div class="results-wrapper">
+    <div class="justified disp-flex">
+      <div
+       id="progress-container"
+       class="results-container"
+       style="width: 100%">
+        <h1 class="small-padded-bottom">
+          Error:
+        </h1>
+        <h2>
+          {{ error }}
+        </h2>
+      </div>
+    </div>
   </div>
-
 {% endblock %}

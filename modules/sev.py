@@ -3,23 +3,22 @@
 import io
 import os
 import re
+import sys
+import gzip
+import json
 import time
 import pysam
 import statistics
 import subprocess
+import portalocker
 import numpy as np
 import pandas as pd
 from Bio import SeqIO, Seq, SeqRecord
 
-from flask_app import (
-  get_lock,
-  master_lock)
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app.dirs import data_dir
 
-from app.task_worker import progress
-
-from modules.assoc import popen
 from modules.vcf_reader import VcfReader
 from modules.load_input import load_config
 
@@ -82,46 +81,50 @@ sev_helpstring = {
     + 'SEV_prediction\'"')}
 
 def make_db(task_id, db_fasta):
-    progress(task_id, "Making a BLAST database")
-    popen(
-      task_id,
+    print("<b>Making a BLAST database</b>")
+    pr = subprocess.run(
       ["makeblastdb",
        "-in", os.path.join("prot_db", db_fasta),
        "-out", os.path.join("prot_db", db_fasta),
        "-dbtype", "prot",
-       "-parse_seqids"])
+       "-parse_seqids"],
+      check=True)
 
 
 def run_blastp(task_id, prot_file, db_prefix):
     # Split input sequences file into single-sequence FASTA files
     # Initialize a progress counter based on number of proteins finished
-    progress(task_id, "Processing input proteins")
-    split_dir = os.path.join("prot_db", "prot")
-    if not os.path.exists(split_dir):
-        os.mkdir(split_dir)
+    #print("<b>Processing input proteins</b>")
+    #split_dir = os.path.join("prot_db", "prot")
+    #if not os.path.exists(split_dir):
+    #    os.mkdir(split_dir)
+
+    #with gzip.open(prot_file, "rt") as f_in, open("prot.fasta", "w") as f_out:
+    #    f_out.write(f_in.read())
 
     prot_order = dict()
     for idx, prot in enumerate(
       SeqIO.parse(
-        prot_file,
+        "prot.fasta",
         "fasta"),
       start=1):
-        prot_path = os.path.join(
-          split_dir,
-          f"{prot.id}.fasta")
-        SeqIO.write(
-          [prot],
-          prot_path,
-          "fasta")
+    #    prot_path = os.path.join(
+    #      split_dir,
+    #      f"{prot.id}.fasta")
+    #    SeqIO.write(
+    #      [prot],
+    #      prot_path,
+    #      "fasta")
         prot_order[prot.id] = idx
     prot_cnt = len(prot_order)
 
-    progress(task_id, "Running BLAST")
+    out_path = os.path.join("prot_db", "blastp_out.txt")
+    print("<b>Running BLAST</b>")
     pr = subprocess.Popen(
       ["blastp",
-       "-query", prot_file,
+       "-query", "prot.fasta",
        "-db", os.path.join("prot_db", db_prefix),
-       "-out", os.path.join("prot_db", "blastp_out.txt"),
+       "-out", out_path,
        "-evalue", blastp_evalue,
        "-num_threads", str(os.cpu_count()),
        "-outfmt", "6 " + " ".join(blastp_columns),
@@ -133,76 +136,85 @@ def run_blastp(task_id, prot_file, db_prefix):
         tail = subprocess.Popen(
           ["tail", 
            "-n", "1",
-           os.path.join("prot_db", "blastp_out.txt")],
+           out_path],
           stderr=subprocess.PIPE,
           stdout=subprocess.PIPE)
         stdout, stderr = tail.communicate()
         if not stderr.decode():
             last_prot = stdout.decode().split("\t", 1)[0]
-            pct = int(prot_order[last_prot] / prot_cnt * 100)
-            progress(
-              task_id,
-              f"\rProgress: {pct}%",
-              bold=False,
-              newline=False)
-        time.sleep(1)
+            if last_prot:
+                pct = int(prot_order[last_prot] / prot_cnt * 100)
+                print(f"\rProgress: {pct}%", end="")
+            else:
+                print(f"\rProgress: 0%", end="")
+        time.sleep(5)
 
     stdout, stderr = pr.communicate()
     if pr.returncode == 0:
-        progress(task_id, f"\rProgress: 100%", bold=False)
+        print(f"\rProgress: 100%")
     else:
-        raise OSError("Process failed.")
+        raise OSError("BLAST failed.")
 
-def process_blastp():
-    split_dir = os.path.join("prot_db", "blastp_out")
-    if not os.path.exists(split_dir):
-        os.mkdir(split_dir)
+    # Index blastp file
+    pysam.tabix_compress(out_path, out_path + ".gz", force=True)
+    os.remove(out_path)
+    pysam.tabix_index(
+      out_path + ".gz",
+      seq_col=0,
+      start_col=6,
+      end_col=6,
+      line_skip=0,
+      force=True)
 
-    blastp_reader = pd.read_csv(
-      os.path.join("prot_db", "blastp_out.txt"),
-      sep="\t",
-      header=None,
-      chunksize=100000)
-    prev_data = None
-
-    for chunk in blastp_reader:
-        chunk = chunk.set_axis(
-          blastp_columns,
-          axis=1)
-        if prev_data != None:
-            chunk = pd.concat([prev_data, chunk])
-
-        for prot_id, hits in chunk.groupby("qseqid", sort=False):
-            # Save hits, evalues and aligned regions
-            out_file = os.path.join(
-              split_dir,
-              f"{prot_id}.blastp_out.txt")
-            (hits[
-               ["sseqid",
-                "sallseqid",
-                "qstart",
-                "qend",
-                "evalue"]]
-              .to_csv(
-                out_file,
-                index=False,
-                header=False,
-                sep="\t"))
-        prev_data = hits
-
+#def process_blastp():
+#    split_dir = os.path.join("prot_db", "blastp_out")
+#    if not os.path.exists(split_dir):
+#        os.mkdir(split_dir)
+#
+#    blastp_reader = pd.read_csv(
+#      os.path.join("prot_db", "blastp_out.txt"),
+#      sep="\t",
+#      header=None,
+#      chunksize=100000)
+#    prev_data = None
+#
+#    for chunk in blastp_reader:
+#        chunk = chunk.set_axis(
+#          blastp_columns,
+#          axis=1)
+#        if prev_data != None:
+#            chunk = pd.concat([prev_data, chunk])
+#
+#        for prot_id, hits in chunk.groupby("qseqid", sort=False):
+#            # Save hits, evalues and aligned regions
+#            out_file = os.path.join(
+#              split_dir,
+#              f"{prot_id}.blastp_out.txt")
+#            (hits[
+#               ["sseqid",
+#                "sallseqid",
+#                "qstart",
+#                "qend",
+#                "evalue"]]
+#              .to_csv(
+#                out_file,
+#                index=False,
+#                header=False,
+#                sep="\t"))
+#        prev_data = hits
 
 def annotate_sev(genome, markers, task_id):
-    progress(task_id, "Annotating variants")
+    #print("<b>Annotating variants</b>")
     config = load_config(genome)
     vcf_path = os.path.join(
       data_dir,
       genome,
       config["vcf"])
-    blast_db_root = os.path.join(
-      data_dir,
-      genome,
-      "prot_db",
-      config["db_prefix"])
+    #blast_db_root = os.path.join(
+    #  data_dir,
+    #  genome,
+    #  "prot_db",
+    #  config["db_fasta"])
     prot_dir = os.path.join(
       data_dir,
       genome,
@@ -250,7 +262,10 @@ def annotate_sev(genome, markers, task_id):
         else:
             joined_markers.append(list(marker) + [marker[1]])
 
-    progress(task_id, "Fetching marker data", bold=False)
+    pep_fa = pysam.FastaFile(
+      os.path.join(data_dir, genome, config["pep"]))
+
+    print("<b>Fetching variant data</b>")
     for marker in joined_markers:
         marker = tuple(marker)
         vcf_reader.set_region(
@@ -274,13 +289,10 @@ def annotate_sev(genome, markers, task_id):
                     continue
 
                 t_id = ann["Feature_ID"]
-                seq_path = os.path.join(
-                  prot_dir,
-                  "prot",
-                f"{t_id}.fasta")
-                t_seq = SeqIO.read(
-                  seq_path,
-                  "fasta")
+                try:
+                    t_seq = pep_fa[t_id]
+                except KeyError:
+                    continue
 
                 # HGVS.p has format p.VAR
                 var = ann["HGVS.p"][2:]
@@ -327,7 +339,7 @@ def annotate_sev(genome, markers, task_id):
                     start_var, end_var, alt = var.replace("ins", "_").split("_")
                     start_ref, start_pos = start_var[0], int(start_var[1:])
                     end_ref = end_var[0]
-                    end_pos = int(end_var[1:]) if end_var[1:] else len(t_seq.seq)
+                    end_pos = int(end_var[1:]) if end_var[1:] else len(t_seq)
 
                 # Del-insertions (only if no stop codon was deleted or inserted)
                 elif re.match("^[A-Z]\d+delins[A-Z]+$", var):
@@ -345,20 +357,20 @@ def annotate_sev(genome, markers, task_id):
                     start_var = var[:-3]
                     start_ref, start_pos = start_var[0], int(start_var[1:])
                     end_ref, end_pos = start_ref, start_pos
-                    alt = str(t_seq.seq[start_pos - 1:end_pos]) * 2
+                    alt = str(t_seq[start_pos - 1:end_pos]) * 2
 
                 elif re.match("^[A-Z]\d+\_[A-Z]\d+dup$", var):
                     start_var, end_var = var[:-3].split("_")
                     start_ref, start_pos = start_var[0], int(start_var[1:])
                     end_ref, end_pos = end_var[0], int(end_var[1:])
-                    alt = str(t_seq.seq[start_pos - 1:end_pos]) * 2
+                    alt = str(t_seq[start_pos - 1:end_pos]) * 2
 
                 # Stop gains (treat as deletion of residues after the new stop)
                 elif re.match("^[A-Z]\d+\*$", var):
                     start_var = var[:-1]
                     start_ref, start_pos = start_var[0], int(start_var[1:])
                     end_ref = ""
-                    end_pos = len(t_seq.seq) - 1
+                    end_pos = len(t_seq) - 1
                     alt = ""
 
                 # Cannot predict effects of start_gain/start_loss/stop_loss/frameshift
@@ -367,7 +379,7 @@ def annotate_sev(genome, markers, task_id):
                     continue
 
                 else:
-                    progress(task_id, f"Unrecognised variant: {var}")
+                    print(f"<b>Unrecognised variant: {var}</b>")
                     continue
 
                 anns.append(
@@ -399,35 +411,36 @@ def annotate_sev(genome, markers, task_id):
         "Start_pos", "End_ref", "End_pos", "Subs"])
     ann_df["Supporting_set"] = ""
 
+    blastp_out_fn = os.path.join(
+      prot_dir,
+      "blastp_out.txt.gz")
+    blastp_out = pysam.TabixFile(blastp_out_fn)
     for t_id, anns in ann_df.groupby("Feature_ID", sort=False):
-        progress(task_id, t_id, bold=False)
+        print(f"<b>{t_id}</b>")
         anns = anns.reset_index(drop=True)
         full_set = set()
 
-        progress(task_id, "Fetching homologous sequences", newline=False, bold=False)
+        print("Fetching homologous sequences")
         # Get transcript sequence
+        try:
+            t_seq = pep_fa[t_id]
+        except KeyError:
+            continue
+
         seq_path = os.path.join(
           prot_dir,
-          "prot",
-          f"{t_id}.fasta")
-        if not os.path.exists(seq_path):
-            continue
-        t_seq = SeqIO.read(
+          "wt.fasta")
+        SeqIO.write(
+          [SeqRecord.SeqRecord(Seq.Seq(t_seq))],
           seq_path,
           "fasta")
 
-        blastp_out_fn = os.path.join(
-          prot_dir,
-          "blastp_out",
-          f"{t_id}.blastp_out.txt")
-        blastp_out_df = (pd
-          .read_csv(
-            blastp_out_fn,
-            header=None,
-            sep="\t")
-          .set_axis(
-            ["sseqid", "sallseqid", "qstart", "qend", "evalue"],
-            axis=1))
+        blastp_out_df = pd.DataFrame(
+          [line.split("\t") for line in blastp_out.fetch(t_id)],
+          columns = blastp_columns).convert_dtypes()
+        blastp_out_df[["qstart", "qend", "evalue"]] = (blastp_out_df
+          [["qstart", "qend", "evalue"]]
+          .apply(pd.to_numeric, errors="coerce"))
 
         # Extract sequences of aligned hits
         hits_out = os.path.join(prot_dir, "aligned_hits.txt")
@@ -442,23 +455,23 @@ def annotate_sev(genome, markers, task_id):
 
         old_wd = os.getcwd()
         os.chdir(os.path.join(data_dir, genome, "prot_db"))
-        popen(
-          task_id,
+        subprocess.run(
           [blastdbcmd_path,
            "-db", config["db_prefix"],
            "-entry_batch", "aligned_hits.txt",
            "-out", "aligned_hits.fasta",
-           "-outfmt", "%f"])
+           "-outfmt", "%f"],
+          check=True)
 
         # Cluster by similarity
-        popen(
-          task_id,
+        subprocess.run(
           [cdhit_path,
           "-i", "aligned_hits.fasta",
           "-o", "clust",
           "-c", str(seq_identity),
           "-g", str(cluster_to_most_similar)],
-          show_stdout=False)
+         stdout=subprocess.DEVNULL,
+         check=True)
         with open("clust.clstr") as clust_in:
             clust_raw = clust_in.read().strip().split("\n>")
 
@@ -490,7 +503,6 @@ def annotate_sev(genome, markers, task_id):
           in sorted(clust_evalues, key=lambda x: x[1])]
 
         os.chdir(old_wd)
-        progress(task_id, "\r", newline=False, bold=False)
 
         for idx in range(anns.shape[0]):
             start_pos, end_pos = anns.loc[idx, ["Start_pos", "End_pos"]]
@@ -537,9 +549,7 @@ def annotate_sev(genome, markers, task_id):
               capture_output=True,
               text=True)
         except subprocess.CalledProcessError as e:
-            progress(
-              task_id,
-              f"Alignment for ref-{t_id} failed: {e}")
+            print(f"<b>Alignment for ref-{t_id} failed: {e}</b>")
             continue
         else:
             query_needle_out = p.stdout
@@ -562,23 +572,19 @@ def annotate_sev(genome, markers, task_id):
         pos_groups = anns.groupby(["Chrom", "Pos"])
         num_markers = len(pos_groups)
         for idx, (marker, pos) in enumerate(pos_groups, start=1):
-            progress(
-              task_id,
-              f"\rVariant {idx} of {num_markers}",
-              newline=False)
+            print(f"\rVariant {idx} of {num_markers}", end="")
             sev_anns = list()
             for var in pos.to_dict(orient="records"):
                 if len(var["Supporting_set"]) == 0:
                     continue
 
-                mutated_seq = Seq.MutableSeq(t_seq.seq)
+                mutated_seq = Seq.MutableSeq(t_seq)
                 if (
                   mutated_seq[var["Start_pos"] - 1] != var["Start_ref"] or
                   (var["End_ref"] and mutated_seq[var["End_pos"] - 1] != var["End_ref"])):
-                    progress(
-                      task_id,
-                      "Mismatch between variant and sequence " +\
-                      f"in {t_id}, {':'.join(list(map(str, marker)))}, {var['Var']}")
+                    print()
+                    print("<b>Mismatch between variant and sequence " +\
+                      f"in {t_id}, {':'.join(list(map(str, marker)))}, {var['Var']}</b>")
                     continue
 
                 mutated_seq[var["Start_pos"] - 1:var["End_pos"]] = var["Subs"]
@@ -606,9 +612,8 @@ def annotate_sev(genome, markers, task_id):
                       capture_output=True,
                       text=True)
                 except subprocess.CalledProcessError as e:
-                    progress(
-                      task_id,
-                      f"Alignment for {t_id}-{var['Subs']} failed: {e}")
+                    print()
+                    print(f"<b>Alignment for {t_id}-{var['Subs']} failed: {e}</b>")
                     continue
                 else:
                     mut_needle_out = p.stdout
@@ -628,9 +633,8 @@ def annotate_sev(genome, markers, task_id):
                       .to_numeric(mut_needle_df["score"].str.strip("()")))
 
                 if not query_needle_df.shape[0] == mut_needle_df.shape[0]:
-                    progress(
-                      task_id,
-                      f"Needle output mismatched in length: {t_id}-{var['Subs']}.")
+                    print()
+                    print(f"<b>Needle output mismatched in length: {t_id}-{var['Subs']}.</b>")
                     continue
 
                 mut_needle_df["delta"] = (
@@ -676,7 +680,7 @@ def annotate_sev(genome, markers, task_id):
                    ".",
                    ".",
                    "SEV=" + ",".join(sev_anns)))
-        progress(task_id, "")
+        print()
 
     new_sev = pd.DataFrame(sev_lines)
     if not sev_info.empty:
@@ -697,9 +701,8 @@ def annotate_sev(genome, markers, task_id):
           sep="\t",
           header=False,
           index=False)
-        with master_lock:
-            lock = get_lock(sev_path)
-        with lock:
+
+        with portalocker.Lock(sev_path, mode="wb", flags=portalocker.LOCK_EX):
             with pysam.BGZFile(sev_path, "wb") as sev_out:
                 _ = sev_out.write(sev_header.encode("utf-8"))
                 _ = sev_out.write(sev_output.getvalue().encode("utf-8"))
@@ -708,6 +711,7 @@ def annotate_sev(genome, markers, task_id):
               preset="vcf",
               force=True)
 
-
-def fetch_sev():
-    pass
+if __name__ == "__main__":
+    genome, markers, task_id = sys.argv[1:4]
+    markers = json.loads(markers)
+    annotate_sev(genome, markers, task_id)

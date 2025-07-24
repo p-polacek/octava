@@ -20,23 +20,31 @@
 
 {% block content %}
   <div class="padded-left">
-    <div class="padded-top padded-left padded-right">
-       <h2 id="status" class="padded-bottom"></h2>
-       </h3>
-       <h3
-        id="redirect"
-        class="collapsed bold">
-         <a
-          id="redirectLink"
-          {% if form %}
-            href="#"
-            onclick="document.querySelector('form').submit();"
-          {% else %}
+    <div class="padded-top padded-left padded-right relative">
+      <h2 id="status" class="padded-bottom"></h2>
+      <div id="cancel-button-div" class="var-buttons padded-top" style="padding-right: 15px;">
+        <button
+         type="button"
+         class="var-button red-text"
+         style="margin-right: 5px;" 
+         onclick="cancelTask();">
+          <b>Cancel task</b>
+        </button>
+      </div>
+      <h3
+       id="redirect"
+       class="collapsed bold">
+        <a
+         id="redirectLink"
+         {% if form %}
+           href="#"
+           onclick="document.querySelector('form').submit();"
+         {% else %}
             href=""
           {% endif %}
-         >Click here</a>
-         to see results.
-       </h3>
+        >Click here</a>
+        to see results.
+      </h3>
     </div>
   </div>
   <div class="results-wrapper">
@@ -63,6 +71,7 @@
     var taskId  = '{{ task_id }}';
     var task    = '{{ task }}';
     var form    = {{ form|tojson }};
+    var autoScroll = true;
     var redirectHref;
     if (task === "setup") {
       redirectHref = "{{ url_for('index') }}";
@@ -70,18 +79,18 @@
       redirectHref = "{{ url_for('assoc_opts', genome=genome) }}";
     } else if (task === "assoc") {
       redirectHref = "{{ url_for('assoc_res', genome=genome) }}";
-    } else if (task === "rf_optim") {
-      redirectHref = "{{ url_for('rf_optim_view', task_id=task_id) }}";
-    } else if (task === "finemap") {
-       redirectHref = "{{ url_for('assoc_res', genome=genome) }}";
     } else if (task === "sev") {
        redirectHref = "{{ url_for('fa_res', genome=genome) }}";
+    } else if (task === "qtl") {
+      redirectHref = "{{ url_for('serve_qtl', task_id=task_id) }}";
     }
 
     var error = document.getElementById("error");
+    var remainder = "";
 
     function processStream(stream) {
       var result = [];
+      remainder = "";
 
       var lines = document.getElementById("progress").childNodes;
       var lastLine = lines[lines.length - 1];
@@ -94,20 +103,26 @@
         lastLine.remove();
       }
 
-      for (let char of stream) {
-        if (char === "\x08") {
-          if (result.length > 0) {
+      for (let i = 0; i < stream.length; i++) {
+        var chr = stream[i];
+        if (chr === "\x08") {
+
+          var isTerminal = stream.slice(i+1).replace(chr, "").length === 0;
+
+          if (result.length > 0 && !isTerminal) {
             result.pop();
+          } else if (isTerminal) {
+            remainder += chr;
           }
-        } else if (char === "\r") {
+        } else if (chr === "\r") {
           while (result.length > 0 && result[result.length - 1] !== "\n") {
             result.pop();
           }
         } else {
-          result.push(char);
+          result.push(chr);
         }
       }
-      return result.join("").replaceAll("\n", "<br>");
+      return [result.join("").replaceAll("\n", "<br>"), remainder];
     }
 
     function checkStatus(taskId) {
@@ -126,30 +141,39 @@
             setTimeout(() => checkStatus(taskId), 10000);
           } else {
             if ((statusCode == 200) || (statusCode == 500)) {
-              var [data, secs] = data;
+              var [text, secs] = data;
               var duration = (
                 (secs / 3600 | 0 ? (secs / 3600 | 0) + " h " : "") +
                 ((secs % 3600) / 60 | 0 ? ((secs % 3600) / 60 | 0) + " min " : "") +
                 (secs % 60) + " sec");
+            } else {
+              var text = data;
             }
             var progressDiv = document.getElementById("progress-container");
-            var newText = `${processStream(data)}`;
+            var [newText, newReminder] = processStream(remainder + text);
             document.getElementById("progress").innerHTML += newText;
-            progressDiv.scrollTop = progressDiv.scrollHeight;
-//            if (processStream(data) !== "") {
-//              document.getElementById("progress").innerHTML += new Date().toLocaleTimeString() + "\n";
-//            }
+            if (autoScroll) {
+              progressDiv.scrollTop = progressDiv.scrollHeight;
+            }
+
             if (statusCode === 202) {
               statusText.innerText = "Task is running...";
-              setTimeout(() => checkStatus(taskId), 1000);
+              setTimeout(() => checkStatus(taskId, newReminder), 1000);
             } else if (statusCode === 200) {
               statusText.innerText = "Task is finished!";
               document.getElementById("redirect").classList.remove("collapsed");
               document.getElementById("time-help").innerHTML = " Total time: " + duration;
+              document.getElementById("cancel-button-div").classList.add("collapsed");
+            } else if (statusCode === 410) {
+              statusText.innerText = "Task cancelled.";
+              statusText.classList.add("red-text");
+              document.getElementById("time-help").innerHTML = "";
+              document.getElementById("cancel-button-div").classList.add("collapsed");
             } else if (statusCode === 500) {
               statusText.innerText = "Task Failed. Check log for more information.";
               statusText.classList.add("red-text");
               document.getElementById("time-help").innerHTML = " Total time: " + duration;
+              document.getElementById("cancel-button-div").classList.add("collapsed");
             }
           }
         })
@@ -161,7 +185,18 @@
         });
     }
         
+    function cancelTask() {
+      fetch("{{ url_for('remove_task', task_id=task_id) }}", {method: "POST"}).then(r => {
+        checkStatus(taskId);
+      });
+    }
+
     document.addEventListener("DOMContentLoaded", function() {
+      var progressDiv = document.getElementById("progress-container");
+      progressDiv.addEventListener("scroll", () => {
+        autoScroll = progressDiv.scrollHeight - progressDiv.scrollTop < progressDiv.clientHeight+100;
+      });
+
       if (form !== "") {
         var formElem = document.createElement("form");
         formElem.method = "POST";

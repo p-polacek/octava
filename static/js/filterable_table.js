@@ -107,7 +107,7 @@ function dropDown(event, clickedElem) {
 
   // Check if dropdown already exists
   if (!dropdown) {
-    var uniqueValues = getUniqueValues(table, colIndex);
+    var uniqueValues = getUniqueValues(table, colIndex).sort();
     var dropdown = makeDropdown(tableId, colIndex, uniqueValues);
 
     // Remove starting rows from "Filter samples" dropdown
@@ -126,14 +126,14 @@ function dropDown(event, clickedElem) {
     }
 
     // Update runs-table on filtering project-table
-    if (tableId === "projects-table") {
-      var checkboxes = dropdown.querySelectorAll("input[type='checkbox']");
-      checkboxes.forEach(function(checkbox) {
-        checkbox.addEventListener("change", function(event) {
-          filterRunsTable();
-        });
-      });
-    }
+    //if (tableId === "projects-table") {
+    //  var checkboxes = dropdown.querySelectorAll("input[type='checkbox']");
+    //  checkboxes.forEach(function(checkbox) {
+    //    checkbox.addEventListener("change", function(event) {
+    //      filterRunsTable();
+    //    });
+    //  });
+    //}
   }
 
   // Position the dropdown menu
@@ -311,28 +311,28 @@ function applyFilters(dropdownData, checkedVals, checked) {
     }
   }
   // Apply filters from projects-table as well, if filtering run-table
-  if (tableId === "runs-table") {
-    var projTable = document.getElementById("projects-table");
-    var projRows = projTable.querySelector("tbody").querySelectorAll("tr");
-    var visibleBPs = [];
-    for (let i = 0; i < projRows.length; i++) {
-      var row = projRows[i];
-      if (!row.classList.contains("collapsed")) {
-        visibleBPs.push(row.querySelector("td").textContent);
-      }
-    }
-  } else {
-    var visibleBPs = null;
-  }
+  //if (tableId === "runs-table") {
+  //  var projTable = document.getElementById("projects-table");
+  //  var projRows = projTable.querySelector("tbody").querySelectorAll("tr");
+  //  var visibleBPs = [];
+  //  for (let i = 0; i < projRows.length; i++) {
+  //    var row = projRows[i];
+  //    if (!row.classList.contains("collapsed")) {
+  //      visibleBPs.push(row.querySelector("td").textContent);
+  //    }
+  //  }
+  //} else {
+  //  var visibleBPs = null;
+  //}
   // Loop through each row and hide based on filters
   for (var i = 0; i < rows.length; i++) {
     var cells = rows[i].children;
     var showRow = true;
-    if (visibleBPs !== null) {
-      if (!visibleBPs.includes(cells[1].innerHTML)) {
-        showRow = false;
-      }
-    }
+    //if (visibleBPs !== null) {
+    //  if (!visibleBPs.includes(cells[1].innerHTML)) {
+    //    showRow = false;
+    //  }
+    //}
     // Loop through each filter checkbox for each dropdown menu
     Object.keys(dropdowns[tableId]).forEach(function(colIndex) {
       var colDropdown = dropdowns[tableId][colIndex];

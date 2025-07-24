@@ -3,33 +3,48 @@
 import os
 import re
 import sys
+import gzip
 import json
 import pysam
 import shutil
 import gffutils
-import subprocess
 import numpy as np
 import configparser
 import pandas as pd
+from Bio import SeqIO
+from functools import partial
 from collections import Counter
 
-from app.dirs import data_dir
-from app.task_worker import progress
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from app.dirs import data_dir
+from modules.safe_col import safe_col
+from modules.assoc.assoc_qc import run_qc
 from modules.snpeff import snpeff_annotate
-from modules.assoc import (
-  popen,
-  run_qc)
+
 from modules.sev import (
   make_db,
   run_blastp,
   process_blastp)
 
-
 def genome_setup(
   genome,
   params,
   task_id):
+    stats_dir = os.path.join(
+      data_dir,
+      genome,
+      "stats")
+    if not os.path.exists(stats_dir):
+        os.mkdir(stats_dir)
+
+    if os.path.exists(
+      os.path.join(
+        data_dir,
+        genome,
+        "stats",
+        "init")):
+        raise OSError("<b>The selected dataset is already set up.</b>")
 
 ###############################################################################
 ### Set up GFFUtils database
@@ -42,9 +57,10 @@ def genome_setup(
     db_path = os.path.join(
       data_dir,
       genome,
+      "stats",
       "gff.db")
     if not os.path.exists(db_path):
-        progress(task_id, "Creating an annotation database")
+        print("<b>Creating an annotation database</b>")
         gffutils.create_db(
           ann_path,
           dbfn=db_path,
@@ -56,39 +72,39 @@ def genome_setup(
 ###############################################################################
 
     if params["info"]:
-        progress(task_id, "Updating database information")
+        print("<b>Updating database information</b>")
         annotate_db(
           genome,
           db,
           params["info"],
           task_id)
-    if params["enr"]:
-        progress(task_id, "Calculating gene enrichment")
-        num_genes = db.count_features_of_type("gene")
-        calc_enr(
-          genome,
-          params["info"],
-          params["enr"],
-          num_genes,
-          task_id)
+    #if params["enr"]:
+    #    print("Calculating gene enrichment")
+    #    num_genes = db.count_features_of_type("gene")
+    #    calc_enr(
+    #      genome,
+    #      params["info"],
+    #      params["enr"],
+    #      num_genes,
+    #      task_id)
 
 ###############################################################################
 ### BGZip and tabix files if necessary
 ###############################################################################
 
-    for file in ("vcf", "ann", "seq", "exp"):
+    for file in ("vcf", "ann", "seq", "pep", "cds", "exp"):
         file_path = os.path.join(
           data_dir,
           genome,
           params[file])
         if params[file] and not file_path.endswith(".gz"):
             if os.path.islink(file_path):
-                progress(task_id, f"Copying {file} file")
+                print(f"Copying {file} file")
                 link_path = os.readlink(file_path)
                 os.unlink(file_path)
                 shutil.copy2(link_path, file_path)
 
-            progress(task_id, f"Compressing {file} file")
+            print(f"Compressing {file} file")
             pysam.tabix_compress(file_path, file_path + ".gz")
             os.remove(file_path)
             params[file] += ".gz"
@@ -97,13 +113,13 @@ def genome_setup(
           data_dir,
           genome,
           params[file])
-        if file == "seq":
+        if params[file] and file in ("seq", "pep", "cds"):
             if not os.path.exists(file_path + ".fai") or not os.path.exists(file_path + ".gzi"):
-                progress(task_id, f"Indexing {file} file")
+                print(f"Indexing {file} file")
                 _ = pysam.FastaFile(file_path)
         else:
             if params[file] and not os.path.exists(file_path + ".tbi"):
-                progress(task_id, f"Indexing {file} file")
+                print(f"Indexing {file} file")
                 if file == "exp":
                     pysam.tabix_index(
                       file_path,
@@ -123,15 +139,27 @@ def genome_setup(
           genome,
           file)
         if not os.path.exists(file_path + ".bai"):
-            progress(task_id, "Indexing a bam file")
+            print("Indexing a bam file")
             pysam.index(file)
+
+    if params["exp"] and not params["run"]:
+        file_path = os.path.join(data_dir, genome, params["exp"])
+        exp_runs = pd.read_csv(file_path, sep="\t", nrows=0)
+        (pd
+          .DataFrame(
+            {"Run_ID": exp_runs.columns.tolist()[4:]})
+          .to_csv(
+            os.path.join(data_dir, genome, "run_info.txt"),
+            sep="\t",
+            index=False))
+        params["run"] = "run_info.txt"
 
 ###############################################################################
 ### Annotate variants and setup BLAST / severity prediction
 ###############################################################################
 
     if params["snpeff"]:
-        progress(task_id, "Running VCF annotation")
+        print("<b>Running VCF annotation</b>")
         snpeff_annotate(
           genome,
           params["vcf"],
@@ -148,26 +176,61 @@ def genome_setup(
         old_wd = os.getcwd()
         os.chdir(os.path.join(data_dir, genome))
 
-        if params["db_fasta"]:
-            make_db(
-              task_id,
-              params["db_fasta"])
-            params["db_prefix"] = params["db_fasta"]
+        #if params["db_fasta"]:
+        #    make_db(
+        #      task_id,
+        #      params["db_fasta"])
+            #params["db_prefix"] = params["db_fasta"]
 
         if params["db_prefix"]:
             run_blastp(
               task_id,
               params["pep"],
               params["db_prefix"])
-            process_blastp()
+            #process_blastp()
 
         os.chdir(old_wd)
+
+    else:
+        if params["pep"]:
+            prot_dir = os.path.join(data_dir, genome, "prot_db", "prot")
+            if not os.path.exists(prot_dir):
+                os.makedirs(prot_dir, exist_ok=True)
+            prot_file = os.path.join(data_dir, genome, params["pep"])
+
+            _open = partial(gzip.open, mode="rt") if prot_file.endswith(".gz") else open
+            with _open(prot_file) as f:
+                for prot in SeqIO.parse(f, "fasta"):
+                    prot_path = os.path.join(
+                      prot_dir,
+                      f"{prot.id}.fasta")
+                    SeqIO.write(
+                      [prot],
+                      prot_path,
+                      "fasta")
+
+        if params["cds"]:
+            cds_dir = os.path.join(data_dir, genome, "prot_db", "cds")
+            if not os.path.exists(cds_dir):
+                os.makedirs(cds_dir, exist_ok=True)
+            cds_file = os.path.join(data_dir, genome, params["cds"])
+
+            _open = partial(gzip.open, mode="rt") if cds_file.endswith(".gz") else open
+            with _open(cds_file) as f:
+                for cds in SeqIO.parse(f, "fasta"):
+                    cds_path = os.path.join(
+                      cds_dir,
+                      f"{cds.id}.fasta")
+                    SeqIO.write(
+                      [cds],
+                      cds_path,
+                      "fasta")
 
 ###############################################################################
 ### Get genome and sample data
 ###############################################################################
 
-    progress(task_id, "Parsing vcf file")
+    print("<b>Parsing VCF file</b>")
     vcf_path = os.path.join(
       data_dir,
       genome,
@@ -177,13 +240,28 @@ def genome_setup(
     gdata_path = os.path.join(
       data_dir,
       genome,
+      "stats",
       ".gdata")
 #    if not os.path.exists(gdata_path):
     gdata = dict()
+    
     # Get chromosome names, sizes and offsets
-    vcf = pysam.VariantFile(vcf_path)
-    chroms = list(vcf.header.contigs)
-    sizes = [vcf.header.contigs[c].length for c in chroms]
+    idx_path = os.path.join(
+      data_dir,
+      genome,
+      params["seq"] + ".fai")
+    idx_df = pd.read_csv(
+      idx_path,
+      sep="\t",
+      header=None)
+    chroms = idx_df.iloc[:, 0].astype(str).tolist()
+    sizes = idx_df.iloc[:, 1].tolist()
+
+    if params["concat"]:
+        chroms = (
+          [c for c in chroms if c not in params["concat"]] + 
+          [c for c in chroms if c in params["concat"]])
+
     offsets = [sum(sizes[:i]) for i in range(len(sizes))]
     gdata["chr_names"] = chroms
     gdata["chr_sizes"] = sizes
@@ -197,25 +275,23 @@ def genome_setup(
         break
 
     # Check that samples match between VCF and SEQ files
-    idx_path = os.path.join(
-      data_dir,
-      genome,
-      params["seq"] + ".fai")
-    idx_df = pd.read_csv(
-      idx_path,
-      sep="\t",
-      header=None)
-    seq_chroms = idx_df.iloc[:, 0].astype(str).tolist()
-    seq_sizes = idx_df.iloc[:, 1].tolist()
+    chroms = idx_df.iloc[:, 0].astype(str).tolist()
+    vcf = pysam.VariantFile(vcf_path)
+    vcf_chroms = list(vcf.header.contigs)
+    vcf_sizes = [vcf.header.contigs[c].length for c in vcf_chroms]
 
-    if seq_chroms != chroms or seq_sizes != sizes:
-        progress(
-          task_id, 
-          "Chromosomes do not match in size or names between "
-          "vcf and seq files.")
+    if not all(vcf_chroms) or not all(vcf_sizes):
+        print(
+          "<b>Cannot verify that chromosome names and sizes match "
+          "between vcf and seq files.</b>")
+
+    elif vcf_chroms != chroms or vcf_sizes != sizes:
+        print(
+          "<b>Chromosomes do not match in size or names between "
+          "vcf and seq files.</b>")
         raise OSError
 
-    progress(task_id, "Parsing phenotypes")
+    print("<b>Parsing phenotypes</b>")
     # Save sample list, combine with phenotyped samples
     samples = list(vcf.header.samples)
     if not params["phe"]:
@@ -238,15 +314,22 @@ def genome_setup(
         phe_df = pd.read_csv(
           phe_path,
           sep="\t",
-          header=[0],
-          index_col=[0])
+          header=0,
+          index_col=0)
         # Make trait names filename-friendly
-        safe_cols = [
-          re.sub("[^\w\(\)_]", "_", col)
-          for col in phe_df.columns]
+        safe_cols = [safe_col(col) for col in phe_df.columns]
         phe_df = phe_df.set_axis(
           safe_cols,
           axis=1)
+
+        #De-duplicate trait names
+        cols = pd.Series(phe_df.columns)
+        for dup in phe_df.columns[phe_df.columns.duplicated(keep=False)]: 
+            cols[phe_df.columns.get_loc(dup)] = (
+              [dup + '.' + str(d_idx) if d_idx != 0 else dup 
+               for d_idx in range(df.columns.get_loc(dup).sum())])
+        phe_df.columns = cols
+
         for sample in phe_df.index:
             if sample not in samples:
                 samples.append(sample)
@@ -254,6 +337,7 @@ def genome_setup(
           np.nan,
           index=[s for s in samples if s not in phe_df.index],
           columns=phe_df.columns)
+
         (pd
           .concat([phe_df, miss_df])
           .loc[samples]
@@ -290,8 +374,8 @@ def genome_setup(
         samp_df = pd.read_csv(
           samp_path,
           sep="\t",
-          header=[0],
-          index_col=[0])
+          header=0,
+          index_col=0)
         samp_df.index = samp_df.index.map(str)
 
         miss_samples = [s for s in samples if s not in samp_df.index]
@@ -308,7 +392,7 @@ def genome_setup(
             sep="\t"))
 
     # Initialise empty list for groups
-    gdata["groups"] = dict()
+    gdata["group"] = dict()
 
     # Save genome data to JSON file
     with open(gdata_path, "w") as gdata_out:
@@ -317,7 +401,7 @@ def genome_setup(
     # Save parameters as config.ini
     _ = [params.pop(v) for v in ("name", "csrf_token")]
     params["bam"] = json.dumps(params["bam"])
-    params["enr"] = json.dumps(params["enr"])
+    #params["enr"] = json.dumps(params["enr"])
     params["concat"] = json.dumps(params["concat"])
     params = {k: str(v) for k, v in params.items()}
     params["rm_markers"] = True
@@ -327,36 +411,29 @@ def genome_setup(
     config_path = os.path.join(
       data_dir,
       genome,
+      "stats",
       "config.ini")
     with open(config_path, "w") as config_out:
         config.write(config_out)
 
     # Run raw marker set QC
-    stats_dir = os.path.join(
-      data_dir,
-      genome,
-      "stats")
-    if not os.path.exists(stats_dir):
-        os.mkdir(stats_dir)
     run_qc(
-      genome,
-      task_id)
+      genome)
     assoc_dir = os.path.join(
       data_dir,
       genome,
       "assoc")
     if not os.path.exists(assoc_dir):
         os.mkdir(assoc_dir)
-    fm_dir = os.path.join(
+    cof_dir = os.path.join(
       data_dir,
       genome,
-      "fm")
-    if not os.path.exists(fm_dir):
-        os.mkdir(fm_dir)
+      "covariates")
+    if not os.path.exists(cof_dir):
+        os.mkdir(cof_dir)
 
     init_path = os.path.join(
-      data_dir,
-      genome,
+      stats_dir,
       "init")
     open(init_path, "w").close()
 
@@ -372,28 +449,28 @@ def annotate_db(
     info_df = pd.read_csv(
       info_path,
       sep="\t",
-      header=[0],
-      index_col=[0])
+      header=0,
+      index_col=0)
     info_df = info_df.fillna("")
     info_df = info_df.astype(str)
     cols = info_df.columns
 
     new_entries = list()
-    for gene in db.features_of_type("gene"):
+    for tr in db.features_of_type("mRNA"):
         # GFFutils splits attributes by comma
         # Rejoin them for uniformity
-        for attr, val in gene.attributes.items():
-            gene.attributes[attr] = ",".join(val)
+        for attr, val in tr.attributes.items():
+            tr.attributes[attr] = ",".join(val)
         # Save new attributes
-        if gene.id in info_df.index:
-            data = info_df.loc[gene.id]
+        if tr.id in info_df.index:
+            data = info_df.loc[[tr.id]].reset_index(drop=True).iloc[0]
             for col in cols:
                 val = data[col]
-                gene.attributes[col] = val# if not pd.isna(val) else ""
+                tr.attributes[col] = val# if not pd.isna(val) else ""
         else:
             for col in cols:
-                gene.attributes[col] = ""
-        new_entries.append(gene)
+                tr.attributes[col] = ""
+        new_entries.append(tr)
     db = db.update(
       new_entries,
       merge_strategy="replace",
@@ -412,16 +489,17 @@ def calc_enr(
     info_df = pd.read_csv(
       info_path,
       sep="\t",
-      header=[0],
-      index_col=[0])
+      header=0,
+      index_col=0)
 
     enr = dict()
-    enr["num_genes"] = num_genes
     for col in enr_cols:
-        enr_vals = dict()
-        attrs = [
-          attr.strip() for row_attrs in info_df[col].dropna()
-          for attr in row_attrs.split(",") if attr]
+        attrs = []
+        for row_attrs in info_df[col].dropna():
+            attrs += list(
+              set(
+                [attr.strip() for attr
+                 in row_attrs.strip().split(";") if attr]))
         enr[col] = Counter(attrs)
 
     enr_path = os.path.join(
@@ -429,4 +507,9 @@ def calc_enr(
       genome,
       ".enr")
     with open(enr_path, "w") as enr_out:
-        json.dump(enr, enr_out)
+        json.dump([enr, num_genes], enr_out)
+
+if __name__ == "__main__":
+    genome, params, task_id = sys.argv[1:4]
+    params = json.loads(params)
+    genome_setup(genome, params, task_id)

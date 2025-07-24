@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 import os
 import re
 import gzip
@@ -20,53 +19,31 @@ from scipy.stats import hypergeom
 
 from flask import (
   jsonify,
-  request,
-  url_for,
-  redirect,
-  render_template)
+  request)
 
 import app.path
+
+from app.dirs import (
+  tmp_dir,
+  data_dir,
+  plink2_path)
 
 from flask_app import (
   app,
   get_lock,
   master_lock)
 
-from modules.forms import AssocResForm
-from modules.vcf_reader import VcfReader
-
 from modules.load_input import (
   load_gdata,
   load_config)
 
+from modules.vcf_reader import VcfReader
 
-from app.dirs import (
-  tmp_dir,
-  data_dir,
-  tool_dir,
-  plink2_path)
+###############################################################################
+### Setting up a new genome
+###############################################################################
 
-from modules.forms import models as models_dict
-
-models_dict = dict([(v, k) for (k, v) in models_dict])
-
-# Fetch columns for possible enrichment and chromosomes to show/hide
-# for selected VCF/INFO files in new dataset setup
-@app.route("/enr_cols/<genome>", methods=["POST"])
-def enr_cols(genome):
-    info = request.form.get("info")
-    cols = pd.read_csv(
-        os.path.join(
-            data_dir,
-            genome,
-            info),
-        sep="\t",
-        compression="infer",
-        header=[0],
-        index_col=[0],
-        nrows=0)
-    return jsonify(cols.columns.tolist())
-
+# List of contigs for a given genome VCF file, as they appear in VCF file
 @app.route("/concat/<genome>", methods=["POST"])
 def concat(genome):
     vcf = request.form.get("vcf")
@@ -77,42 +54,11 @@ def concat(genome):
         vcf))
     return jsonify(list(vcf.header.contigs))
 
-# Gene enrichment data
-@app.route("/enr", methods=["POST"])
-def fetch_enr():
-    data = request.form
-    genome = data.get("genome")
+###############################################################################
+### Association analysis QC/options
+###############################################################################
 
-    col = data.get("col")
-    attrs = json.loads(data.get("attrs"))
-    num_subset = len(attrs)
-    attrs = [
-      attr.strip() for row_attrs in attrs 
-      for attr in row_attrs.split(",") if attr]
-    num_tests = len(attrs)
-
-    enr_path = os.path.join(
-      data_dir,
-      genome,
-      ".enr")
-    with open(enr_path, "r") as enr_in:
-        enr = json.load(enr_in)
-        enr, num_genes = enr[col], enr["num_genes"]
-    enr_res = [
-      [attr,
-       np.log2((cnt / num_subset) / (enr[attr] / num_genes)),
-       -np.log10(hypergeom(num_genes, enr[attr], num_subset).sf(cnt - 1)),
-       enr[attr],
-       cnt]
-      for attr, cnt in Counter(attrs).items()]
-
-    enr_res = sorted(enr_res, key=lambda x: x[2], reverse=True)
-    return jsonify({
-      "data": enr_res,
-      "num_genes": num_genes,
-      "num_subset": num_subset})
-
-# Per-chromosome LD
+# Matrix of per-chromosome LD
 @app.route("/chr_ld", methods=["POST"])
 def fetch_chr_ld():
     form = request.form
@@ -139,80 +85,14 @@ def fetch_chr_ld():
         chr_r2 = json.load(r2_in)
     return jsonify(chr_r2)
 
-# Per-locus LD
-@app.route("/locus_ld", methods=["POST"])
-def fetch_locus_ld():
-    form = request.form
-    genome = form["genome"]
-    markers = form["markers"]
-    coord  = form["coord"]
-    task_id = str(uuid.uuid4())
-
-    gt_root = os.path.join(
-      data_dir,
-      genome,
-      #"stats",
-      "assoc",
-      markers,
-      "gt",
-      "gt.full")
-    out_root = os.path.join(
-      tmp_dir,
-      task_id)
-
-    # Extract genotype data at QTLs
-    span = 0
-    with open(f"{out_root}.bed1", "w") as coord_out:
-        for locus in coord.split(", "):
-            chrom, start = locus.split(":")
-            start = start.replace(",", "")
-            if "-" in start:
-                start, end = start.split("-")
-                span += int(end) - int(start) + 1
-            else:
-                end = start
-            _ = coord_out.write("\t".join((chrom, start, end)) + "\n")
-    pr = subprocess.run(
-      [plink2_path,
-       "--bfile", gt_root,
-       "--extract", "bed1", f"{out_root}.bed1",
-       #"--thin-count", "1000",
-       "--bp-space", str(max(1, span // 2000)),
-       "--r2-unphased", "square0",
-       #"--silent",
-       "--out", out_root],
-      check=True,
-      text=True,
-      stdout=subprocess.PIPE)
-    output = pr.stdout
-    try:
-        rm, rt = map(int, re.search(
-          "\-\-bp\-space\: (\d+) variants removed \((\d+) remaining\)\.",
-          output).groups())
-        num_markers = f"LD for {rt} of {rm + rt} markers in region"
-    except:
-        num_markers = "(Could not determine marker number)"
-
-    r2_vals = pd.read_csv(
-      f"{out_root}.unphased.vcor2",
-      sep="\t",
-      header=None,
-      index_col=None).round(3).fillna("")
-    r2_idx = pd.read_csv(
-      f"{out_root}.unphased.vcor2.vars",
-      sep="\t",
-      header=None,
-      index_col=None)
-
-    return jsonify([r2_vals.values.tolist(), r2_idx[0].tolist(), num_markers])
-
-# Per-chromosome block distribution
+# Histogram of per-chromosome block distribution
 @app.route("/chr_bdist", methods=["POST"])
 def fetch_chr_bdist():
-    form = request.form
+    form    = request.form
     genome  = form["genome"]
     markers = form["markers"]
     chrom   = form["chrom"]
+
     stats_dir = os.path.join(
       data_dir,
       genome,
@@ -222,44 +102,34 @@ def fetch_chr_bdist():
     bdist_path = os.path.join(
       stats_dir,
       f"{chrom}.bdist.gz")
-    chr_bdist = pd.read_csv(
-      bdist_path,
-      sep="\t",
-      header=None,
-      index_col=None).values.tolist()
-    return jsonify(chr_bdist)
+    try:
+        chr_bdist = pd.read_csv(
+          bdist_path,
+          sep="\t",
+          header=None,
+          index_col=None)
+        return jsonify(chr_bdist.values.tolist())
+    except pd.errors.EmptyDataError:
+        return jsonify([])
 
-#Per-marker LD for locus fine-mapping
+#Per-marker LD
 @app.route("/ld", methods=["POST"])
 def fetch_ld():
-    form = request.form
-    markers = form["markers"]
+    form      = request.form
+    markers   = form["markers"]
     marker_id = form["marker_id"].replace(",", "")
-    window = int(form["window"])
-    task_id = str(uuid.uuid4())
-    is_hap = False
-    if "-" in marker_id and "_" in marker_id:
-        is_hap = True
-        in_root = os.path.join(
-          data_dir,
-          form["genome"],
-          "assoc",
-          markers,
-          "gt",
-          "gt.full")
-    else:
-#        in_root = os.path.join(
-#          data_dir,
-#          form["genome"],
-#          "stats",
-#          "gt")
-        in_root = os.path.join(
-          data_dir,
-          form["genome"],
-          "assoc",
-          markers,
-          "gt",
-          "gt.full")        
+    window    = int(form["window"])
+    task_id   = str(uuid.uuid4())
+    r2        = float(form["r2"])
+    is_hap    = "-" in marker_id and "_" in marker_id
+
+    in_root = os.path.join(
+      data_dir,
+      form["genome"],
+      "assoc",
+      markers,
+      "gt",
+      "gt")        
     out_root = os.path.join(
       tmp_dir,
       task_id)
@@ -272,28 +142,40 @@ def fetch_ld():
     subprocess.run(
       [plink2_path,
        #"--bfile", "chr6",
-       "--bfile", in_root,
+       "--pfile", in_root, "vzs",
        "--chr", ch,
        "--from-bp", str(start - window*1000),
        "--to-bp", str(end + window*1000),
-       "--r2-unphased",
+       "--r2-unphased", "cols=id" if is_hap else "cols=pos",
        "--ld-snp", marker_id,
        "--ld-window-kb", str(window),
        "--ld-window-r2", "0",
        #"--silent",
        "--out", out_root],
       check=True)
+    ld = (pd
+      .read_csv(
+        f"{out_root}.vcor",
+        sep="\t",
+        header=0,
+        index_col=None,
+        usecols=[1,2]))
+
+    if r2 > 0:
+        # Remove all entries below r2
+        ld.loc[ld["UNPHASED_R2"] < r2, "UNPHASED_R2"] = 0
+        # Keep the entries for plotting, reduce each 0-block to first and last
+        zero_rows = ld["UNPHASED_R2"] == 0
+        block = (zero_rows != zero_rows.shift()).cumsum()
+        mask = ~zero_rows
+        zero_groups = ld[zero_rows].groupby(block)
+        keep_idx = zero_groups.head(1).index.union(zero_groups.tail(1).index)
+        ld = ld[mask | ld.index.isin(keep_idx)].reset_index(drop=True)
+
     if is_hap:
-        ld = (pd
-          .read_csv(
-            f"{out_root}.vcor",
-            sep="\t",
-            header=0,
-            index_col=None,
-            usecols=[5,6])
-          .set_axis(
-            ["id", "val"],
-            axis=1))
+        ld = ld.set_axis(
+          ["id", "val"],
+          axis=1)
         ld[["chr", "start", "end", "idx"]] = ld["id"].str.split("[\:\-\_]", expand=True)
         ld["start"] = ld["start"].astype(int)
         ld["end"] = ld["end"].astype(int)
@@ -305,21 +187,62 @@ def fetch_ld():
           [["chr", "start", "val", "end", "idx"]]
           .values.tolist())
         ld = sorted(ld, key=lambda x: x[1])
-        
+
     else:
-        ld = (pd
-          .read_csv(
-            f"{out_root}.vcor",
-            sep="\t",
-            header=0,
-            index_col=None,
-            usecols=[3,4,6],
-            dtype={"CHROM_B": "str"})
-          .values.tolist())
-        ch, pos = marker_id.split(":")
-        ld.append([ch, int(pos), 1])
-        ld = sorted(ld, key=lambda x: x[1])
+        ld.loc[len(ld)] = [int(pos), 1]
+        ld = (ld
+          .sort_values(by="POS_B")
+          .assign(ch=ch)
+          [["ch","POS_B", "UNPHASED_R2"]]
+          .values
+          .tolist())
     return jsonify(ld)
+
+# Correlation values for >=10 traits
+@app.route("/correl", methods=["POST"])
+def fetch_correl():
+    form   = request.form
+    genome = form["genome"]
+    traits = json.loads(form["traits"])
+    corrwith = json.loads(form["corrwith"])
+    config = load_config(genome)
+
+    phe_path = os.path.join(
+      data_dir,
+      genome,
+      config["phe"])
+    with master_lock:
+        lock = get_lock(phe_path)
+    with lock:
+        phe_df = pd.read_csv(
+          phe_path,
+          sep="\t",
+          header=0,
+          index_col=0)
+
+    if len(traits) == 1:
+        corr_df = (pd.DataFrame(
+          phe_df
+          [corrwith]
+          .corrwith(phe_df[traits[0]])
+          .sort_values(ascending=False)
+          .replace(np.nan, "")))
+        return jsonify(
+          [(corr_df
+             .values
+             .tolist()),
+           corr_df.index.tolist()])
+
+    elif len(traits) >= 10:
+        return jsonify(
+          [(phe_df
+             [traits]
+             .corr()
+             .mask(np.triu(np.ones((len(traits), len(traits)), dtype=bool), k=1))
+             .replace(np.nan, "")
+             .values
+             .tolist()),
+           traits])
 
 # Per-metric table data for GWAS QC filtering
 @app.route("/filt", methods=["POST"])
@@ -441,10 +364,9 @@ def fetch_mplot():
 def fetch_bblplot():
     form     = request.form
     genome   = form["genome"]
-    window   = int(form["window"])
+    window   = int(form["window"]) // 2
     thresh   = float(form["thresh"])
     groups   = json.loads(form["keys"])
-    plot_avg = int(form["plot_avg"])
     min_size = math.ceil(float(form.get("min_size", 0)))
 
     gdata = load_gdata(genome)
@@ -470,15 +392,30 @@ def fetch_bblplot():
               markers,
               "res",
               assoc_fn)
-
             if not os.path.exists(assoc_path):
                 continue
+
+            params_fn = os.path.join(
+              data_dir,
+              genome,
+              "assoc",
+              markers,
+              "stats",
+              "params")
+            with open(params_fn) as params_in:
+                is_hap = json.load(params_in)[1][10] == "Yes"
+#            if is_hap:
+#                continue
 
             df = pd.read_feather(assoc_path)
             df = df.loc[:, df.columns[:3]]
             #df = df.drop(["Effect", "std Error"], axis=1)
-            df = df.set_axis(["Chr", "Pos", string_key], axis=1)
+            df = df.set_axis([string_key, "Chr", "Pos"], axis=1)
             df = df[df[string_key] >= thresh]
+            
+            if is_hap:
+                df = df.groupby(["Chr", "Pos"]).max()
+
             df = df.set_index(["Chr", "Pos"])
             group_data.append(df[string_key])
 
@@ -496,58 +433,19 @@ def fetch_bblplot():
             spans = spans.union((spans + window)).unique()
 
             for i in spans:
-                chunk = data[data.index.slice_indexer(i - window, i + window)]
+                chunk = data[data.index.slice_indexer(i, i + window)]
                 if not chunk.empty:
-                    chunk = chunk.dropna(axis=1, how="all")
+                    chunk = chunk.dropna(axis=1, how="all") 
                     if chunk.shape[1] >= min_size:
                         coord = f"{ch}:{i-window:,}-{i+window:,}"
-                        if plot_avg:
-                            win_group.append(
-                              [int(chunk.idxmax().mean()) + offsets[ch],
-                               chunk.max().mean(),
-                               chunk.shape[1],
-                               coord,
-                               chunk.columns.tolist()])
-                        else:
-                            agg_chunk = chunk.max(axis=1)
-                            win_group.append(
-                              [int(agg_chunk.idxmax()) + offsets[ch],
-                               agg_chunk.max(),
-                               chunk.shape[1],
-                               coord,
-                               chunk.columns.tolist()])
+                        agg_chunk = chunk.max()
+                        win_group.append(
+                          [i + offsets[ch],
+                           agg_chunk.mean(),
+                           coord,
+                           chunk.columns.tolist()])
         win_data.append(win_group)
     return jsonify(win_data)
-
-# FM results data
-@app.route("/fmplot", methods=["POST"])
-def fetch_fmplot():
-    form     = request.form
-    genome   = form["genome"]
-    task_id  = form["task_id"]
-
-    fm_dir = os.path.join(
-      data_dir,
-      genome,
-      "fm")
-    fm_path = os.path.join(fm_dir, f"{task_id}.fm")
-    if os.path.exists(fm_path):
-        params_path = os.path.join(fm_dir, f"{task_id}.params")
-        with open(params_path) as params_in:
-            params = json.load(params_in)
-        with open(os.path.join(fm_dir, f"{task_id}.nm")) as name_in:
-            run_name = name_in.read().strip()
-        input_params = params[1][:3]
-        output = [
-          input_params,
-          task_id,
-          run_name,
-          (pd
-            .read_feather(fm_path)
-#            .drop(["Effect"], axis=1)
-            .values.tolist())]
-        return jsonify(output)
-    return jsonify(success=True)
 
 @app.route("/genes", methods=["POST"])
 def fetch_genes():
@@ -572,6 +470,33 @@ def fetch_genes():
                    entry[0],
                    int(entry[3]),
                    int(entry[4])])
+    return jsonify(gene_data)
+
+@app.route("/gene_pos", methods=["POST"])
+def fetch_gene_pos():
+    form     = request.form
+    genome   = form["genome"]
+    genes   = json.loads(form["genes"])
+
+    db_path = os.path.join(
+      data_dir,
+      genome,
+      "stats",
+      "gff.db")
+    db = gffutils.FeatureDB(db_path)
+
+    recs = list()
+    for gene in genes:
+        try:
+            rec = db[gene]
+            if rec not in recs:
+                recs.append(rec)
+        except:
+            continue
+    gene_data = [
+      [rec.id, rec.chrom, rec.start, rec.end]
+      for rec in recs]
+
     return jsonify(gene_data)
 
 # Various types of data on mouse right-click
@@ -649,117 +574,125 @@ def contextmenu():
         return jsonify([data, keys])
 
     elif action == "pve":
-        data = request.form
-        if data["model"] != "MLM":
-            return jsonify(
-              [[["PVE calculation is only supported for MLM."]],
-               []])
-        chrom, pos = data["pos"].split(":")
-        pos = pos.replace(",", "")
-        pos_id = ":".join((chrom, pos))
-        pos = int(pos)
+        pass
+        #data = request.form
+        #if data["model"] != "MLM":
+        #    return jsonify(
+        #      [[["PVE calculation is only supported for MLM."]],
+        #       []])
+        #chrom, pos = data["pos"].split(":")
+        #pos = pos.replace(",", "")
+        #pos_id = ":".join((chrom, pos))
+        #pos = int(pos)
 
-        gt_root = os.path.join(
-          data_dir,
-          data["genome"],
-          "assoc",
-          data["markers"],
-          "gt",
-          "gt")
-        bed = bed_reader.open_bed(f"{gt_root}.bed")
+        #gt_root = os.path.join(
+        #  data_dir,
+        #  data["genome"],
+        #  "assoc",
+        #  data["markers"],
+        #  "gt",
+        #  "gt")
+        #bed = bed_reader.open_bed(f"{gt_root}.bed")
 
-        phe_path = os.path.join(
-          data_dir,
-          data["genome"],
-          config["phe"])
-        with master_lock:
-            lock = get_lock(phe_path)
-        with lock:
-            phe_df = pd.read_csv(
-              phe_path,
-              sep="\t",
-              header=0,
-              index_col=0,
-              usecols=["Acc", data["trait"]]).loc[bed.iid].dropna()
+        #phe_path = os.path.join(
+        #  data_dir,
+        #  data["genome"],
+        #  config["phe"])
+        #with master_lock:
+        #    lock = get_lock(phe_path)
+        #with lock:
+        #    phe_df = pd.read_csv(
+        #      phe_path,
+        #      sep="\t",
+        #      header=0,
+        #      index_col=0,
+        #      usecols=["Acc", data["trait"]]).loc[bed.iid].dropna()
 
-        gts = bed.read(dtype="int8")[
-            [i for i, n in enumerate(bed.iid) if n in phe_df.index],
-            np.where(bed.sid == pos_id)[0][0]]
-        gt_var = np.var(gts)
-        phe_var = np.var(phe_df[data["trait"]])
+        #gts = bed.read(dtype="int8")[
+        #    [i for i, n in enumerate(bed.iid) if n in phe_df.index],
+        #    np.where(bed.sid == pos_id)[0][0]]
+        #gt_var = np.var(gts)
+        #phe_var = np.var(phe_df[data["trait"]])
 
-        res_fn = os.path.join(
-          data_dir,
-          data["genome"],
-          "assoc",
-          data["markers"],
-          "res",
-          f"{data['model']}.{data['trait']}.tsv.gz")
-        res = pysam.TabixFile(res_fn)
-        records = list(res.fetch(chrom, pos - 1, pos))
-        if len(records) != 1:
-            return jsonify(
-              [[["Error calculating PVE."]],
-               []])
-        beta = float(records[0].split("\t")[3])
-        pve = (beta**2*gt_var) / phe_var
+        #res_fn = os.path.join(
+        #  data_dir,
+        #  data["genome"],
+        #  "assoc",
+        #  data["markers"],
+        #  "res",
+        #  f"{data['model']}.{data['trait']}.tsv.gz")
+        #res = pysam.TabixFile(res_fn)
+        #records = list(res.fetch(chrom, pos - 1, pos))
+        #if len(records) != 1:
+        #    return jsonify(
+        #      [[["Error calculating PVE."]],
+        #       []])
+        #beta = float(records[0].split("\t")[3])
+        #pve = (beta**2*gt_var) / phe_var
 
-        if 1:
-            af = sum(gts) / (gts.size * 2)
-            se = float(records[0].split("\t")[4])
-            pve2 = (2*(beta**2) * af * (1 - af)) / (2*(beta**2) * af * (1 - af) + (se**2) * 2 * gts.size * af * (1 - af))
+        #if 1:
+        #    af = sum(gts) / (gts.size * 2)
+        #    se = float(records[0].split("\t")[4])
+        #    pve2 = (2*(beta**2) * af * (1 - af)) / (2*(beta**2) * af * (1 - af) + (se**2) * 2 * gts.size * af * (1 - af))
             #from scipy.stats import linregress
             #slope, intercept, r_value, p_value, std_err = linregress(gts, phe_df[data["trait"]])
-            #print(r_value**2)
 
-        return jsonify(
-          [[[round(pve * 100, 2)], [round(pve2 * 100, 2)]],
-          ["PVE"]])
+        #return jsonify(
+        #  [[[round(pve * 100, 2)], [round(pve2 * 100, 2)]],
+        #  ["PVE"]])
 
     elif action == "gene_seq":
         gene = request.form["gene"]
-        gff_db = gffutils.FeatureDB(os.path.join(data_dir, genome, "gff.db"))
+        db_path = os.path.join(data_dir, genome, "stats", "gff.db")
+        gff_db = gffutils.FeatureDB(db_path)
         transcripts = [
           t.id for t in gff_db.children(gene)
           if t.featuretype == "mRNA"]
 
-        ids = list()
         seqs = list()
-        seq_types = list()
+        if config["cds"]:
+            cds_fa = pysam.FastaFile(
+              os.path.join(data_dir, genome, config["cds"]))
+        if config["pep"]:
+            pep_fa = pysam.FastaFile(
+              os.path.join(data_dir, genome, config["pep"]))
+
         for transcript in transcripts:
-            cds_path = os.path.join(
-              data_dir,
-              genome,
-              "prot_db",
-              "cds",
-              f"{transcript}.fasta")
-            if os.path.exists(cds_path):
-                seq = next(SeqIO.parse(
-                  cds_path,
-                  "fasta"))
-                #seq = re.sub(r"(\w{1,60})", r"\1<br>", seq)
-                seqs.append(str(seq.seq))
-                seq_types.append("CDS")
-                ids.append(seq.id)
+            try:
+                cds_seq = cds_fa.fetch(transcript)
+                seqs.append(
+                  "<br>".join(
+                    [f">{transcript} CDS", cds_seq]))
+            except:
+                pass
 
-            prot_path = os.path.join(
-              data_dir,
-              genome,
-              "prot_db",
-              "prot",
-              f"{transcript}.fasta")
-            if os.path.exists(prot_path):
-                seq = next(SeqIO.parse(
-                  prot_path,
-                  "fasta"))
-                #seq = re.sub(r"(\w{1,60})", r"\1<br>", seq)
-                seqs.append(str(seq.seq))
-                seq_types.append("Protein")
-                ids.append(seq.id)
+            try:
+                pep_seq = pep_fa.fetch(transcript)
+                seqs.append(
+                  "<br>".join(
+                    [f">{transcript} Protein", pep_seq]))
+            except:
+                pass
 
+        if not seqs:
+            return jsonify([[f"No sequence information found for {gene}."], []])
         return jsonify(
-        [[seq_types, seqs],
-         ids])
+        [[seqs],
+         [""]*len(seqs)])
+
+    elif action == "cov":
+        cov_cols = (pd
+          .read_csv(
+            os.path.join(data_dir, genome, "covariates", request.form["cov"]),
+            sep="\t",
+            header=0,
+            index_col=0,
+            nrows=0)
+          .columns
+          .tolist())
+        return jsonify(
+          [[[c] for c in cov_cols],
+           ["Columns"]])
 
     elif action == "markers":
         params_json = os.path.join(
@@ -782,12 +715,7 @@ def contextmenu():
           markers,
           "res",
           fn)
-    elif action == "fm_run":
-        task_id = request.form["task_id"]
-        fn = f"{task_id}.params"
-        params_json = os.path.join(
-          tmp_dir,
-          fn)
+
     try:
         with open(params_json, "r") as params_in:
             params = json.load(params_in)
@@ -815,8 +743,8 @@ def group():
             phe_df = pd.read_csv(
               phe_path,
               sep="\t",
-              header=[0],
-              index_col=[0])
+              header=0,
+              index_col=0)
             (phe_df
               .drop(
                 [data["items"]],
@@ -829,6 +757,7 @@ def group():
     gdata_path = os.path.join(
       data_dir,
       genome,
+      "stats",
       ".gdata")
 
     with master_lock:
@@ -836,7 +765,7 @@ def group():
     with lock:
         with open(gdata_path, "r") as gdata_in:
             gdata = json.load(gdata_in)
-        gdata["groups"].setdefault(data["set"], [])
+        gdata["group"].setdefault(data["set"], [])
 
         # If making a group from a list of items
         if "name" in data.keys():
@@ -844,17 +773,17 @@ def group():
               data["items"],
               data["name"])
             # If a group with the given name exists, return error
-            for group in gdata["groups"][data["set"]]:
+            for group in gdata["group"][data["set"]]:
                 if group[1] == data["name"]:
                     return "Group with this name alrady exists.", 400
-            gdata["groups"][data["set"]].append(group_entry)
+            gdata["group"][data["set"]].append(group_entry)
         # If deleting one or multiple groups
 
         else:
             filt = [
-              group for group in gdata["groups"][data["set"]]
+              group for group in gdata["group"][data["set"]]
               if group[1] not in data["items"]]
-            gdata["groups"][data["set"]] = filt
+            gdata["group"][data["set"]] = filt
         # Re-save the edited genome data
         with open(gdata_path, "w") as data_out:
             json.dump(gdata, data_out)
@@ -876,21 +805,123 @@ def rm_markers():
 
     return "", 204
 
-@app.route("/save_fm", methods=["POST"])
-def save_fm():
-    data = json.loads(request.get_data())
-    genome = data["genome"]
-    task_id = data["run"]
-    name = data["name"]
-    fm_dir = os.path.join(data_dir, genome, "fm")
+###############################################################################
+### Unused
+###############################################################################
 
-    try:
-        for ext in ("fm", "params"):
-            shutil.copy(
-              os.path.join(tmp_dir, f"{task_id}.{ext}"),
-              fm_dir)
-        with open(os.path.join(fm_dir, f"{task_id}.nm"), "w") as name_out:
-            _ = name_out.write(name)
-        return "", 204
-    except:
-        return "Could not save analysis.", 500
+# List of available columns for enrichment, as they appear in INFO file
+#@app.route("/enr_cols/<genome>", methods=["POST"])
+#def enr_cols(genome):
+#    info = request.form.get("info")
+#    cols = pd.read_csv(
+#        os.path.join(
+#            data_dir,
+#            genome,
+#            info),
+#        sep="\t",
+#        header=0,
+#        index_col=0,
+#        nrows=0)
+#    return jsonify(cols.columns.tolist())
+
+# Dict of gene enrichment data for selected genes
+#@app.route("/enr", methods=["POST"])
+#def fetch_enr():
+#    data = request.form
+#    genome = data.get("genome")
+#    col = data.get("col")
+#    attrs = json.loads(data.get("attrs"))
+#    num_subset = len(attrs)
+#    attrs = [
+#      attr.strip() for row_attrs in attrs 
+#      for attr in row_attrs.split(",") if attr]
+#    num_tests = len(attrs)
+
+#    enr_path = os.path.join(
+#      data_dir,
+#      genome,
+#      ".enr")
+#    with open(enr_path, "r") as enr_in:
+#        enr = json.load(enr_in)
+#        enr, num_genes = enr[col], enr["num_genes"]
+#    enr_res = [
+#      [attr,
+#       np.log2((cnt / num_subset) / (enr[attr] / num_genes)),
+#       -np.log10(hypergeom(num_genes, enr[attr], num_subset).sf(cnt - 1)),
+#       enr[attr],
+#       cnt]
+#      for attr, cnt in Counter(attrs).items()]
+
+#    enr_res = sorted(enr_res, key=lambda x: x[2], reverse=True)
+#    return jsonify({
+#      "data": enr_res,
+#      "num_genes": num_genes,
+#      "num_subset": num_subset})
+
+# Matrix of per-locus LD
+#@app.route("/locus_ld", methods=["POST"])
+#def fetch_locus_ld():
+#    form = request.form
+#    genome = form["genome"]
+#    markers = form["markers"]
+#    coord  = form["coord"]
+#    task_id = str(uuid.uuid4())
+
+#    gt_root = os.path.join(
+#      data_dir,
+#      genome,
+#      #"stats",
+#      "assoc",
+#      markers,
+#      "gt",
+#      "gt")
+#    out_root = os.path.join(
+#      tmp_dir,
+#      task_id)
+
+#    # Extract genotype data at QTLs
+#    span = 0
+#    with open(f"{out_root}.bed1", "w") as coord_out:
+#        for locus in coord.split(", "):
+#            chrom, start = locus.split(":")
+#            start = start.replace(",", "")
+#            if "-" in start:
+#                start, end = start.split("-")
+#                span += int(end) - int(start) + 1
+#            else:
+#                end = start
+#            _ = coord_out.write("\t".join((chrom, start, end)) + "\n")
+#    pr = subprocess.run(
+#      [plink2_path,
+#       "--bfile", gt_root,
+#       "--extract", "bed1", f"{out_root}.bed1",
+#       #"--thin-count", "1000",
+#       "--bp-space", str(max(1, span // 2000)),
+#       "--r2-unphased", "square0",
+#       #"--silent",
+#       "--out", out_root],
+#      check=True,
+#      text=True,
+#      stdout=subprocess.PIPE)
+#    output = pr.stdout
+#    try:
+#        rm, rt = map(int, re.search(
+#          "\-\-bp\-space\: (\d+) variants removed \((\d+) remaining\)\.",
+#          output).groups())
+#        num_markers = f"LD for {rt} of {rm + rt} markers in region"
+#    except:
+#        num_markers = "(Could not determine marker number)"
+
+#    r2_vals = pd.read_csv(
+#      f"{out_root}.unphased.vcor2",
+#      sep="\t",
+#      header=None,
+#      index_col=None).round(3).fillna("")
+#    r2_idx = pd.read_csv(
+#      f"{out_root}.unphased.vcor2.vars",
+#      sep="\t",
+#      header=None,
+#      index_col=None)
+
+#    return jsonify([r2_vals.values.tolist(), r2_idx[0].tolist(), num_markers])
+
