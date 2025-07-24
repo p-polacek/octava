@@ -38,7 +38,7 @@ RUN chmod 600 /root/.ssh/id_rsa &&\
     git clone https://github.com/Menggg/BLINK.git &&\
     unzip BLINK/blink_linux.zip -d BLINK/ &&\
     apt-get update &&\
-    apt-get install -y emboss gemma
+    apt-get install -y emboss gemma ncbi-blast+ cd-hit
 
 #    wget https://www.haplotype.org/download/pimass-latest.tar.gz -O pimass.tar.gz &&\
 #    tar -zxf pimass.tar.gz &&\
