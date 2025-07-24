@@ -24,8 +24,8 @@ from modules.snpeff import snpeff_annotate
 
 from modules.sev import (
   make_db,
-  run_blastp,
-  process_blastp)
+  run_blastp)
+  #process_blastp)
 
 def genome_setup(
   genome,
