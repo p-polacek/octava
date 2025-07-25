@@ -9,7 +9,9 @@ import subprocess
 import portalocker
 import numpy as np
 import pandas as pd
-from skranger.ensemble import RangerForestRegressor
+from skranger.ensemble import (
+  RangerForestRegressor,
+  RangerForestClassifier)
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
@@ -161,7 +163,7 @@ def run_assoc(genome, params, task_id):
         if os.path.exists(os.path.join(out_dir, "BLINK.log")):
             os.remove(os.path.join(out_dir, "BLINK.log"))
 
-    elif model == "rf":
+    elif model in ("rf", "rfc"):
         # Correct for kinship and population structure
         phe_df = phe_df.loc[samples, params["trait"]]
 
@@ -189,7 +191,8 @@ def run_assoc(genome, params, task_id):
             if 1:
                 mtry = min(params["mtry"], phe_gt.shape[1])
 
-                rf = RangerForestRegressor(
+                rf_func = RangerForestRegressor if model == "rf" else RangerForestClassifier
+                rf = rf_func(
                   n_estimators=params["ntree"],
                   mtry=mtry,
                   oob_error=True,

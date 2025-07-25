@@ -947,6 +947,7 @@
             if (dataKeys.length > 0) {
               switch (dataKeys[0][1]) {
                 case "rf": return "Permutation importance";
+                case "rfc": return "Permutation importance";
                 case "B": case "C": return "Posterior inclusion probability";
                 case "glm": case "mlm": case "mtmlm": case "blink": return "-log<sub>10</sub>(P-value)";
                 default: return "Significance";

@@ -612,7 +612,7 @@
     function setModelParams(model) {
       var rfParams = document.getElementById("rf-params");
       var bayesParams = document.getElementById("bayes-params");
-      if (model === "rf") {
+      if (model === "rf" || model === "rfc") {
         rfParams.classList.remove("collapsed");
         bayesParams.classList.add("collapsed");
       } else if (model === "B" || model === "C") {

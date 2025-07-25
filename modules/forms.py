@@ -27,7 +27,8 @@ models = [
   #("rr", "Ridge regression / GBLUP"),
   #("bin", "Binary trait MLM"),
   ("blink", "BLINK"),
-  ("rf", "Random forest"),
+  ("rf", "Random forest regressor"),
+  ("rfc", "Random forest classifier"),
   ("B", "BayesB"),
   ("C", "BayesC")]
 

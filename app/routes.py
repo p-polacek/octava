@@ -1218,7 +1218,7 @@ def assoc_run(genome):
     param_keys = [
       "markers_sgl", "model_sgl", "trait", "trait_group",
       "k", "q", "q_num", "kq_from", "cov", "overwrite"]
-    if data["model_sgl"] == "rf":
+    if data["model_sgl"] in ("rf", "rfc"):
         param_keys += ["mtry", "ntree"]
     elif data["model_sgl"] in ("B", "C"):
         param_keys += ["b_burn", "b_chain", "b_thin"]
