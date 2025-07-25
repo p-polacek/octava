@@ -120,7 +120,9 @@ def fetch_ld():
     window    = int(form["window"])
     task_id   = str(uuid.uuid4())
     r2        = float(form["r2"])
-    is_hap    = "-" in marker_id and "_" in marker_id
+
+    pos_str   =  marker_id.rsplit(":", 1)[1]
+    is_hap    = "-" in pos_str and "_" in pos_str
 
     in_root = os.path.join(
       data_dir,
@@ -128,19 +130,18 @@ def fetch_ld():
       "assoc",
       markers,
       "gt",
-      "gt")        
+      "gt")
     out_root = os.path.join(
       tmp_dir,
       task_id)
     if is_hap:
-        ch, pos = marker_id.split("_")[0].split(":")
+        ch, pos = marker_id.rsplit("_", 1)[0].split(":")
         start, end = map(int, pos.split("-"))
     else:
         ch, pos = marker_id.split(":")
         start = end = int(pos)
     subprocess.run(
       [plink2_path,
-       #"--bfile", "chr6",
        "--pfile", in_root, "vzs",
        "--chr", ch,
        "--from-bp", str(start - window*1000),
@@ -175,18 +176,19 @@ def fetch_ld():
         ld = ld.set_axis(
           ["id", "val"],
           axis=1)
-        ld[["chr", "start", "end", "idx"]] = ld["id"].str.split("[\:\-\_]", expand=True)
+        ld[["chr", "span"]] = ld["id"].str.split(":", expand=True)
+        ld[["start", "end", "idx"]] = ld["span"].str.split("[\-\_]", expand=True)
         ld["start"] = ld["start"].astype(int)
         ld["end"] = ld["end"].astype(int)
 
-        ch, start, end, idx = re.split("[\:\-\_]", marker_id)
+        ch, span = marker_id.split(":")
+        start, end, idx = re.split("[\-\_]", span)
         ld.loc[len(ld)] = [marker_id, 1, ch, int(start), int(end), idx]
         ld = ld.sort_values(by="start").groupby("start", as_index=False).apply(lambda x: x.loc[x["val"].idxmax()])
         ld = (ld
           [["chr", "start", "val", "end", "idx"]]
           .values.tolist())
         ld = sorted(ld, key=lambda x: x[1])
-
     else:
         ld.loc[len(ld)] = [int(pos), 1]
         ld = (ld
@@ -243,39 +245,6 @@ def fetch_correl():
              .tolist()),
            traits])
 
-# Per-metric table data for GWAS QC filtering
-@app.route("/filt", methods=["POST"])
-def fetch_filt():
-    form      = request.form
-    genome    = form["genome"]
-    metric    = form["metric"]
-    start_row = int(form["start_row"])
-    end_row   = int(form["end_row"])
-    if "markers" in form.keys() and form["markers"]:
-        markers = form["markers"]
-        stats_root = os.path.join(
-          data_dir,
-          genome,
-          "assoc",
-          markers,
-          "gt",
-          "gt")
-    else:
-        stats_root = os.path.join(
-          data_dir,
-          genome,
-          "stats",
-          "gt")
-
-    fn = f"{stats_root}.{metric}.csv.gz"
-    with gzip.open(fn, "rt") as metr_in:
-        for i in range(1, start_row):
-            next(metr_in)
-        lines = [
-          next(metr_in).strip().split(",")
-          for l in range(start_row, end_row + 1)]
-    return jsonify(lines)
-
 # Filter histograms per marker set
 @app.route("/hist", methods=["POST"])
 def fetch_hist():
@@ -326,10 +295,6 @@ def fetch_hist():
         hist_path = os.path.join(stats_dir, metric)
         with open(hist_path, "r") as hist_in:
             hist_data[metric] = json.load(hist_in)
-
-#    with open(os.path.join(stats_dir, "cnts"), "r") as cnts_in:
-#        samp_num, var_num = json.load(cnts_in)
-
     return jsonify(hist_data)
 
 # Manhattan plot data for GWAS visualisation
@@ -367,6 +332,11 @@ def fetch_bblplot():
     thresh   = float(form["thresh"])
     groups   = json.loads(form["keys"])
     min_size = math.ceil(float(form.get("min_size", 0)))
+    set_path = os.path.join(
+      data_dir,
+      genome,
+      "assoc",
+      markers)
 
     gdata = load_gdata(genome)
     offsets = {
@@ -385,24 +355,17 @@ def fetch_bblplot():
             string_key = ", ".join(key)
             assoc_fn = f"{model}.{trait}.feather"
             assoc_path = os.path.join(
-              data_dir,
-              genome,
-              "assoc",
-              markers,
+              set_path,
               "res",
               assoc_fn)
             if not os.path.exists(assoc_path):
                 continue
 
-            params_fn = os.path.join(
-              data_dir,
-              genome,
-              "assoc",
-              markers,
+            hap_fn = os.path.join(
+              set_path,
               "stats",
-              "params")
-            with open(params_fn) as params_in:
-                is_hap = json.load(params_in)[1][10] == "Yes"
+              "is_hap")
+            is_hap = os.path.exists(hap_fn)
 #            if is_hap:
 #                continue
 
@@ -924,3 +887,35 @@ def rm_markers():
 
 #    return jsonify([r2_vals.values.tolist(), r2_idx[0].tolist(), num_markers])
 
+# Per-metric table data for GWAS QC filtering
+#@app.route("/filt", methods=["POST"])
+#def fetch_filt():
+#    form      = request.form
+#    genome    = form["genome"]
+#    metric    = form["metric"]
+#    start_row = int(form["start_row"])
+#    end_row   = int(form["end_row"])
+#    if "markers" in form.keys() and form["markers"]:
+#        markers = form["markers"]
+#        stats_root = os.path.join(
+#          data_dir,
+#          genome,
+#          "assoc",
+#          markers,
+#          "gt",
+#          "gt")
+#    else:
+#        stats_root = os.path.join(
+#          data_dir,
+#          genome,
+#          "stats",
+#          "gt")
+#
+#    fn = f"{stats_root}.{metric}.csv.gz"
+#    with gzip.open(fn, "rt") as metr_in:
+#        for i in range(1, start_row):
+#            next(metr_in)
+#        lines = [
+#          next(metr_in).strip().split(",")
+#          for l in range(start_row, end_row + 1)]
+#    return jsonify(lines)

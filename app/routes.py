@@ -43,7 +43,6 @@ from flask import (
 
 from app.ajax import (
   group,
-  fetch_filt,
   rm_markers,
   contextmenu,
   fetch_mplot,
@@ -874,7 +873,7 @@ def ann_sev(genome):
 
     marker_data = list()
     for marker in markers:
-        ch, pos = marker.replace(",", "").split(":")
+        ch, pos = marker.replace(",", "").rsplit(":", 1)
         pos = int(pos.split(".")[0])
         marker_data.append((ch, pos))
 
@@ -1141,14 +1140,13 @@ def assoc_opts(genome):
     for m in os.listdir(markers_root):
         init_path = os.path.join(markers_root, m, "stats", "init")
         if os.path.exists(init_path):
-            params_path = os.path.join(
+            hap_fn = os.path.join(
               markers_root,
               m,
               "stats",
-              "params")
-            with open(params_path, "r") as params_in:
-                hap = json.load(params_in)[1][10] == "Yes"
-            haps[m] = hap
+              "is_hap")
+            is_hap = os.path.exists(hap_fn)
+            haps[m] = is_hap
 
             form.markers_sgl.choices.append(m)
             form.kq_from.choices.append(m)
@@ -1477,8 +1475,12 @@ def assoc_res(genome):
 
     is_hap = dict()
     for marker_set in form.markers.choices:
-        with open(os.path.join(markers_root, marker_set, "stats", "params")) as params_in:
-            is_hap[marker_set] = json.load(params_in)[1][10] == "Yes"
+        hap_fn = os.path.join(
+          markers_root,
+          marker_set,
+          "stats",
+          "is_hap")
+        is_hap[marker_set] = os.path.exists(hap_fn)
 
     return render_template(
       "assoc/res.html",

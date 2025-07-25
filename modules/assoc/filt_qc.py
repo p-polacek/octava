@@ -475,6 +475,12 @@ def filt_qc(
             
         json.dump(params, params_out)
 
+    if data["hap"]:
+        hap_fn = os.path.join(
+          gt_stats_dir,
+          "is_hap")
+        open(hap_fn, "w").close()
+
     # Clean up
     for fn in (
       "kin.dist",

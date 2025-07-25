@@ -1654,8 +1654,8 @@
 //        updateCount(dropdown);
 //      }
       var locusField = document.getElementById("assoc-locus-field");
-      if (locus.includes("_")) {
-        locus = locus.split("_")[0];
+      if (locus.split(":").slice(-1).includes("_")) {
+        locus = locus.split("_").slice(0, -1).join("_");
       }
 
       var currLocus = locusField.value;

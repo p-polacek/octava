@@ -95,12 +95,11 @@ def am_pipeline(genome, form):
                   markers_root,
                   "gt",
                   "gt.vcf.gz")
-                params_path = os.path.join(
+                hap_fn = os.path.join(
                   markers_root,
                   "stats",
-                  "params")
-                with open(params_path, "r") as params_in:
-                    is_hap = json.load(params_in)[1][10] == "Yes"
+                  "is_hap")
+                is_hap = os.path.join(hap_fn)
             vcf_reader = VcfReader(vcf_path)
 
             sev_path = os.path.join(

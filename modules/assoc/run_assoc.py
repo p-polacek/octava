@@ -238,8 +238,11 @@ def run_assoc(genome, params, task_id):
               sep="\t",
               index=False)
 
-            with open(os.path.join(assoc_dir, "stats", "params")) as params_in:
-                is_hap = json.load(params_in)[1][10] == "Yes"
+            hap_fn = os.path.join(
+              assoc_dir,
+              "stats",
+              "is_hap")
+            is_hap = os.path.exists(hap_fn)
             if is_hap:
                 blockmap = (pd
                   .read_csv(

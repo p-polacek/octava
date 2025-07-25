@@ -45,20 +45,19 @@ def extract_qtls(genome, params, task_id):
         markers, model, trait = run
         print(", ".join((markers, models_dict[model], trait)) + f" ({run_idx}/{num_runs})")
 
-        params_fn = os.path.join(
+        markers_root = os.path.join(
           data_dir,
           genome,
           "assoc",
-          markers,
+          markers)
+        hap_fn = os.path.join(
+          markers_root,
           "stats",
-          "params")
-        with open(params_fn) as params_in:
-            is_hap = json.load(params_in)[1][10] == "Yes"
+          "is_hap")
+        is_hap = os.path.exists(hap_fn)
+
         res_fn = os.path.join(
-          data_dir,
-          genome,
-          "assoc",
-          markers,
+          markers_root,
           "res",
           f"{model}.{trait}.feather")
         res = pd.read_feather(res_fn)
@@ -81,10 +80,7 @@ def extract_qtls(genome, params, task_id):
 
         # Get correction parameters
         params_fn = os.path.join(
-          data_dir,
-          genome,
-          "assoc",
-          markers,
+          markers_root,
           "res",
           f"{model}.{trait}.params")
         with open(params_fn) as params_in:
@@ -131,10 +127,7 @@ def extract_qtls(genome, params, task_id):
                 data = data.iloc[1:]
 
                 in_root = os.path.join(
-                  data_dir,
-                  genome,
-                  "assoc",
-                  markers,
+                  markers_root,
                   "gt",
                   "gt")
                 out_root = os.path.join(
