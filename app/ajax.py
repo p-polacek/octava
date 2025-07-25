@@ -384,9 +384,8 @@ def fetch_bblplot():
         if not group_data:
             win_data.append(win_group)
             continue
-           
-        group_df = pd.concat(group_data, axis=1)
 
+        group_df = pd.concat(group_data, axis=1)
         for ch, data, in group_df.groupby(level="Chr"):
             data.index = data.index.droplevel()
             data = data.sort_index()

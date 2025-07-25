@@ -149,11 +149,9 @@ def remove_task(task_id):
 
 @app.route("/")
 def index():
-    # Remove old files from tmp_dir
-    with master_lock:
-        lock = get_lock("__clean__")
-    with lock:
-        clean()
+    # Remove files older than 7 days from tmp_dir and output/
+    clean()
+
     genomes = sorted(
       [genome for genome in os.listdir(data_dir)
        if os.path.exists(
@@ -508,7 +506,6 @@ def ts(genome):
                       (raw_phe < (params["thr_min"] if params["thr_min"] is not None else -np.inf)) |
                       (raw_phe > (params["thr_max"] if params["thr_max"] is not None else np.inf)))
                 elif params["transform"] == "bc":
-                    #transform = raw_phe[phe_df[params["trait_sgl"]] > 0]
                     transform[params["trait_sgl"]] = boxcox(transform[params["trait_sgl"]])[0]
                 elif params["transform"] == "corr":
                     phe_corr = kq_correct(
@@ -726,7 +723,6 @@ def fa_res(genome):
     form.exprun_group.choices = [
       [json.dumps(group[0]), group[1]]
        for group in gdata["group"].get("exprun", [])]
-
 #    form.trait_group.choices = [
 #      [json.dumps(group[0]), group[1]]
 #      for group in gdata["group"].get("trait", [])]
@@ -838,7 +834,7 @@ def fa_res(genome):
       anns      = anns,
       errors    = errors,
       form      = form,
-      is_res   = True,
+      is_res    = True,
       id_fmt    = gdata["id_fmt"],
       phe       = phe,
       runs_info = runs_info,
@@ -915,7 +911,6 @@ def assoc(genome):
       data_dir,
       genome,
       "assoc")
-
     if not os.path.exists(assoc_dir):
         os.mkdir(assoc_dir)
     if not os.listdir(assoc_dir):
@@ -987,14 +982,12 @@ def assoc_qc(genome):
           "init")
         if os.path.exists(init_path):
             saved_sets.append(d.casefold())
-            params_path = os.path.join(
+            hap_fn = os.path.join(
               markers_root,
               d,
               "stats",
-              "params")
-            with open(params_path) as params_in:
-                params = json.load(params_in)
-            if params[1][10] == "No":
+              "is_hap")
+            if os.path.exists(hap_fn):
                 form.filt_from.choices.append((d, d))
 
     form.coord.choices = [
