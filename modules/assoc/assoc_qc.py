@@ -473,8 +473,7 @@ def calc_chr_ld(
 
         r2_path = os.path.join(
           stats_dir,
-          f"{ch}.r2")
-
+          f"{ch}.r2.gz")
         if ch in concat:
             continue
         if ch not in chr_s:

@@ -65,7 +65,6 @@ def fetch_chr_ld():
     genome  = form["genome"]
     markers = form["markers"]
     chrom   = form["chrom"]
-
     if markers:
         stats_dir = os.path.join(
           data_dir,
@@ -80,7 +79,7 @@ def fetch_chr_ld():
           "stats")
     r2_path = os.path.join(
       stats_dir,
-      f"{chrom}.r2")
+      f"{chrom}.r2.gz")
     with gzip.open(r2_path, "rt") as r2_in:
         chr_r2 = json.load(r2_in)
     return jsonify(chr_r2)
