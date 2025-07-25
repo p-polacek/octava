@@ -348,21 +348,26 @@ def filt_qc(
 
     # Calculate K and Q
     print("<b>Determining kinship and population structure</b>")
-    subprocess.run(
-      [plink2_path,
+    cmd = [plink2_path,
        "--memory", f"{get_mem()}",
        "--bfile", kin_in,
        "--make-rel", "square",
        "--pca", "15",
        "--allow-extra-chr",
-       "--out", plink_out],
+       "--out", plink_out]
+    if not data["hap"]:
+        cmd += ["--export", "vcf", "bgz"]
+    subprocess.run(
+      cmd,
       check=True)
+
+    pysam.tabix_index(plink_out + ".vcf.gz")
+
     rel_matrix = pd.read_csv(
       f"{plink_out}.rel",
       sep="\t",
       header=None,
       index_col=None)
-
     # Convert PCA eigenvectors to PVE
     sum_diag = sum(np.diag(rel_matrix))
     eigenval = pd.read_csv(
@@ -498,7 +503,7 @@ def filt_qc(
       "gt.blocks",
       "gt.blocks.det",
       "gt.eigenval",
-      "gt.vcf.gz",
+      #"gt.vcf.gz",
       "gt.filt.log",
       "gt.filt.vcf.gz",
       "gt.filt.pvar.zst",

@@ -175,20 +175,17 @@ def genome_setup(
         # (which are allowed in genome names)
         old_wd = os.getcwd()
         os.chdir(os.path.join(data_dir, genome))
-
         #if params["db_fasta"]:
         #    make_db(
         #      task_id,
         #      params["db_fasta"])
             #params["db_prefix"] = params["db_fasta"]
-
         if params["db_prefix"]:
             run_blastp(
               task_id,
               params["pep"],
               params["db_prefix"])
             #process_blastp()
-
         os.chdir(old_wd)
 
     else:
@@ -476,38 +473,38 @@ def annotate_db(
       merge_strategy="replace",
       make_backup=False)
 
-def calc_enr(
-  genome,
-  info,
-  enr_cols,
-  num_genes,
-  task_id):
-    info_path = os.path.join(
-      data_dir,
-      genome,
-      info)
-    info_df = pd.read_csv(
-      info_path,
-      sep="\t",
-      header=0,
-      index_col=0)
-
-    enr = dict()
-    for col in enr_cols:
-        attrs = []
-        for row_attrs in info_df[col].dropna():
-            attrs += list(
-              set(
-                [attr.strip() for attr
-                 in row_attrs.strip().split(";") if attr]))
-        enr[col] = Counter(attrs)
-
-    enr_path = os.path.join(
-      data_dir,
-      genome,
-      ".enr")
-    with open(enr_path, "w") as enr_out:
-        json.dump([enr, num_genes], enr_out)
+#def calc_enr(
+#  genome,
+#  info,
+#  enr_cols,
+#  num_genes,
+#  task_id):
+#    info_path = os.path.join(
+#      data_dir,
+#      genome,
+#      info)
+#    info_df = pd.read_csv(
+#      info_path,
+#      sep="\t",
+#      header=0,
+#      index_col=0)
+#
+#    enr = dict()
+#    for col in enr_cols:
+#        attrs = []
+#        for row_attrs in info_df[col].dropna():
+#            attrs += list(
+#              set(
+#                [attr.strip() for attr
+#                 in row_attrs.strip().split(";") if attr]))
+#        enr[col] = Counter(attrs)
+#
+#    enr_path = os.path.join(
+#      data_dir,
+#      genome,
+#      ".enr")
+#    with open(enr_path, "w") as enr_out:
+#        json.dump([enr, num_genes], enr_out)
 
 if __name__ == "__main__":
     genome, params, task_id = sys.argv[1:4]

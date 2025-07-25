@@ -804,11 +804,11 @@ def fa_res(genome):
         runs_info = ""
         #proj_info = ""
 
-    try:
-        with open("test_colors.json", "r") as in_colors:
-            colors = json.load(in_colors)
-    except:
-        colors = ""
+    #try:
+    #    with open("test_colors.json", "r") as in_colors:
+    #        colors = json.load(in_colors)
+    #except:
+    #    colors = ""
 
     phe_path = os.path.join(
       data_dir,
@@ -840,7 +840,7 @@ def fa_res(genome):
       runs_info = runs_info,
       #proj_info = proj_info,
       exp_data  = exp_data,
-      colors    = colors,
+      #colors    = colors,
       igv_conf  = igv_conf)
 
 ###############################################################################

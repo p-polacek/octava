@@ -180,6 +180,7 @@ def fetch_ld():
         ld[["start", "end", "idx"]] = ld["span"].str.split("[\-\_]", expand=True)
         ld["start"] = ld["start"].astype(int)
         ld["end"] = ld["end"].astype(int)
+        ld = ld.drop(["span"], axis=1)
 
         ch, span = marker_id.split(":")
         start, end, idx = re.split("[\-\_]", span)

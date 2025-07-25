@@ -106,7 +106,7 @@ def block_genotype(
         f"{gt_root}.bim", 
         sep="\t",
         header=None,
-        usecols=[1])
+        usecols=1)
       .to_records()}
 
     vcf_out = pysam.BGZFile(gt_root + ".vcf.gz", "w")
@@ -116,7 +116,6 @@ def block_genotype(
       "QUAL", "FILTER", "INFO", "FORMAT"] + samples.tolist()
     _ = vcf_out.write(("\t".join(columns) + "\n").encode())
 
-    #                                                                                     CONSIDER INCLUDING SINGLES
     print("<b>Genotyping haplotype blocks</b>")
     # Skip leading "*", split on space
     for block_idx, block in enumerate(in_b):
@@ -146,8 +145,7 @@ def block_genotype(
           return_counts=True)
         filt_haps = haps[cnts > allele_thresh]
         filt_cnts = cnts[cnts > allele_thresh]
-        #                                                                                 CONSIDER GROUPING MINOR
-        #                                                                                 IF SO, MAKE SURE GROUP PASSES MAF
+
         # Skip block if not enough haplotypes pass MAF threshold
         if len(filt_haps) < min_haps:
             continue

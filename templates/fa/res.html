@@ -828,7 +828,7 @@
 
     var genome = '{{ genome }}';
     var visibleDropdown = null;
-    var colors = JSON.parse('{{ colors|tojson|safe }}');
+     //{#var colors = JSON.parse('{{ colors|tojson|safe }}');#}
     var phe = JSON.parse('{{ phe|tojson|safe }}');
     if (phe.length > 0) {
       var pheCols = phe[0].slice(1);
@@ -1329,10 +1329,10 @@
             },
             visible: true,
           };
-          if (false && colors[colLabel]) {
-            trace["marker"] = { color: colors[colLabel][uniqueVal] };
-            trace["fillcolor"] = colors[colLabel][uniqueVal];
-          }
+          //if (colors[colLabel]) {
+          //  trace["marker"] = { color: colors[colLabel][uniqueVal] };
+          //  trace["fillcolor"] = colors[colLabel][uniqueVal];
+          //}
           traces.push(trace);
         }
       } else {
@@ -1411,10 +1411,10 @@
               },
               visible: true,
             };
-            if (false && colors[colLabel]) {
-              trace["marker"] = { color: colors[colLabel][uniqueVal] };
-              trace["fillcolor"] = colors[colLabel][uniqueVal];
-            }
+            //if (colors[colLabel]) {
+            //  trace["marker"] = { color: colors[colLabel][uniqueVal] };
+            //  trace["fillcolor"] = colors[colLabel][uniqueVal];
+            //}
             traces.push(trace);
           }
         }
