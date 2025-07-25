@@ -28,19 +28,13 @@ def snpeff_annotate(
     genome_safe = re.sub("\W", "_", genome)
     if not os.path.exists("snpEff/"):
         progress(task_id, "Downloading snpEff")
-        popen(
-          task_id,
-          ["wget",
-           snpEff_url])
-        popen(
-          task_id,
-          ["unzip",
-           "-q",
-           "snpEff_latest_core.zip"])
-        popen(
-          task_id,
-          ["rm",
-           "snpEff_latest_core.zip"])
+        subprocess.run(
+          ["wget", snpEff_url],
+          check=True)
+        subprocess.run(
+          ["unzip", "-q", "snpEff_latest_core.zip"],
+          check=True)
+        os.remove("snpEff_latest_core.zip")
 
 ###############################################################################
 ### Prepare input/output
@@ -58,7 +52,7 @@ def snpeff_annotate(
     gff_renamed = gff_intmd = "genes"
     cds_renamed = cds_intmd = "cds.fa"
     pep_renamed = pep_intmd = "protein.fa"
-    """
+
     if os.path.splitext(seq_file)[1] == ".gz":
         seq_intmd += ".gz"
     if cds_file and os.path.splitext(cds_file)[1] == ".gz":
@@ -99,17 +93,13 @@ def snpeff_annotate(
       (cds_file, cds_intmd),
       (pep_file, pep_intmd)):
         if source:
-            popen(
-              task_id,
-              ["cp",
-               os.path.join(in_root, source), 
-               os.path.join(snpeff_root, target)])
+            shutil.copy(
+               os.path.join(in_root, source),
+               os.path.join(snpeff_root, target))
             if target.endswith(".gz"):
-                popen(
-                  task_id,
-                  ["gunzip",
-                   "-f",
-                   os.path.join(snpeff_root, target)])
+                subprocess.run(
+                  ["gunzip", "-f", os.path.join(snpeff_root, target)],
+                  check=True)
     if os.path.exists(os.path.join(snpeff_root, vcf_file)):
         os.remove(os.path.join(snpeff_root, vcf_file))
     os.link(
@@ -136,14 +126,14 @@ def snpeff_annotate(
         cmd.append("-noCheckCds")
     if not pep_file:
         cmd.append("-noCheckProtein")
-    popen(
-      task_id,
-      cmd)
+    subprocess.run(
+      cmd,
+      check=True)
 
 ###############################################################################
 ### Annotate and index VCF file
 ###############################################################################
-    """
+
     progress(task_id, "Annotating VCF file")
     pr = subprocess.Popen(
       ["java", "-jar",
@@ -170,4 +160,4 @@ def snpeff_annotate(
       force=True)
 
     # Remove copies of genome and annotation files
-    #shutil.rmtree(snpeff_root)
+    shutil.rmtree(snpeff_root)
