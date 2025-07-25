@@ -611,13 +611,12 @@ def run_assoc(genome, params, task_id):
             print(f"{trait} ({trait_idx}/{num_traits})")
             run_params = [
               ["Markers", "Samples", "PCs", "Kinship", "K/Q source", "Covariate files"],
-              #[sum(1 for l in open(os.path.join(out_dir, f"regenie_{trait}.regenie"))) - 1,
-              [sum(1 for l in open(f"modules/tools/regenie_test/bin_all/out/regenie_{trait}.regenie")) - 1, # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-               phe_df.loc[samples, trait].dropna().shape[0],
-               params["q_num"] if params["q"] else 0,
-               "Yes" if params["k"] else "No",
-               params["kq_from"] or markers,
-               "<br>".join(params["cov"])]]
+              [sum(1 for l in open(os.path.join(out_dir, f"regenie_{trait}.regenie"))) - 1,
+              phe_df.loc[samples, trait].dropna().shape[0],
+              params["q_num"] if params["q"] else 0,
+              "Yes" if params["k"] else "No",
+              params["kq_from"] or markers,
+              "<br>".join(params["cov"])]]
             with open(
               os.path.join(
                 out_dir,
@@ -630,33 +629,35 @@ def run_assoc(genome, params, task_id):
             mqplot_fn     = f"{processed_out}.mqplot.png"
             out_feather   = f"{processed_out}.feather"
             out_gz        = f"{processed_out}.tsv.gz"
-
-            bim_map = pd.read_feather(f"{in_root}.bim_map.feather")
-            bim_map = bim_map.reset_index()
+            chr_rename    = dict(enumerate(gdata["chr_names"], start=1))
 
             res = (pd
               .read_csv(
-                f"modules/tools/regenie_test/bin_all/out/regenie_{trait}.regenie",
+                os.path.join(out_dir, f"regenie_{trait}.regenie"),
                 sep=" ",
                 header=0,
                 index_col=None)
               .loc[:, ["CHROM","GENPOS","BETA","SE","LOG10P"]])
+            if concat:
+                bim_map = pd.read_feather(f"{in_root}.bim_map.feather")
+                bim_map = bim_map.reset_index()
 
-            res = res.merge(
-                bim_map,
-                left_on=["CHROM", "GENPOS"],
-                right_on=["chr_new", "pos_new"],
-                how="left")
-            res = (res
-              .sort_values(by="index")
-              .drop(["index"], axis=1))
+                res = res.merge(
+                    bim_map,
+                    left_on=["CHROM", "GENPOS"],
+                    right_on=["chr_new", "pos_new"],
+                    how="left")
+                res = (res
+                  .sort_values(by="index")
+                  .drop(["index"], axis=1))
 
-            # Save raw results, rename numeric chromosomes back to original
-            chr_rename = dict(enumerate(gdata["chr_names"], start=1))
-
-            res["CHROM"] = res["chr_old"].map(chr_rename)
-            res["GENPOS"] = res["pos_old"]
-            res = res.drop(["chr_old", "pos_old", "chr_new", "pos_new"], axis=1)
+                res["CHROM"] = res["chr_old"].map(chr_rename)
+                res["GENPOS"] = res["pos_old"]
+                res = res.drop(
+                  ["chr_old", "pos_old", "chr_new", "pos_new"],
+                  axis=1)
+            else:
+                res["CHROM"] = res["CHROM"].map(chr_rename)
 
             res.to_csv(
               out_gz,
@@ -664,8 +665,8 @@ def run_assoc(genome, params, task_id):
               index=False)
 
             # Save results for MP visualisation
-            with open(os.path.join(assoc_dir, "stats", "params")) as params_in:
-                is_hap = json.load(params_in)[1][10] == "Yes"
+            hap_fn = os.path.join(assoc_dir, "stats", "is_hap")
+            is_hap = os.path.exists(hap_fn)
             if is_hap:
                 blockmap = (pd
                   .read_csv(

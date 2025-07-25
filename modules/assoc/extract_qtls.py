@@ -116,7 +116,17 @@ def extract_qtls(genome, params, task_id):
               "",
               "",
               ""])
-            pd.DataFrame([qtls[-1]], columns=qtls[0]).to_csv("QTL_data.txt", sep="\t", mode="a", header=False, index=False)
+            (pd
+               .DataFrame(
+                 [qtls[-1]],
+                 columns=qtls[0])
+               .to_csv(
+                 "QTL_data.txt",
+                 sep="\t",
+                 mode="a",
+                 header=False,
+                 index=False)
+
         for ch, data in res.groupby(ch_col):
             while not data.empty:
                 peak = data.iloc[0]
