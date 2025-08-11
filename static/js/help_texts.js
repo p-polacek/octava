@@ -58,6 +58,8 @@ var helpTexts = {
 
  "filt-ext":
   "Use an existing marker set as the input for filtering<br>Use for reapplying filters or constructing haplotype block from existing marker sets",
+ "filt-indel":
+  "Specify maximum size of 1 to filter for only SNPs",
  "ld-prune":
   "For each marker, removes all markers within <i>Window</i> with r-squared above <i>Threshold</i>",
  "impute":

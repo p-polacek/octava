@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-snpEff_url = "https://snpeff.blob.core.windows.net/versions/snpEff_latest_core.zip"
-
 import io
 import os
 import re
@@ -12,42 +10,30 @@ from Bio.bgzf import BgzfWriter
 
 from app.dirs import data_dir
 
-def snpeff_annotate(
-  genome,
-  vcf_file,
-  gff_file,
-  seq_file,
-  cds_file,
-  pep_file,
-  task_id):
 
-###############################################################################
-### Download snpEff
-###############################################################################
+snpEff_url = "https://snpeff.blob.core.windows.net/versions/snpEff_latest_core.zip"
+
+
+def snpeff_annotate(genome, vcf_file, gff_file, seq_file, cds_file, pep_file, task_id):
+
+    ###############################################################################
+    ### Download snpEff
+    ###############################################################################
 
     genome_safe = re.sub("\W", "_", genome)
     if not os.path.exists("snpEff/"):
-        progress(task_id, "Downloading snpEff")
-        subprocess.run(
-          ["wget", snpEff_url],
-          check=True)
-        subprocess.run(
-          ["unzip", "-q", "snpEff_latest_core.zip"],
-          check=True)
+        print("<b>Downloading snpEff</b>")
+        subprocess.run(["wget", snpEff_url], check=True)
+        subprocess.run(["unzip", "-q", "snpEff_latest_core.zip"], check=True)
         os.remove("snpEff_latest_core.zip")
 
-###############################################################################
-### Prepare input/output
-###############################################################################
+    ###############################################################################
+    ### Prepare input/output
+    ###############################################################################
 
-    in_root = os.path.join(
-      data_dir,
-      genome)
+    in_root = os.path.join(data_dir, genome)
     # snpEff requires specific filenames for database building
-    snpeff_root = os.path.join(
-      "snpEff",
-      "data",
-      genome_safe)
+    snpeff_root = os.path.join("snpEff", "data", genome_safe)
     seq_renamed = seq_intmd = "sequences.fa"
     gff_renamed = gff_intmd = "genes"
     cds_renamed = cds_intmd = "cds.fa"
@@ -78,39 +64,38 @@ def snpeff_annotate(
             if line.startswith(genome_safe + ".genome"):
                 break
         else:
-            progress(task_id, "Initializing snpEff database")
+            print("<b>Initializing snpEff database</b>")
             database.write(f"\n# {genome_safe}, created by user via octava\n")
             database.write(f"{genome_safe}.genome : {genome_safe}\n")
 
-###############################################################################
-### Copy input files
-###############################################################################
+    ###############################################################################
+    ### Copy input files
+    ###############################################################################
 
-    progress(task_id, "Initializing files")
+    print("<b>Initializing files</b>")
     for source, target in (
-      (gff_file, gff_intmd),
-      (seq_file, seq_intmd),
-      (cds_file, cds_intmd),
-      (pep_file, pep_intmd)):
+        (gff_file, gff_intmd),
+        (seq_file, seq_intmd),
+        (cds_file, cds_intmd),
+        (pep_file, pep_intmd),
+    ):
         if source:
             shutil.copy(
-               os.path.join(in_root, source),
-               os.path.join(snpeff_root, target))
+                os.path.join(in_root, source), os.path.join(snpeff_root, target)
+            )
             if target.endswith(".gz"):
                 subprocess.run(
-                  ["gunzip", "-f", os.path.join(snpeff_root, target)],
-                  check=True)
+                    ["gunzip", "-f", os.path.join(snpeff_root, target)], check=True
+                )
     if os.path.exists(os.path.join(snpeff_root, vcf_file)):
         os.remove(os.path.join(snpeff_root, vcf_file))
-    os.link(
-      os.path.join(in_root, vcf_file),
-      os.path.join(snpeff_root, vcf_file))
+    os.link(os.path.join(in_root, vcf_file), os.path.join(snpeff_root, vcf_file))
 
-###############################################################################
-### Create snpEff database
-###############################################################################
+    ###############################################################################
+    ### Create snpEff database
+    ###############################################################################
 
-    progress(task_id, "Building database")
+    print("<b>Building database</b>")
     if gff_ext == ".gff":
         gff_option = "-gff3"
     elif gff_ext == ".gtf":
@@ -118,46 +103,48 @@ def snpeff_annotate(
     else:
         raise OSError("Invalid gff_file extension.")
     cmd = [
-      "snpEff",
-      "build", gff_option,
-      "-c", os.path.join("snpEff", "snpEff.config"),
-      "-v", genome_safe]
+        "snpEff",
+        "build",
+        gff_option,
+        "-c",
+        os.path.join("snpEff", "snpEff.config"),
+        "-v",
+        genome_safe,
+    ]
     if not cds_file:
         cmd.append("-noCheckCds")
     if not pep_file:
         cmd.append("-noCheckProtein")
-    subprocess.run(
-      cmd,
-      check=True)
+    subprocess.run(cmd, check=True)
 
-###############################################################################
-### Annotate and index VCF file
-###############################################################################
+    ###############################################################################
+    ### Annotate and index VCF file
+    ###############################################################################
 
-    progress(task_id, "Annotating VCF file")
+    print("<b>Annotating VCF file</b>")
     pr = subprocess.Popen(
-      ["java", "-jar",
-       "snpEff/snpEff.jar",
-       genome_safe,
-       "-c", os.path.join("snpEff", "snpEff.config"),
-       os.path.join(snpeff_root, vcf_file)],
-      stdout=subprocess.PIPE,
-      stderr=subprocess.PIPE,
-      text=True)
+        [
+            "java",
+            "-jar",
+            "snpEff/snpEff.jar",
+            genome_safe,
+            "-c",
+            os.path.join("snpEff", "snpEff.config"),
+            os.path.join(snpeff_root, vcf_file),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
 
-    ann_path = os.path.join(
-      in_root,
-      f"ann.{vcf_file}")
+    ann_path = os.path.join(in_root, f"ann.{vcf_file}")
     ann_out = BgzfWriter(ann_path, "w")
     for line in pr.stdout:
         ann_out.write(line)
     pr.wait()
 
-    progress(task_id, "Indexing VCF file")
-    pysam.tabix_index(
-      ann_path,
-      preset="vcf",
-      force=True)
+    print("<b>Indexing VCF file</b>")
+    pysam.tabix_index(ann_path, preset="vcf", force=True)
 
     # Remove copies of genome and annotation files
     shutil.rmtree(snpeff_root)

@@ -403,206 +403,216 @@
       </div>
     </div>
 {# ======================================================== Gene expression #}
-    {% if exp_data %}
-      <div class="results-wrapper">
-        <div class="row-div">
-          <h1
-           class="clickable"
-           onclick="toggleSection(this, 'genexp-div');">
-            Gene expression: &#9013;
-          </h1>
-        </div>
-        <div
-         id="genexp-div"
-         class="results-container collapsed scrollable">
-          <div class="disp-flex">
-            <div class="param-div-flexheight padded-top">
-              <h2 class="padded-top padded-bottom">
-                Plot by:
-              </h2>
+    {% if exp_data is not none %}
+      {% if exp_data|length > 0 %}
+        <div class="results-wrapper">
+          <div class="row-div">
+            <h1
+             class="clickable"
+             onclick="toggleSection(this, 'genexp-div');">
+              Gene expression: &#9013;
+            </h1>
+          </div>
+          <div
+           id="genexp-div"
+           class="results-container collapsed scrollable">
+            <div class="disp-flex">
+              <div class="param-div-flexheight padded-top">
+                <h2 class="padded-top padded-bottom">
+                  Plot by:
+                </h2>
 {#
-              <div class="row-div padded-bottom">
-                <button
-                  type="button"
-                  class="dropdown-button"
-                  onclick="toggleExp('projects-table');">
-                  <label class="default-label bold">
-                    Study:
-                  </label>
-                  <span
-                   id="projects-count"
-                   class="default-label counter">
-                    0 selected
-                  </span>
-                </button>
-              </div>
+                <div class="row-div padded-bottom">
+                  <button
+                    type="button"
+                    class="dropdown-button"
+                    onclick="toggleExp('projects-table');">
+                    <label class="default-label bold">
+                      Study:
+                    </label>
+                    <span
+                     id="projects-count"
+                     class="default-label counter">
+                      0 selected
+                    </span>
+                  </button>
+                </div>
 #}
-              <div class="row-div padded-bottom">
-                <button
-                 type="button"
-                 class="dropdown-button"
-                 onclick="toggleExp('runs-table');">
-                  <label class="default-label bold">
-                    Run:
-                  </label>
-                  <span
-                   id="runs-count"
-                   class="default-label counter">
-                    0 selected
-                  </span>
-                </button>
-                <img
-                  class="aux-button clickable"
-                  src="{{ url_for('serve_button', button='save') }}"
-                  onclick="makeGroup(event, 'exprun');"
-                  title="Save selection as group" />
-              </div>
-              <div class="row-div padded-bottom">
-                <button
-                 type="button"
-                 class="dropdown-button"
-                 onclick="showDropdown(event, this);">
-                  <label class="default-label bold">
-                    Run group:
-                  </label>
-                  <span
-                   class="default-label counter">
-                    0 selected
-                  </span>
-                </button>
-                <img
-                  class="aux-button clickable"
-                  src="{{ url_for('serve_button', button='delete') }}"
-                  onclick="deleteGroup(event, 'exprun');"
-                  title="Delete selected groups" />
-                <div
-                 id="exprun_group-dropdown"
-                 class="dropdown-menu collapsed">
-                  <div class="sticky non-transparent small-padding">
-                    <input
-                     type="text"
-                     class="search-bar"
-                     placeholder="Search..."
-                     onkeyup="filterDropdown(visibleDropdown);">
-                    <button
-                     type="button"
-                     onclick="
-                     toggleAll(visibleDropdown);
-                     filterRunsTable();">
-                      Select all
-                    </button>
+                <div class="row-div padded-bottom">
+                  <button
+                   type="button"
+                   class="dropdown-button"
+                   onclick="toggleExp('runs-table');">
+                    <label class="default-label bold">
+                      Run:
+                    </label>
+                    <span
+                     id="runs-count"
+                     class="default-label counter">
+                      0 selected
+                    </span>
+                  </button>
+                  <img
+                    class="aux-button clickable"
+                    src="{{ url_for('serve_button', button='save') }}"
+                    onclick="makeGroup(event, 'exprun');"
+                    title="Save selection as group" />
+                </div>
+                <div class="row-div padded-bottom">
+                  <button
+                   type="button"
+                   class="dropdown-button"
+                   onclick="showDropdown(event, this);">
+                    <label class="default-label bold">
+                      Run group:
+                    </label>
+                    <span
+                     class="default-label counter">
+                      0 selected
+                    </span>
+                  </button>
+                  <img
+                    class="aux-button clickable"
+                    src="{{ url_for('serve_button', button='delete') }}"
+                    onclick="deleteGroup(event, 'exprun');"
+                    title="Delete selected groups" />
+                  <div
+                   id="exprun_group-dropdown"
+                   class="dropdown-menu collapsed">
+                    <div class="sticky non-transparent small-padding">
+                      <input
+                       type="text"
+                       class="search-bar"
+                       placeholder="Search..."
+                       onkeyup="filterDropdown(visibleDropdown);">
+                      <button
+                       type="button"
+                       onclick="
+                       toggleAll(visibleDropdown);
+                       filterRunsTable();">
+                        Select all
+                      </button>
+                    </div>
+                    {% for choice in form.exprun_group %}
+                      <div class="checkbox-row group-option">
+                        {{ choice(
+                         class="exprun_group-checkbox",
+                         onchange="
+                          updateCount(this.parentElement.parentElement);
+                          filterRunsTable();") }}
+                        {{ choice.label(class="checkbox-label") }}
+                      </div>
+                    {% endfor %}
                   </div>
-                  {% for choice in form.exprun_group %}
-                    <div class="checkbox-row group-option">
+                </div>
+                <div class="row-div">
+                  <button
+                   type="button"
+                   class="dropdown-button"
+                   onclick="showDropdown(event, this);">
+                    <label class="default-label bold">
+                      By columns:
+                    </label>
+                    <span
+                     class="default-label counter">
+                      0 selected
+                    </span>
+                  </button>
+                  <div
+                   class="dropdown-menu collapsed">
+                    <div class="sticky non-transparent small-padding">
+                      <input
+                       type="text"
+                       class="search-bar"
+                       placeholder="Search..."
+                       onkeyup="filterDropdown(visibleDropdown);">
+                      <button
+                       type="button"
+                       onclick="toggleAll(visibleDropdown);">
+                        Select all
+                      </button>
+                    </div>
+                    {% for choice in form.exp_col %}
+                    <div class="checkbox-row">
                       {{ choice(
-                       class="exprun_group-checkbox",
-                       onchange="
-                        updateCount(this.parentElement.parentElement);
-                        filterRunsTable();") }}
+                       onchange="updateCount(
+                        this.parentElement.parentElement);") }}
                       {{ choice.label(class="checkbox-label") }}
                     </div>
-                  {% endfor %}
+                    {% endfor %}
+                  </div>
+                </div>
+                <div class="
+                 row-input-div
+                 justified
+                 mini-padded-top">
+                  <label
+                   for="exp-bygroup"
+                   class="default-label bold">
+                    Plot by groups
+                  </label>
+                  <input
+                   type="checkbox"
+                   id="exp-bygroup">
+                </div>
+                <div class="
+                 row-input-div
+                 justified
+                 mini-padded-top
+                 padded-bottom">
+                  <label
+                   for="exp-jitter"
+                   class="default-label bold">
+                    Show all points
+                  </label>
+                  <input
+                   type="checkbox"
+                   id="exp-jitter"
+                   onchange="Plotly.restyle('genexp-plot', { boxpoints: (this.checked ? 'all' : 'outliers') }); ">
+                </div>
+                <div class="row-div padded-bottom padded-top">
+                  <button
+                   type="button"
+                   onclick="showExp();">
+                    <label class="default-label bold">
+                      Update plot
+                    </label>
+                  </button>
                 </div>
               </div>
-              <div class="row-div">
-                <button
-                 type="button"
-                 class="dropdown-button"
-                 onclick="showDropdown(event, this);">
-                  <label class="default-label bold">
-                    By columns:
-                  </label>
-                  <span
-                   class="default-label counter">
-                    0 selected
-                  </span>
-                </button>
-                <div
-                 class="dropdown-menu collapsed">
-                  <div class="sticky non-transparent small-padding">
-                    <input
-                     type="text"
-                     class="search-bar"
-                     placeholder="Search..."
-                     onkeyup="filterDropdown(visibleDropdown);">
-                    <button
-                     type="button"
-                     onclick="toggleAll(visibleDropdown);">
-                      Select all
-                    </button>
-                  </div>
-                  {% for choice in form.exp_col %}
-                  <div class="checkbox-row">
-                    {{ choice(
-                     onchange="updateCount(
-                      this.parentElement.parentElement);") }}
-                    {{ choice.label(class="checkbox-label") }}
-                  </div>
-                  {% endfor %}
-                </div>
-              </div>
-              <div class="
-               row-input-div
-               justified
-               mini-padded-top">
-                <label
-                 for="exp-bygroup"
-                 class="default-label bold">
-                  Plot by groups
-                </label>
-                <input
-                 type="checkbox"
-                 id="exp-bygroup">
-              </div>
-              <div class="
-               row-input-div
-               justified
-               mini-padded-top
-               padded-bottom">
-                <label
-                 for="exp-jitter"
-                 class="default-label bold">
-                  Show all points
-                </label>
-                <input
-                 type="checkbox"
-                 id="exp-jitter"
-                 onchange="Plotly.restyle('genexp-plot', { boxpoints: (this.checked ? 'all' : 'outliers') }); ">
-              </div>
-              <div class="row-div padded-bottom padded-top">
-                <button
-                 type="button"
-                 onclick="showExp();">
-                  <label class="default-label bold">
-                    Update plot
-                  </label>
-                </button>
-              </div>
-            </div>
-            <div
-             class="scrollable results-subcontainer flex">
-{#
-              <table id="projects-table">
-              </table>
-#}
-              <table id="runs-table">
-              </table>
               <div
-               id="genexp-plot"
-               class="results-subcontainer">
+               class="scrollable results-subcontainer flex">
+{#
+                <table id="projects-table">
+                </table>
+#}
+                <table id="runs-table">
+                </table>
+                <div
+                 id="genexp-plot"
+                 class="results-subcontainer">
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    {% else %}
-      <div class="results-wrapper">
-        <div class="row-div">
-          <h3 class="bold">
-            &nbsp;No gene expression data found for {{ genome }}.
-          </h3>
+      {% else %}
+        <div class="results-wrapper">
+          <div class="row-div">
+            <h3 class="bold">
+              &nbsp;No gene expression data found for target genes.
+            </h3>
+          </div>
         </div>
-      </div>
+      {% endif %}
+    {% else %}
+        <div class="results-wrapper">
+          <div class="row-div">
+            <h3 class="bold">
+              &nbsp;No gene expression data provided for {{ genome }}.
+            </h3>
+          </div>
+        </div>
     {% endif %}
 {# ======================================================== Gene enrichment #}
 {#

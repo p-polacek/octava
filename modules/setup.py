@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import os
-import re
 import sys
 import gzip
 import json
@@ -13,7 +12,6 @@ import configparser
 import pandas as pd
 from Bio import SeqIO
 from functools import partial
-from collections import Counter
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -23,62 +21,40 @@ from modules.assoc.assoc_qc import run_qc
 from modules.snpeff import snpeff_annotate
 
 from modules.sev import (
-  make_db,
-  run_blastp)
-  #process_blastp)
+    #make_db,
+    run_blastp,
+)
 
-def genome_setup(
-  genome,
-  params,
-  task_id):
-    stats_dir = os.path.join(
-      data_dir,
-      genome,
-      "stats")
+# process_blastp)
+
+
+def genome_setup(genome, params, task_id):
+    stats_dir = os.path.join(data_dir, genome, "stats")
     if not os.path.exists(stats_dir):
         os.mkdir(stats_dir)
 
-    if os.path.exists(
-      os.path.join(
-        data_dir,
-        genome,
-        "stats",
-        "init")):
+    if os.path.exists(os.path.join(data_dir, genome, "stats", "init")):
         raise OSError("<b>The selected dataset is already set up.</b>")
 
-###############################################################################
-### Set up GFFUtils database
-###############################################################################
+    ###############################################################################
+    ### Set up GFFUtils database
+    ###############################################################################
 
-    ann_path = os.path.join(
-      data_dir,
-      genome,
-      params["ann"])
-    db_path = os.path.join(
-      data_dir,
-      genome,
-      "stats",
-      "gff.db")
+    ann_path = os.path.join(data_dir, genome, params["ann"])
+    db_path = os.path.join(data_dir, genome, "stats", "gff.db")
     if not os.path.exists(db_path):
         print("<b>Creating an annotation database</b>")
-        gffutils.create_db(
-          ann_path,
-          dbfn=db_path,
-          merge_strategy="merge")
+        gffutils.create_db(ann_path, dbfn=db_path, merge_strategy="merge")
     db = gffutils.FeatureDB(db_path)
 
-###############################################################################
-### Add gene attributes to GFFUtils database, calculate enrichment
-###############################################################################
+    ###############################################################################
+    ### Add gene attributes to GFFUtils database, calculate enrichment
+    ###############################################################################
 
     if params["info"]:
         print("<b>Updating database information</b>")
-        annotate_db(
-          genome,
-          db,
-          params["info"],
-          task_id)
-    #if params["enr"]:
+        annotate_db(genome, db, params["info"], task_id)
+    # if params["enr"]:
     #    print("Calculating gene enrichment")
     #    num_genes = db.count_features_of_type("gene")
     #    calc_enr(
@@ -88,15 +64,12 @@ def genome_setup(
     #      num_genes,
     #      task_id)
 
-###############################################################################
-### BGZip and tabix files if necessary
-###############################################################################
+    ###############################################################################
+    ### BGZip and tabix files if necessary
+    ###############################################################################
 
     for file in ("vcf", "ann", "seq", "pep", "cds", "exp"):
-        file_path = os.path.join(
-          data_dir,
-          genome,
-          params[file])
+        file_path = os.path.join(data_dir, genome, params[file])
         if params[file] and not file_path.endswith(".gz"):
             if os.path.islink(file_path):
                 print(f"Copying {file} file")
@@ -109,12 +82,11 @@ def genome_setup(
             os.remove(file_path)
             params[file] += ".gz"
 
-        file_path = os.path.join(
-          data_dir,
-          genome,
-          params[file])
+        file_path = os.path.join(data_dir, genome, params[file])
         if params[file] and file in ("seq", "pep", "cds"):
-            if not os.path.exists(file_path + ".fai") or not os.path.exists(file_path + ".gzi"):
+            if not os.path.exists(file_path + ".fai") or not os.path.exists(
+                file_path + ".gzi"
+            ):
                 print(f"Indexing {file} file")
                 _ = pysam.FastaFile(file_path)
         else:
@@ -122,22 +94,21 @@ def genome_setup(
                 print(f"Indexing {file} file")
                 if file == "exp":
                     pysam.tabix_index(
-                      file_path,
-                      seq_col=1,
-                      start_col=2,
-                      end_col=3,
-                      line_skip=1,
-                      force=True)
+                        file_path,
+                        seq_col=1,
+                        start_col=2,
+                        end_col=3,
+                        line_skip=1,
+                        force=True,
+                    )
                 else:
                     pysam.tabix_index(
-                      file_path,
-                      preset=("vcf" if file == "vcf" else "gff"),
-                      force=True)
+                        file_path,
+                        preset=("vcf" if file == "vcf" else "gff"),
+                        force=True,
+                    )
     for file in params["bam"]:
-        file_path = os.path.join(
-          data_dir,
-          genome,
-          file)
+        file_path = os.path.join(data_dir, genome, file)
         if not os.path.exists(file_path + ".bai"):
             print("Indexing a bam file")
             pysam.index(file)
@@ -145,29 +116,28 @@ def genome_setup(
     if params["exp"] and not params["run"]:
         file_path = os.path.join(data_dir, genome, params["exp"])
         exp_runs = pd.read_csv(file_path, sep="\t", nrows=0)
-        (pd
-          .DataFrame(
-            {"Run_ID": exp_runs.columns.tolist()[4:]})
-          .to_csv(
-            os.path.join(data_dir, genome, "run_info.txt"),
-            sep="\t",
-            index=False))
+        (
+            pd.DataFrame({"Run_ID": exp_runs.columns.tolist()[4:]}).to_csv(
+                os.path.join(data_dir, genome, "run_info.txt"), sep="\t", index=False
+            )
+        )
         params["run"] = "run_info.txt"
 
-###############################################################################
-### Annotate variants and setup BLAST / severity prediction
-###############################################################################
+    ###############################################################################
+    ### Annotate variants and setup BLAST / severity prediction
+    ###############################################################################
 
     if params["snpeff"]:
         print("<b>Running VCF annotation</b>")
         snpeff_annotate(
-          genome,
-          params["vcf"],
-          params["ann"],
-          params["seq"],
-          params["cds"],
-          params["pep"],
-          task_id)
+            genome,
+            params["vcf"],
+            params["ann"],
+            params["seq"],
+            params["cds"],
+            params["pep"],
+            task_id,
+        )
         params["vcf"] = f"ann.{params['vcf']}"
 
     if params["sev"]:
@@ -175,17 +145,14 @@ def genome_setup(
         # (which are allowed in genome names)
         old_wd = os.getcwd()
         os.chdir(os.path.join(data_dir, genome))
-        #if params["db_fasta"]:
+        # if params["db_fasta"]:
         #    make_db(
         #      task_id,
         #      params["db_fasta"])
-            #params["db_prefix"] = params["db_fasta"]
+        # params["db_prefix"] = params["db_fasta"]
         if params["db_prefix"]:
-            run_blastp(
-              task_id,
-              params["pep"],
-              params["db_prefix"])
-            #process_blastp()
+            run_blastp(task_id, params["pep"], params["db_prefix"])
+            # process_blastp()
         os.chdir(old_wd)
 
     else:
@@ -198,13 +165,8 @@ def genome_setup(
             _open = partial(gzip.open, mode="rt") if prot_file.endswith(".gz") else open
             with _open(prot_file) as f:
                 for prot in SeqIO.parse(f, "fasta"):
-                    prot_path = os.path.join(
-                      prot_dir,
-                      f"{prot.id}.fasta")
-                    SeqIO.write(
-                      [prot],
-                      prot_path,
-                      "fasta")
+                    prot_path = os.path.join(prot_dir, f"{prot.id}.fasta")
+                    SeqIO.write([prot], prot_path, "fasta")
 
         if params["cds"]:
             cds_dir = os.path.join(data_dir, genome, "prot_db", "cds")
@@ -215,49 +177,31 @@ def genome_setup(
             _open = partial(gzip.open, mode="rt") if cds_file.endswith(".gz") else open
             with _open(cds_file) as f:
                 for cds in SeqIO.parse(f, "fasta"):
-                    cds_path = os.path.join(
-                      cds_dir,
-                      f"{cds.id}.fasta")
-                    SeqIO.write(
-                      [cds],
-                      cds_path,
-                      "fasta")
+                    cds_path = os.path.join(cds_dir, f"{cds.id}.fasta")
+                    SeqIO.write([cds], cds_path, "fasta")
 
-###############################################################################
-### Get genome and sample data
-###############################################################################
+    ###############################################################################
+    ### Get genome and sample data
+    ###############################################################################
 
     print("<b>Parsing VCF file</b>")
-    vcf_path = os.path.join(
-      data_dir,
-      genome,
-      params["vcf"])
+    vcf_path = os.path.join(data_dir, genome, params["vcf"])
 
     # Create a genome data file if none exists
-    gdata_path = os.path.join(
-      data_dir,
-      genome,
-      "stats",
-      ".gdata")
-#    if not os.path.exists(gdata_path):
+    gdata_path = os.path.join(data_dir, genome, "stats", ".gdata")
+    #    if not os.path.exists(gdata_path):
     gdata = dict()
-    
+
     # Get chromosome names, sizes and offsets
-    idx_path = os.path.join(
-      data_dir,
-      genome,
-      params["seq"] + ".fai")
-    idx_df = pd.read_csv(
-      idx_path,
-      sep="\t",
-      header=None)
+    idx_path = os.path.join(data_dir, genome, params["seq"] + ".fai")
+    idx_df = pd.read_csv(idx_path, sep="\t", header=None)
     chroms = idx_df.iloc[:, 0].astype(str).tolist()
     sizes = idx_df.iloc[:, 1].tolist()
 
     if params["concat"]:
-        chroms = (
-          [c for c in chroms if c not in params["concat"]] + 
-          [c for c in chroms if c in params["concat"]])
+        chroms = [c for c in chroms if c not in params["concat"]] + [
+            c for c in chroms if c in params["concat"]
+        ]
 
     offsets = [sum(sizes[:i]) for i in range(len(sizes))]
     gdata["chr_names"] = chroms
@@ -265,9 +209,7 @@ def genome_setup(
     gdata["chr_offsets"] = offsets
 
     # Get first gene ID in the file
-    for rec in db.region(
-      region=str(chroms[0]),
-      featuretype="gene"):
+    for rec in db.region(region=str(chroms[0]), featuretype="gene"):
         gdata["id_fmt"] = rec.id
         break
 
@@ -279,13 +221,15 @@ def genome_setup(
 
     if not all(vcf_chroms) or not all(vcf_sizes):
         print(
-          "<b>Cannot verify that chromosome names and sizes match "
-          "between vcf and seq files.</b>")
+            "<b>Cannot verify that chromosome names and sizes match "
+            "between vcf and seq files.</b>"
+        )
 
     elif vcf_chroms != chroms or vcf_sizes != sizes:
         print(
-          "<b>Chromosomes do not match in size or names between "
-          "vcf and seq files.</b>")
+            "<b>Chromosomes do not match in size or names between "
+            "vcf and seq files.</b>"
+        )
         raise OSError
 
     print("<b>Parsing phenotypes</b>")
@@ -293,100 +237,73 @@ def genome_setup(
     samples = list(vcf.header.samples)
     if not params["phe"]:
         params["phe"] = "phe.txt"
-        phe_path = os.path.join(
-          data_dir,
-          genome,
-          params["phe"])
+        phe_path = os.path.join(data_dir, genome, params["phe"])
         with open(phe_path, "w") as phe_out:
             phe_out.write("\n".join(["Acc"] + samples))
     else:
-        phe_path = os.path.join(
-          data_dir,
-          genome,
-          params["phe"])
+        phe_path = os.path.join(data_dir, genome, params["phe"])
         if os.path.islink(phe_path):
             link_path = os.readlink(phe_path)
             os.unlink(phe_path)
             shutil.copy2(link_path, phe_path)
-        phe_df = pd.read_csv(
-          phe_path,
-          sep="\t",
-          header=0,
-          index_col=0)
+        phe_df = pd.read_csv(phe_path, sep="\t", header=0, index_col=0)
         # Make trait names filename-friendly
         safe_cols = [safe_col(col) for col in phe_df.columns]
-        phe_df = phe_df.set_axis(
-          safe_cols,
-          axis=1)
+        phe_df = phe_df.set_axis(safe_cols, axis=1)
 
-        #De-duplicate trait names
+        # De-duplicate trait names
         cols = pd.Series(phe_df.columns)
-        for dup in phe_df.columns[phe_df.columns.duplicated(keep=False)]: 
-            cols[phe_df.columns.get_loc(dup)] = (
-              [dup + '.' + str(d_idx) if d_idx != 0 else dup 
-               for d_idx in range(df.columns.get_loc(dup).sum())])
+        for dup in phe_df.columns[phe_df.columns.duplicated(keep=False)]:
+            cols[phe_df.columns.get_loc(dup)] = [
+                dup + "." + str(d_idx) if d_idx != 0 else dup
+                for d_idx in range(phe_df.columns.get_loc(dup).sum())
+            ]
         phe_df.columns = cols
 
         for sample in phe_df.index:
             if sample not in samples:
                 samples.append(sample)
         miss_df = pd.DataFrame(
-          np.nan,
-          index=[s for s in samples if s not in phe_df.index],
-          columns=phe_df.columns)
+            np.nan,
+            index=[s for s in samples if s not in phe_df.index],
+            columns=phe_df.columns,
+        )
 
-        (pd
-          .concat([phe_df, miss_df])
-          .loc[samples]
-          .rename_axis("Acc")
-          .to_csv(
-            phe_path,
-            sep="\t"))
+        (
+            pd.concat([phe_df, miss_df])
+            .loc[samples]
+            .rename_axis("Acc")
+            .to_csv(phe_path, sep="\t")
+        )
 
     # Rename samples
     if not params["samp"]:
         params["samp"] = "samp.txt"
-        samp_path = os.path.join(
-          data_dir,
-          genome,
-          params["samp"])
-        (pd
-          .DataFrame(
-            samples,
-            index=samples,
-            columns=["Name"])
-          .rename_axis("Acc")
-          .to_csv(
-            samp_path,
-            sep="\t"))
+        samp_path = os.path.join(data_dir, genome, params["samp"])
+        (
+            pd.DataFrame(samples, index=samples, columns=["Name"])
+            .rename_axis("Acc")
+            .to_csv(samp_path, sep="\t")
+        )
     else:
-        samp_path = os.path.join(
-          data_dir,
-          genome,
-          params["samp"])
+        samp_path = os.path.join(data_dir, genome, params["samp"])
         if os.path.islink(samp_path):
             link_path = os.readlink(samp_path)
             os.unlink(samp_path)
             shutil.copy2(link_path, samp_path)
-        samp_df = pd.read_csv(
-          samp_path,
-          sep="\t",
-          header=0,
-          index_col=0)
+        samp_df = pd.read_csv(samp_path, sep="\t", header=0, index_col=0)
         samp_df.index = samp_df.index.map(str)
 
         miss_samples = [s for s in samples if s not in samp_df.index]
         miss_df = pd.DataFrame(
-          miss_samples,
-          index=miss_samples,
-          columns=[samp_df.columns[0]])
-        (pd
-          .concat([samp_df, miss_df])
-          .loc[samples]
-          .rename_axis("Acc")
-          .to_csv(
-            samp_path,
-            sep="\t"))
+            miss_samples, index=miss_samples, columns=[samp_df.columns[0]]
+        )
+        (
+            pd.concat([samp_df, miss_df])
+            .loc[samples]
+            .rename_axis("Acc")
+            .to_csv(samp_path, sep="\t")
+        )
 
     # Initialise empty list for groups
     gdata["group"] = dict()
@@ -398,56 +315,33 @@ def genome_setup(
     # Save parameters as config.ini
     _ = [params.pop(v) for v in ("name", "csrf_token")]
     params["bam"] = json.dumps(params["bam"])
-    #params["enr"] = json.dumps(params["enr"])
+    # params["enr"] = json.dumps(params["enr"])
     params["concat"] = json.dumps(params["concat"])
     params = {k: str(v) for k, v in params.items()}
     params["rm_markers"] = True
 
     config = configparser.ConfigParser()
     config["setup"] = params
-    config_path = os.path.join(
-      data_dir,
-      genome,
-      "stats",
-      "config.ini")
+    config_path = os.path.join(data_dir, genome, "stats", "config.ini")
     with open(config_path, "w") as config_out:
         config.write(config_out)
 
     # Run raw marker set QC
-    run_qc(
-      genome)
-    assoc_dir = os.path.join(
-      data_dir,
-      genome,
-      "assoc")
+    run_qc(genome)
+    assoc_dir = os.path.join(data_dir, genome, "assoc")
     if not os.path.exists(assoc_dir):
         os.mkdir(assoc_dir)
-    cof_dir = os.path.join(
-      data_dir,
-      genome,
-      "covariates")
+    cof_dir = os.path.join(data_dir, genome, "covariates")
     if not os.path.exists(cof_dir):
         os.mkdir(cof_dir)
 
-    init_path = os.path.join(
-      stats_dir,
-      "init")
+    init_path = os.path.join(stats_dir, "init")
     open(init_path, "w").close()
 
-def annotate_db(
-  genome,
-  db,
-  info,
-  task_id):
-    info_path = os.path.join(
-      data_dir,
-      genome,
-      info)
-    info_df = pd.read_csv(
-      info_path,
-      sep="\t",
-      header=0,
-      index_col=0)
+
+def annotate_db(genome, db, info, task_id):
+    info_path = os.path.join(data_dir, genome, info)
+    info_df = pd.read_csv(info_path, sep="\t", header=0, index_col=0)
     info_df = info_df.fillna("")
     info_df = info_df.astype(str)
     cols = info_df.columns
@@ -463,17 +357,15 @@ def annotate_db(
             data = info_df.loc[[tr.id]].reset_index(drop=True).iloc[0]
             for col in cols:
                 val = data[col]
-                tr.attributes[col] = val# if not pd.isna(val) else ""
+                tr.attributes[col] = val  # if not pd.isna(val) else ""
         else:
             for col in cols:
                 tr.attributes[col] = ""
         new_entries.append(tr)
-    db = db.update(
-      new_entries,
-      merge_strategy="replace",
-      make_backup=False)
+    db = db.update(new_entries, merge_strategy="replace", make_backup=False)
 
-#def calc_enr(
+
+# def calc_enr(
 #  genome,
 #  info,
 #  enr_cols,

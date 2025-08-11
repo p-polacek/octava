@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+
 def var_csq(impact_tag=True):
     """Creates a list of tuples of variant consequences
 
@@ -8,11 +9,7 @@ def var_csq(impact_tag=True):
     returns: list, [(id_name, disp_name)]
     """
     csq_list = list()
-    csq_dict = {
-      "HIGH": "H",
-      "MODERATE": "M",
-      "LOW": "L",
-      "MODIFIER": "-"}
+    csq_dict = {"HIGH": "H", "MODERATE": "M", "LOW": "L", "MODIFIER": "-"}
 
     with open("static/variant_consequences.tsv", "r") as csq_in:
         for line in csq_in:

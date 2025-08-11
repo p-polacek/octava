@@ -4,30 +4,31 @@ import re
 import os
 import pty
 import tty
-import traceback
+#import traceback
 import subprocess
 from time import time
 
 from flask_app import (
-  get_lock,
-  running_pr,
-  task_queue,
-  master_lock,
-  task_status,
-  cancelled_tasks)
+    get_lock,
+    running_pr,
+    task_queue,
+    master_lock,
+    task_status,
+    cancelled_tasks,
+)
 
-from app.dirs import (
-  data_dir,
-  tool_dir)
+from app.dirs import data_dir
 
 ###############################################################################
 ### Run a task
 ###############################################################################
 
+
 def task_worker():
     while True:
         with master_lock:
             queue_lock = get_lock("__task_queue__")
+            status_lock = get_lock("__task_status__")
         with queue_lock:
             task_id, task_spec, task_params, cmd = task_queue.get()
             genome = task_spec[1]
@@ -40,25 +41,20 @@ def task_worker():
                     task_status["specs"].remove(task_spec)
             continue
 
-        with master_lock:
-            status_lock = get_lock("__task_status__")
         with status_lock:
             task_status["specs"].append(task_spec)
-            task_status[task_id] = {
-              "progress": "",
-              "code": 202,
-              "start": time()}
+            task_status[task_id] = {"progress": "", "code": 202, "start": time()}
 
         params_str = "\n".join([" ".join(param) for param in task_params]) + "\n\n"
         task_status[task_id]["progress"] += "<b>Task parameters</b>\n"
         task_status[task_id]["progress"] += params_str
 
-#        if task_spec[0] == "setup":
-#            log_root = f"{genome}.setup"
-#        elif task_spec[0] == "filt_qc":
-#            log_root = f"{genome}.{task_spec[2]}.preparation"
-#        else:
-#            log_root = task_id
+        #        if task_spec[0] == "setup":
+        #            log_root = f"{genome}.setup"
+        #        elif task_spec[0] == "filt_qc":
+        #            log_root = f"{genome}.{task_spec[2]}.preparation"
+        #        else:
+        #            log_root = task_id
         log_fn = f"{task_id}.log"
 
         log_file = open(os.path.join(data_dir, genome, "logs", log_fn), "a")
@@ -69,11 +65,12 @@ def task_worker():
         tty.setraw(slave_fd)
 
         pr = subprocess.Popen(
-          cmd,
-          stdout=slave_fd,
-          stderr=subprocess.STDOUT,
-          preexec_fn=os.setsid,
-          close_fds=True)
+            cmd,
+            stdout=slave_fd,
+            stderr=subprocess.STDOUT,
+            preexec_fn=os.setsid,
+            close_fds=True,
+        )
         os.close(slave_fd)
 
         with master_lock:
@@ -101,7 +98,9 @@ def task_worker():
                             buffer_str = buffer.decode("utf-8", errors="replace")
                             with status_lock:
                                 task_status[task_id]["progress"] += buffer_str
-                            _ = log_file.write(buffer_str.replace("<b>", "").replace("</b>", ""))
+                            _ = log_file.write(
+                                buffer_str.replace("<b>", "").replace("</b>", "")
+                            )
 
                             buffer = b""
 
@@ -117,14 +116,18 @@ def task_worker():
                                 buffer_str = buffer.decode("utf-8", errors="replace")
                                 with status_lock:
                                     task_status[task_id]["progress"] += buffer_str
-                                _ = log_file.write(buffer_str.replace("<b>", "").replace("</b>", ""))
+                                _ = log_file.write(
+                                    buffer_str.replace("<b>", "").replace("</b>", "")
+                                )
 
                                 buffer = b""
                             buffer += char
             if buffer:
                 buffer_str = buffer.decode("utf-8", errors="replace")
                 # Remove ANSI escape codes
-                buffer_str = re.sub("\x1B[@-_][0-?]*[ -/]*[@-~]", "", buffer_str).strip()
+                buffer_str = re.sub(
+                    "\x1b[@-_][0-?]*[ -/]*[@-~]", "", buffer_str
+                ).strip()
                 with status_lock:
                     task_status[task_id]["progress"] += buffer_str
                 _ = log_file.write(buffer_str.replace("<b>", "").replace("</b>", ""))
@@ -135,7 +138,7 @@ def task_worker():
         with running_pr_lock:
             _ = running_pr.pop(task_id, None)
 
-        #if show_stdout:
+        # if show_stdout:
         #    with status_lock:
         #        task_status[task_id]["progress"] += "\n"
 
@@ -146,8 +149,8 @@ def task_worker():
                 else:
                     task_status[task_id]["code"] = 500
 
-        #task_status[task_id]["progress"] += "\n" + traceback.format_exc()
-        #task_status[task_id]["code"] = 500
+        # task_status[task_id]["progress"] += "\n" + traceback.format_exc()
+        # task_status[task_id]["code"] = 500
 
         with queue_lock:
             task_queue.task_done()

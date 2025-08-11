@@ -8,24 +8,11 @@ import bed_reader
 import numpy as np
 import pandas as pd
 
-def win_block(
-  gt_root,
-  btype,
-  span,
-  step,
-  task_id):
-    bim = (pd
-      .read_csv(
-        f"{gt_root}.bim",
-        sep="\t",
-        header=None,
-        index_col=None,
-        usecols=[0,1,3])
-      .set_axis(
-        ["Chr",
-         "ID",
-         "Pos"],
-        axis=1))
+
+def win_block(gt_root, btype, span, step, task_id):
+    bim = pd.read_csv(
+        f"{gt_root}.bim", sep="\t", header=None, index_col=None, usecols=[0, 1, 3]
+    ).set_axis(["Chr", "ID", "Pos"], axis=1)
 
     if btype == "bpwin":
         total = bim.groupby("Chr")["Pos"].max().sum()
@@ -63,57 +50,70 @@ def win_block(
     print("\rProgress: 100%\n")
     out.close()
 
+
 def block_genotype(
-  gt_root,
-  stats_dir,
-#  out_format,
-#  transpose,
-  maf,
-  min_haps,
-  concat,
-  chr_names,
-#  group_minor,
-#  include_singles
-  task_id):
+    gt_root,
+    stats_dir,
+    #  out_format,
+    #  transpose,
+    maf,
+    min_haps,
+    concat,
+    chr_names,
+    #  group_minor,
+    #  include_singles
+    task_id,
+):
     min_haps = max(1, min_haps)
     samples = pd.read_csv(
-      f"{gt_root}.fam",
-      sep="\t",
-      header=None,
-      index_col=None,
-      usecols=[1])[1].to_numpy()
+        f"{gt_root}.fam", sep="\t", header=None, index_col=None, usecols=[1]
+    )[1].to_numpy()
     sample_cnt = samples.size
     allele_cnt = sample_cnt * 2
     allele_thresh = allele_cnt * maf
     # Summary statistics and marker info
     smiss, shet = {s: 0 for s in samples}, {s: 0 for s in samples}
     vmiss, vhet = list(), list()
-    spans, mcnts, hcnts, fhcnts, afs =  list(), list(), list(), list(), dict()
-    blocks, bchrs, chrs, ps, ids, starts, ends = list(), list(), list(), list(), list(), list(), list()
+    spans, mcnts, hcnts, fhcnts, afs = list(), list(), list(), list(), dict()
+    blocks, bchrs, chrs, ps, ids, starts, ends = (
+        list(),
+        list(),
+        list(),
+        list(),
+        list(),
+        list(),
+        list(),
+    )
     # Load files
     in_b = open(f"{gt_root}.blocks")
-    total = sum(1 for _ in open(f'{gt_root}.blocks'))
+    total = sum(1 for _ in open(f"{gt_root}.blocks"))
     pct_done = 0
     gt = pgenlib.PgenReader(f"{gt_root}.pgen".encode("utf8"))
     out_gt = list()
     out_bed = f"{gt_root}.bed"
     out_gt_allhaps = list()
-    out_bed_allhaps  = f"{gt_root}.allhaps.bed"
+    out_bed_allhaps = f"{gt_root}.allhaps.bed"
     # Marker to index map
     marker_map = {
-      marker: idx for (idx, marker) in
-      pd.read_csv(
-        f"{gt_root}.bim", 
-        sep="\t",
-        header=None,
-        usecols=1)
-      .to_records()}
+        marker: idx
+        for (idx, marker) in pd.read_csv(
+            f"{gt_root}.bim", sep="\t", header=None, usecols=1
+        ).to_records()
+    }
 
     vcf_out = pysam.BGZFile(gt_root + ".vcf.gz", "w")
     _ = vcf_out.write("##fileformat=VCFv4.2\n".encode())
     columns = [
-      "#CHROM", "POS", "ID", "REF", "ALT",
-      "QUAL", "FILTER", "INFO", "FORMAT"] + samples.tolist()
+        "#CHROM",
+        "POS",
+        "ID",
+        "REF",
+        "ALT",
+        "QUAL",
+        "FILTER",
+        "INFO",
+        "FORMAT",
+    ] + samples.tolist()
     _ = vcf_out.write(("\t".join(columns) + "\n").encode())
 
     print("<b>Genotyping haplotype blocks</b>")
@@ -127,22 +127,11 @@ def block_genotype(
         start, end = marker_map[m1], marker_map[mn] + 1
         mcnt = end - start
 
-        block_gt = np.empty(
-          [mcnt, allele_cnt],
-          np.int32)
-        phased = np.empty(
-          [mcnt, sample_cnt],
-          np.int8)
-        gt.read_alleles_and_phasepresent_range(
-          start,
-          end,
-          block_gt,
-          phased)
+        block_gt = np.empty([mcnt, allele_cnt], np.int32)
+        phased = np.empty([mcnt, sample_cnt], np.int8)
+        gt.read_alleles_and_phasepresent_range(start, end, block_gt, phased)
         block_gt = block_gt.transpose()
-        haps, cnts = np.unique(
-          block_gt,
-          axis=0,
-          return_counts=True)
+        haps, cnts = np.unique(block_gt, axis=0, return_counts=True)
         filt_haps = haps[cnts > allele_thresh]
         filt_cnts = cnts[cnts > allele_thresh]
 
@@ -159,10 +148,7 @@ def block_genotype(
         mcnts.append(mcnt)
         hcnts.append(haps.shape[0])
         fhcnts.append(filt_haps.shape[0])
-        for idx, af in enumerate(
-          np.sort(
-            filt_cnts / allele_cnt)[::-1],
-          start=1):
+        for idx, af in enumerate(np.sort(filt_cnts / allele_cnt)[::-1], start=1):
             afs.setdefault(idx, list()).append(af)
 
         filt_haps = filt_haps[filt_cnts.argsort()[::-1]]
@@ -187,7 +173,7 @@ def block_genotype(
         idx_array = np.where(idx_array == -1, ".", idx_array.astype(str))
 
         # Determine misingness and heterozygosity
-        block_gts = np.stack(out_gt[-filt_haps.shape[0]:]).transpose()
+        block_gts = np.stack(out_gt[-filt_haps.shape[0] :]).transpose()
         block_vmiss = np.all(block_gts == 0, axis=1)
         vmiss.append(sum(block_vmiss) / sample_cnt)
         for s, m in zip(samples, block_vmiss):
@@ -204,141 +190,122 @@ def block_genotype(
             out_gt_allhaps.append(hap_gt)
 
         # write VCF entry
-        _ = vcf_out.write((
-          "\t".join(
-            (ch, first_pos, _id, "A" * span, 
-             ",".join(["T" * span]*len(filt_haps)),
-             ".", "PASS", ".", "GT",
-             *[f"{a1}|{a2}" for a1, a2 in idx_array])
-          ) + "\n").encode())
+        _ = vcf_out.write(
+            (
+                "\t".join(
+                    (
+                        ch,
+                        first_pos,
+                        _id,
+                        "A" * span,
+                        ",".join(["T" * span] * len(filt_haps)),
+                        ".",
+                        "PASS",
+                        ".",
+                        "GT",
+                        *[f"{a1}|{a2}" for a1, a2 in idx_array],
+                    )
+                )
+                + "\n"
+            ).encode()
+        )
 
-    print(f"\rProgress: 100%\n")
+    print("\rProgress: 100%\n")
     print("<b>Saving genotyped blocks</b>")
 
     in_b.close()
     # Filtered data
-    (pd
-      .DataFrame(
-        {"chr": bchrs,
-         "start": starts,
-         "end": ends})
-      .to_csv(
-        gt_root + ".blockmap",
-        sep="\t",
-        index=False))
+    (
+        pd.DataFrame({"chr": bchrs, "start": starts, "end": ends}).to_csv(
+            gt_root + ".blockmap", sep="\t", index=False
+        )
+    )
     if not out_gt:
         raise OSError("<b>No haplotype blocks were constructed.</b>")
     bed_reader.to_bed(
-      out_bed,
-      np.stack(out_gt, axis=0).transpose(),
-      properties={
-        "iid": samples,
-        "pheno": [-9]*sample_cnt,
-        "chromosome": chrs,
-        "sid": ids,
-        "bp_position": ps})
+        out_bed,
+        np.stack(out_gt, axis=0).transpose(),
+        properties={
+            "iid": samples,
+            "pheno": [-9] * sample_cnt,
+            "chromosome": chrs,
+            "sid": ids,
+            "bp_position": ps,
+        },
+    )
 
-    bim = pd.read_csv(
-      f"{gt_root}.bim",
-      sep="\t",
-      header=None,
-      index_col=None)
-    (bim
-      .set_axis(
-        ["CHR", "ID", "_", "POS", "A1", "A2"],
-        axis=1)
-      .assign(A1 = "A")
-      .assign(A2 = "T")
-      .to_csv(
-        f"{gt_root}.bim",
-        sep="\t",
-        header=False,
-        index=False))
+    bim = pd.read_csv(f"{gt_root}.bim", sep="\t", header=None, index_col=None)
+    (
+        bim.set_axis(["CHR", "ID", "_", "POS", "A1", "A2"], axis=1)
+        .assign(A1="A")
+        .assign(A2="T")
+        .to_csv(f"{gt_root}.bim", sep="\t", header=False, index=False)
+    )
     # Full data for kinship and PC calculation
     bed_reader.to_bed(
-      out_bed_allhaps,
-      np.stack(out_gt_allhaps, axis=0).transpose(),
-      properties={
-        "iid": samples,
-#        "chromosome": chrs,
-#        "sid": ids,
-#        "bp_position": ps,
-#        "pheno": [-9]*sample_cnt
-    })
-    pd.read_csv(
-      f"{gt_root}.fam",
-      sep=" ",
-      header=None,
-      index_col=None).to_csv(
-        f"{gt_root}.fam",
-        sep="\t",
-        header=False,
-        index=False)
+        out_bed_allhaps,
+        np.stack(out_gt_allhaps, axis=0).transpose(),
+        properties={
+            "iid": samples,
+            #        "chromosome": chrs,
+            #        "sid": ids,
+            #        "bp_position": ps,
+            #        "pheno": [-9]*sample_cnt
+        },
+    )
+    pd.read_csv(f"{gt_root}.fam", sep=" ", header=None, index_col=None).to_csv(
+        f"{gt_root}.fam", sep="\t", header=False, index=False
+    )
 
     block_map = pd.DataFrame(data=blocks)
     for chrom, data in block_map.groupby(0):
         if chrom not in concat:
             data.loc[:, data.columns[1:]].to_csv(
-              os.path.join(
-                stats_dir,
-                f"{chrom}.bdist.gz"),
-              sep="\t",
-              index=False,
-              header=False,
-              compression="gzip")
+                os.path.join(stats_dir, f"{chrom}.bdist.gz"),
+                sep="\t",
+                index=False,
+                header=False,
+                compression="gzip",
+            )
     block_num = block_map.shape[0]
 
     block_chrs = block_map[0].unique()
     for chrom in chr_names:
         if chrom not in block_chrs:
-            (gzip
-              .open(
-                os.path.join(
-                  stats_dir,
-                  f"{chrom}.bdist.gz"),
-                "wb")
-              .close())
+            (gzip.open(os.path.join(stats_dir, f"{chrom}.bdist.gz"), "wb").close())
 
-    smiss = {k: v/block_num for k, v in smiss.items()}
-    shet  = {k: v/block_num for k, v in shet.items()}
+    smiss = {k: v / block_num for k, v in smiss.items()}
+    shet = {k: v / block_num for k, v in shet.items()}
     # Save histogram data
     for stat, ext in zip(
-      (list(smiss.values()), list(shet.values()), vmiss, vhet),
-      ("smiss", "shet", "vmiss", "vhet")):
-        bins = [v/100 for v in range(
-          int(min(min(stat), 0)),
-          int(max(stat)*100)+2)]
+        (list(smiss.values()), list(shet.values()), vmiss, vhet),
+        ("smiss", "shet", "vmiss", "vhet"),
+    ):
+        bins = [
+            v / 100 for v in range(int(min(min(stat), 0)), int(max(stat) * 100) + 2)
+        ]
         hgts, bins = np.histogram(stat, bins=bins)
         with open(os.path.join(stats_dir, ext), "w") as hist_out:
             json.dump([hgts.tolist(), bins.tolist()], hist_out)
-    for stat, ext in zip(
-      (smiss, shet),
-      ("smiss", "shet")):
-        (pd
-          .DataFrame(
-            list(stat.items()))
-          .set_index(0)
-          .loc[samples, :]
-          .to_csv(
-            os.path.join(
-              stats_dir,
-              f"stats.{ext}.gz"),
-              sep="\t",
-              compression="gzip"))
+    for stat, ext in zip((smiss, shet), ("smiss", "shet")):
+        (
+            pd.DataFrame(list(stat.items()))
+            .set_index(0)
+            .loc[samples, :]
+            .to_csv(
+                os.path.join(stats_dir, f"stats.{ext}.gz"), sep="\t", compression="gzip"
+            )
+        )
 
-    for stat, ext in zip(
-      (spans, mcnts, hcnts, fhcnts),
-      ("bsp", "bmc", "bhc", "bfhc")):
-        step = (1000 if stat == spans else 1)
-        hgts, bins = np.histogram(
-          stat,
-          bins=range(0, max(stat) + step, step))
+    for stat, ext in zip((spans, mcnts, hcnts, fhcnts), ("bsp", "bmc", "bhc", "bfhc")):
+        step = 1000 if stat == spans else 1
+        hgts, bins = np.histogram(stat, bins=range(0, max(stat) + step, step))
         with open(os.path.join(stats_dir, ext), "w") as hist_out:
             json.dump([hgts.tolist(), bins.tolist()], hist_out)
     afs = [
-      np.histogram(afs[k],
-        bins=[i / 100 for i in range(0, 101, 1)])
-      for k in sorted(afs.keys())]
+        np.histogram(afs[k], bins=[i / 100 for i in range(0, 101, 1)])
+        for k in sorted(afs.keys())
+    ]
     bins = afs[0][1].tolist()
     afs = [i[0].tolist() for i in afs]
     with open(os.path.join(stats_dir, "baf"), "w") as hist_out:

@@ -64,7 +64,7 @@
                   src="{{ url_for('serve_button', button='delete') }}"
                   onclick="clearFiltFrom();"
                   title="Clear selection" />
-                <div id="filt_from-tracker" class="dropdown-menu collapsed">
+                <div id="filt_from-dropdown" class="dropdown-menu collapsed">
                   <div class="sticky non-transparent small-padding">
                     <input
                      type="text"
@@ -140,7 +140,7 @@
 {# ======================================================== Limit to regions #}
             <div
              id="coord-div"
-             class="row-div padded-bottom">
+             class="row-div small-padded-bottom">
               <button
                type="button"
                class="dropdown-button"
@@ -179,8 +179,31 @@
                 {% endfor %}
               </div>
             </div>
+{# ================================================== Limit to variant type #}
+            <div class="row-div small-padded-top small-padded-bottom">
+              <h3 class="bold">
+                Filter by indel size:
+              </h3>
+              <img
+               class="aux-button clickable"
+               src="{{ url_for('serve_button', button='help') }}"
+               onclick="showHelp(event, 'filt-indel');" />
+            </div>
+            {% for thr_input in ("min_size", "max_size") %}
+              <div class="row-input-div justified small-padded-bottom">
+                {% set input_id = thr_input + "-thresh" %}
+                {{ form[thr_input].label(
+                 for=input_id,
+                 class="default-label") }}
+                {{ form[thr_input](
+                 class="small-num-input",
+                 id=input_id,
+                 onchange="showPlot()",
+                 min=1) }}
+              </div>
+            {% endfor %}
 {# ============================================================ Missingness #}
-            <h2 class="padded-top">
+            <h2 class="small-padded-top">
               Quality filters
             </h2>
             <h3 class="padded-top bold">
@@ -448,6 +471,14 @@
       }
     }
 
+    function clearVarType() {
+      var typeSel = document.querySelector("input[name='typ']:checked");
+      if (typeSel != null) {
+        typeSel.checked = "";
+        updateTracker(typeSel.parentElement.parentElement);
+      }
+    }
+
     function bParams(methodChoice) {
       var bsizeDiv = document.getElementById("bsize-div");
       var bspanDiv = document.getElementById("bspan-div");
@@ -499,7 +530,8 @@
       toggleFiltFrom();
       showPlot();
       bMethod();
-      updateTracker(document.getElementById("filt_from-tracker"));
+      updateTracker(document.getElementById("filt_from-dropdown"));
+      updateTracker(document.getElementById("typ-dropdown"));
 
     });
     window.addEventListener("resize", function() { resizePlot() });
