@@ -343,7 +343,7 @@
                 {% endfor %}
               </div>
             </div>
-            <div class="row-input-div justified small-padded-bottom">
+            <div class="row-input-div justified">
               <label
                for="phe-jitter"
                class="default-label bold">
@@ -354,7 +354,7 @@
                id="phe-jitter"
                onchange="Plotly.restyle('var-phe-plot', { boxpoints: (this.checked ? 'all' : 'outliers') }); ">
             </div>
-            <div class="row-input-div justified padded-bottom">
+            <div class="row-input-div justified mini-padded-top padded-bottom">
               <label
                for="phe-cnts"
                class="default-label bold">
@@ -362,7 +362,30 @@
               </label>
               <input
                type="checkbox"
-               id="phe-cnts">
+               id="phe-cnts"
+               onchange="showGtoP();">
+            </div>
+            <div class="row-input-div justified mini-padded-top">
+              <label
+               for="hide-mis"
+               class="default-label bold">
+                Hide ungenotyped
+              </label>
+              <input
+               type="checkbox"
+               id="hide-mis"
+               onchange="showGtoP();">
+            </div>
+            <div class="row-input-div justified mini-padded-top padded-bottom">
+              <label
+               for="hide-het"
+               class="default-label bold">
+                Hide heterozygous
+              </label>
+              <input
+               type="checkbox"
+               id="hide-het"
+               onchange="showGtoP();">
             </div>
             <div class="row-div padded-bottom padded-top">
               <button
@@ -545,7 +568,7 @@
                 <div class="
                  row-input-div
                  justified
-                 mini-padded-top">
+                 padded-top">
                   <label
                    for="exp-bygroup"
                    class="default-label bold">
@@ -553,13 +576,13 @@
                   </label>
                   <input
                    type="checkbox"
-                   id="exp-bygroup">
+                   id="exp-bygroup"
+                   onchange="showExp();">
                 </div>
                 <div class="
                  row-input-div
                  justified
-                 mini-padded-top
-                 padded-bottom">
+                 mini-padded-top">
                   <label
                    for="exp-jitter"
                    class="default-label bold">
@@ -569,6 +592,21 @@
                    type="checkbox"
                    id="exp-jitter"
                    onchange="Plotly.restyle('genexp-plot', { boxpoints: (this.checked ? 'all' : 'outliers') }); ">
+                </div>
+                <div class="
+                 row-input-div
+                 justified
+                 mini-padded-top
+                 padded-bottom">
+                  <label
+                   for="hide-empty"
+                   class="default-label bold">
+                    Hide genes with no data
+                  </label>
+                  <input
+                   type="checkbox"
+                   id="hide-empty"
+                   onchange="Plotly.relayout('genexp-plot', { 'xaxis.categoryarray': (this.checked ? document.getElementById('genexp-plot').layout.xaxis.filtTicks : document.getElementById('genexp-plot').layout.xaxis.allTicks) }); ">
                 </div>
                 <div class="row-div padded-bottom padded-top">
                   <button
@@ -1055,6 +1093,9 @@
     }
 {# ============================================== Variant-to-phenotype plot #}
     function showGtoP() {
+      var hideMis = document.getElementById("hide-mis").checked;
+      var hideHet = document.getElementById("hide-het").checked;
+
       var plotDiv = document.getElementById("var-phe-plot");
       var table = document.getElementById("vars-table");
       var pheJitter = document.getElementById("phe-jitter").checked;
@@ -1119,10 +1160,10 @@
       gts = gts.concat(Object.keys(traceData).filter( e => {
         return !gts.includes(e)
       }));
-
       gts.forEach( (key, idx) => {
         if (Object.keys(traceData).includes(key)) {
           var [positions, values, samples] = traceData[key];
+          var visible = !((key === "—" && hideMis) || (key.includes("/") && hideHet));
 
           if (pheCnts) {
             var cnts = [];
@@ -1157,7 +1198,7 @@
                 },
               },
               hoverinfo: "y",
-              visible: true,
+              visible: visible,
             };
             traces.push(trace);
           }
@@ -1177,7 +1218,7 @@
             jitter: 0.9,
             pointpos: 0,
             hovertext: samples,
-            visible: true,
+            visible: visible,
             //width: 0.2,
           };
           traces.push(trace);
@@ -1260,6 +1301,7 @@
 {# =================================================== Gene expression plot #}
     function showExp() {
       var byGroup = document.getElementById("exp-bygroup").checked;
+      var hideEmpty = document.getElementById("hide-empty").checked;
       var fields = document.querySelectorAll('input[name="exp_col"]:checked');
       if (!byGroup && fields == null) {
         showHelp(event, "select-column");
@@ -1276,6 +1318,7 @@
       }).map(r => {
         return [...r.querySelectorAll("td")][1].textContent.trim();
       });
+      var geneTicks = [...selectedGenes];
 
       if (byGroup) {
         var groups = [];
@@ -1399,6 +1442,7 @@
               });
             }
           }
+
           if (uniqueVal === "") {
             uniqueVal = "(blank)";
           }
@@ -1449,6 +1493,11 @@
           tickangle: 20,
           automargin: true,
           showgrid: false,
+            type: "category",
+            categoryorder: "array",
+            categoryarray: hideEmpty ? selectedGenes : geneTicks,
+            allTicks: geneTicks,
+            filtTicks: selectedGenes,
         },
         automargin: true,
         margin: {
