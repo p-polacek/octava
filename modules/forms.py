@@ -136,12 +136,12 @@ class FuncAnalysisForm(RegionForm):
 
     skip_samp = MultiCheckboxField(
         "",
-        choices=[("·", "Reference-only samples"), ("—", "Absent-only samples")],
+        choices=[("⸺", "Reference-only samples"), ("·", "Absent-only samples")],
         default=[],
     )
     skip_var = MultiCheckboxField(
         "",
-        choices=[("·", "Reference-only variants"), ("—", "Absent-only variants")],
+        choices=[("⸺", "Reference-only variants"), ("·", "Absent-only variants")],
         default=[],
     )
     skip_no_var = BooleanField("Variants without variation")

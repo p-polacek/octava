@@ -630,9 +630,14 @@ table td {
 	text-overflow: ellipsis;
 }
 
-.wider-col {
+.fa-max {
 	min-width: 200px;
-	width: 200px;
+ 	max-width: 200px;
+    max-height: 150px;
+    overflow: auto;
+    vertical-align: middle;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
 }
 
 .qc-col {

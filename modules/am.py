@@ -53,9 +53,9 @@ def compress_sv(seq):
 def am_pipeline(genome, form):
     """Pipeline generating allele mining output"""
 
-    ###############################################################################
-    ### Initialise output structures
-    ###############################################################################
+###############################################################################
+### Initialise output structures
+###############################################################################
 
     # [[sample_1, [pos1, qual1], [pos2, qual2], ...], [sample2, ...]]
     gts = list()
@@ -72,9 +72,9 @@ def am_pipeline(genome, form):
 
     errors = list()
 
-    ###############################################################################
-    ### Initialise files and conversion dictionaries
-    ###############################################################################
+###############################################################################
+### Initialise files and conversion dictionaries
+###############################################################################
 
     gconfig = load_config(genome)
     query = form.data
@@ -144,9 +144,9 @@ def am_pipeline(genome, form):
     regions = list()
     regions_concat = list()
 
-    ###############################################################################
-    ### Get list of genes and regions to search through - gene input
-    ###############################################################################
+###############################################################################
+### Get list of genes and regions to search through - gene input
+###############################################################################
 
     if query["fmt"] == "gene":
         if query["gene"]:
@@ -204,9 +204,9 @@ def am_pipeline(genome, form):
                     ]
                 )
 
-    ###############################################################################
-    ### Get list of genes and regions to search through - region/coord input
-    ###############################################################################
+###############################################################################
+### Get list of genes and regions to search through - region/coord input
+###############################################################################
 
     else:
         if query["fmt"] == "coord":
@@ -299,9 +299,9 @@ def am_pipeline(genome, form):
                         ]
                     )
 
-    ###############################################################################
-    ### Iterate over variant records in regions
-    ###############################################################################
+###############################################################################
+### Iterate over variant records in regions
+###############################################################################
 
     if query["impact"] == ["geneonly"]:
         return (gts, groups, genes, anns, errors)
@@ -357,9 +357,9 @@ def am_pipeline(genome, form):
         prev_pos = 0
         dup_cnt = 0
 
-        ###############################################################################
-        ### Filter for type and severity
-        ###############################################################################
+###############################################################################
+### Filter for type and severity
+###############################################################################
 
         for var in vcf_reader:
             if regions_concat and regions_concat[region_idx]:
@@ -377,14 +377,14 @@ def am_pipeline(genome, form):
                 #      for sev in var.parsed_info_fields().get("SEV", "")]):
                 #        continue
 
-            ###############################################################################
-            ### Iterate over annotations, extract those matching query
-            ###############################################################################
+###############################################################################
+### Iterate over annotations, extract those matching query
+###############################################################################
 
             ann_list = list()
             pos = var.POS
             ref = var.REF
-            typ = var.VAR_TYPE
+            typ = var.VAR_TYPE.upper()
 
             # Multiple vars per position are given an index to distinguish
             if pos == prev_pos:
@@ -436,9 +436,9 @@ def am_pipeline(genome, form):
                 else:
                     continue
 
-                ###############################################################################
-                ### Shorten long sequences in annotations (for html visualisation)
-                ###############################################################################
+###############################################################################
+### Shorten long sequences in annotations (for html visualisation)
+###############################################################################
 
                 for ann in ann_list:
                     print_ann = list()
@@ -490,9 +490,9 @@ def am_pipeline(genome, form):
 
                     print_anns.append(" | ".join(print_ann))
 
-                ###############################################################################
-                ### Get and process severity score (if available)
-                ###############################################################################
+###############################################################################
+### Get and process severity score (if available)
+###############################################################################
 
                 if not print_anns:
                     continue
@@ -514,9 +514,9 @@ def am_pipeline(genome, form):
                         sevs.append(" | ".join((str_var, data[0], score)))
                         sevs.append(data[11])
 
-            ###############################################################################
-            ### Save variant entry
-            ###############################################################################
+###############################################################################
+### Save variant entry
+###############################################################################
 
             # Save annotation entry
             if query["dataset"] == "":
@@ -541,9 +541,9 @@ def am_pipeline(genome, form):
             # if is_hap:
             #    anns[-1][1] = (anns[-1][1]
 
-            ###############################################################################
-            ### Get genotype data
-            ###############################################################################
+###############################################################################
+### Get genotype data
+###############################################################################
 
             mis_c = 0
             het_c = 0
@@ -561,19 +561,22 @@ def am_pipeline(genome, form):
                         elif a != b:
                             het_c += 1
                         allele_data += [a, b]
-                        a = "·" if a == "0" else "—" if a == "." else typ + a
-                        b = "·" if b == "0" else "—" if b == "." else typ + b
+                        a = "⸺" if a == "0" else "·" if a == "." else "⟩" if var.ALLELES[int(a)] == "*" else typ + a
+                        b = "⸺" if b == "0" else "·" if b == "." else "⟩" if var.ALLELES[int(b)] == "*" else typ + b
+                        if a != b:
+                            a = a.replace("⸺", "—")
+                            b = b.replace("⸺", "—")
                         genotype = delim.join((a, b)) if a != b else a
                         break
                 else:
-                    genotype = "·" if gt == "0" else "—" if gt == "." else gt
+                    genotype = "⸺" if gt == "0" else "·" if gt == "." else gt
                     allele_data += [gt, gt]
                     if gt == ".":
                         mis_c += 1
 
-                ###############################################################################
-                ### Get allelic depths and qualities for a call
-                ###############################################################################
+###############################################################################
+### Get allelic depths and qualities for a call
+###############################################################################
 
                 if query["dataset"] == "":
                     quals = list()
@@ -631,9 +634,9 @@ def am_pipeline(genome, form):
                 else:
                     anns[-1] += [np.round(mis, 3), np.round(het, 3), np.round(maf, 3)]
 
-    ###############################################################################
-    ### Filter out positions without variation
-    ###############################################################################
+###############################################################################
+### Filter out positions without variation
+###############################################################################
 
     pos_rmv = list()
     for pos in range(len(gts[0])):
@@ -657,9 +660,9 @@ def am_pipeline(genome, form):
         gts = list()
         return (gts, groups, genes, anns, errors)
 
-    ###############################################################################
-    ### Group samples based on haplotype
-    ###############################################################################
+###############################################################################
+### Group samples based on haplotype
+###############################################################################
 
     var_num = len(gts[0])
     for sample, sample_gts in zip(samples, gts):
@@ -668,9 +671,9 @@ def am_pipeline(genome, form):
         name = samp_dict[sample] if samp_dict else sample
         groups.setdefault(haplotype, list()).append(name)
 
-    ###############################################################################
-    ### Filter out samples without variation
-    ###############################################################################
+###############################################################################
+### Filter out samples without variation
+###############################################################################
 
     samp_rmv = list()
     # If looking for differences between samples,
@@ -685,17 +688,17 @@ def am_pipeline(genome, form):
         gts = [gt for idx, gt in enumerate(gts) if idx not in samp_rmv]
         samples = [samp for idx, samp in enumerate(samples) if idx not in samp_rmv]
 
-    ###############################################################################
-    ### Keep track of variant count
-    ###############################################################################
+###############################################################################
+### Keep track of variant count
+###############################################################################
 
     var_cntr = Counter([g for ann in anns for g in ann[2]])
     for gene in genes:
         gene[7] = var_cntr[gene[0]]
 
-    ###############################################################################
-    ### Rename sample names and append to genotypes
-    ###############################################################################
+###############################################################################
+### Rename sample names and append to genotypes
+###############################################################################
 
     if samp_dict:
         samples = [samp_dict.get(samp, samp) for samp in samples]
@@ -722,9 +725,9 @@ def am_pipeline(genome, form):
     # Add sample names to gts
     gts = [[sample] + gt for sample, gt in zip(samples, gts)]
 
-    ###############################################################################
-    ### Return
-    ###############################################################################
+###############################################################################
+### Return
+###############################################################################
 
     return (gts, groups, genes, anns, errors)
 

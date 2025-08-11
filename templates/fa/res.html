@@ -123,8 +123,10 @@
                 Position
               </th>
               {% for ann in anns %}
-                <td class="center-text wider-col">
-                  {{ ann[0] }}:{{ ann[1] }}
+                <td class="center-text">
+                  <div class="fa-max">
+                    {{ ann[0] }}:{{ ann[1] }}
+                  </div>
                 </td>
               {% endfor %}
             <tr>
@@ -133,7 +135,7 @@
               </th>
               {% for ann in anns %}
                 <td class="center-text">
-                  <div style="max-height: 150px; overflow-y: auto; vertical-align: middle; padding-right: 20px;">
+                  <div class="fa-max">
                     {% for gene in ann[2] %}
                       {{ gene }}
                     {% endfor %}
@@ -208,10 +210,10 @@
                      'chrom': '{{ ann[0] }}',
                      'pos': '{{ ann[1] }}',
                      'field': 'CSQ'});">
-                    <div style="max-height: 150px; overflow-y: auto; vertical-align: middle; padding-right: 20px;">
+                    <div class="fa-max">
                       {% for ann_entry in ann[4] %}
                         {{ ann_entry }}
-                        <br >
+                        <br>
                       {% endfor %}
                    </div>
                   </td>
@@ -233,7 +235,7 @@
                      'chrom': '{{ ann[0] }}',
                      'pos': '{{ ann[1] }}',
                      'field': 'SEV'});">
-                    <div style="max-height: 150px; overflow-y: auto; vertical-align: middle; padding-right: 20px;">
+                    <div class="fa-max">
                       {% for ann_entry in ann[5] %}
                         {{ ann_entry }}
                         <br>
@@ -1156,7 +1158,7 @@
       }
 
       var traces = [];
-      var gts = ["—", "·", "·/var1", "var1"];
+      var gts = ["⸺", "·", "—/var1", "var1"];
       gts = gts.concat(Object.keys(traceData).filter( e => {
         return !gts.includes(e)
       }));
