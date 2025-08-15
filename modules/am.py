@@ -701,7 +701,7 @@ def am_pipeline(genome, form):
 ###############################################################################
 
     if samp_dict:
-        samples = [samp_dict.get(samp, samp) for samp in samples]
+        samples = [[samp, samp_dict.get(samp, samp)] for samp in samples]
 
     # Sort positions
     order = sorted(

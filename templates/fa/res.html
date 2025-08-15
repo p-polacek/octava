@@ -247,9 +247,13 @@
                 {% endif %}
               {% endfor %}
             {% for gt in gts %}
-              {% set sample = gt[0] %}
+              {% set sampleId = gt[0][0] %}
+              {% set sample = gt[0][1] %}
               <tr>
-                <th class="header-left">
+                <th
+                  class="header-left fa-max"
+                  title="{{ sample }}"
+                  sampleId="{{ sampleId }}">
                   {{ sample }}
                 </th>
                 {% for call_data in gt[1:] %}
@@ -264,16 +268,17 @@
                         0,
                         0.65);"
                     {% endif %}
-                    oncontextmenu="(function(chrom, pos, sample) {
+                    oncontextmenu="(function(chrom, pos, sampleId) {
                       contextMenu(
                         event,
                         {'action': 'vars',
                          'chrom': chrom,
                          'pos': pos,
-                         'field': sample}); })(
+                         'field': 'sample',
+                         'sampleId': sampleId}); })(
                       '{{ ann[0] }}',
                       '{{ ann[1] }}',
-                      '{{ sample }}');">
+                      '{{ sampleId }}');">
                     {{ call }}
                   </td>
                 {% endfor %}
@@ -1130,7 +1135,7 @@
 
       var rows = [...table.querySelectorAll("tr")];
       var samples = rows.slice(7).map(function(row) {
-        return row.querySelector("th").textContent.trim();
+        return row.querySelector("th").getAttribute("sampleId");
       });
 
       for (let i = 0; i < samples.length; i++) {
@@ -1165,7 +1170,7 @@
       gts.forEach( (key, idx) => {
         if (Object.keys(traceData).includes(key)) {
           var [positions, values, samples] = traceData[key];
-          var visible = !((key === "—" && hideMis) || (key.includes("/") && hideHet));
+          var visible = !((key === "·" && hideMis) || (key.includes("/") && hideHet));
 
           if (pheCnts) {
             var cnts = [];

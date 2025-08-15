@@ -1,4 +1,8 @@
 function fetchChr() {
+  var filtFrom = document.querySelector("input[name='filt_from']:checked");
+  if (filtFrom) {
+    markers = filtFrom.value;
+  }
   if (typeof(haps) !== "undefined" && haps[markers]) {
     var plotChoice = document.getElementById("hap-choice-field").value;
   } else {

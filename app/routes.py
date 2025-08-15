@@ -737,10 +737,10 @@ def fa_res(genome):
             # Skip header line
             for gene in genes[1:]:
                 try:
-                    for t_entry in tb.query(*gene[2:5]):
-                        if t_entry[0] != gene[1]:
-                            continue
-                        exp_data.append([t_entry[0]] + t_entry[4:])
+                    for t_entry in tb.query(gene[1], 0, 1):
+                        #if t_entry[0] != gene[1]:
+                        #    continue
+                        exp_data.append([t_entry[0]] + t_entry[2:])
                 except tabix.TabixError:
                     # Gene not found, ignore
                     pass

@@ -49,6 +49,7 @@ def concat(genome):
 @app.route("/chr_ld", methods=["POST"])
 def fetch_chr_ld():
     form = request.form
+    print(form)
     genome = form["genome"]
     markers = form["markers"]
     chrom = form["chrom"]
@@ -130,6 +131,10 @@ def fetch_ld():
         f"{out_root}.vcor", sep="\t", header=0, index_col=None, usecols=[1, 2]
     )
 
+    if not is_hap:
+        ld.loc[len(ld)] = [int(pos), 1]
+        ld = ld.sort_values(by="POS_B")
+
     if r2 > 0:
         # Remove all entries below r2
         ld.loc[ld["UNPHASED_R2"] < r2, "UNPHASED_R2"] = 0
@@ -160,9 +165,8 @@ def fetch_ld():
         ld = ld[["chr", "start", "val", "end", "idx"]].values.tolist()
         ld = sorted(ld, key=lambda x: x[1])
     else:
-        ld.loc[len(ld)] = [int(pos), 1]
-        ld = (
-            ld.sort_values(by="POS_B")
+        #ld.loc[len(ld)] = [int(pos), 1]
+        ld = (ld
             .assign(ch=ch)[["ch", "POS_B", "UNPHASED_R2"]]
             .values.tolist()
         )
@@ -438,7 +442,7 @@ def contextmenu():
                 desc = desc.split("'")[1].split("'")[0]
                 keys = [label.strip() for label in desc.split("|")]
                 data += [ann.split("|") for ann in csq]
-            else:
+            elif field == "sample":
                 samp_path = os.path.join(data_dir, genome, config["samp"])
                 with master_lock:
                     lock = get_lock(samp_path)
@@ -447,8 +451,7 @@ def contextmenu():
                         samp_path, sep="\t", header=0, index_col=None, usecols=[0, 1]
                     )
                     samples = dict(samp_df.to_records(index=False))
-                field = samples.get(field, field)
-                qual = record.get_sample_call(field)
+                qual = record.get_sample_call(request.form["sampleId"])
                 keys = list(qual.keys())
                 data += [[qual[key] for key in keys]]
 

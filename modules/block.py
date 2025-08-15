@@ -97,7 +97,7 @@ def block_genotype(
     marker_map = {
         marker: idx
         for (idx, marker) in pd.read_csv(
-            f"{gt_root}.bim", sep="\t", header=None, usecols=1
+            f"{gt_root}.bim", sep="\t", header=None, usecols=[1]
         ).to_records()
     }
 

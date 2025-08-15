@@ -34,10 +34,13 @@ def extract_qtls(genome, params, task_id):
             "Marker set",
             "Model",
             "Trait",
-            "Correction",  # "Trait heritability",
+            "Correction",
+            #"Trait heritability",
             "Peak marker",
             "Peak significance",
-            "QTL span",
+            "QTL span at r=0.8",
+            "QTL span at r=0.4",
+            f"QTL span at r={r2}",
             "Minor allele frequency",
             "Corrected effect size",
             "Corrected percentage of variance explained",
@@ -115,6 +118,8 @@ def extract_qtls(genome, params, task_id):
                     "",
                     "",
                     "",
+                    "",
+                    "",
                 ]
             )
             (
@@ -160,7 +165,7 @@ def extract_qtls(genome, params, task_id):
                         "--ld-window-kb",
                         str(window),
                         "--ld-window-r2",
-                        str(r2),
+                        str(min(r2, 0.4)),
                         # "--ld-window-r2", "0",
                         "--silent",
                         "--out",
@@ -182,6 +187,7 @@ def extract_qtls(genome, params, task_id):
                 # ld = ld.sort_index()
 
                 # QTL span calculation
+                ld = ld[ld["UNPHASED_R2"] >= r2]
                 if ld.empty:
                     span_r2 = peak_pos
                 else:
@@ -195,6 +201,48 @@ def extract_qtls(genome, params, task_id):
                         )
                     else:
                         span_r2 = (
+                            ch
+                            + ":"
+                            + f"{ld.iloc[0]['POS_B']:,}"
+                            + "-"
+                            + f"{ld.iloc[-1]['POS_B']:,}"
+                        )
+
+                ld = ld[ld["UNPHASED_R2"] >= 0.4]
+                if ld.empty:
+                    span_r4 = peak_pos
+                else:
+                    if is_hap:
+                        span_r4 = (
+                            ch
+                            + ":"
+                            + f"{ld.iloc[0]['POS_B']:,}"
+                            + "-"
+                            + f"{int(ld.iloc[-1]['ID_B'].split('-')[1].split('_')[0]):,}"
+                        )
+                    else:
+                        span_r4 = (
+                            ch
+                            + ":"
+                            + f"{ld.iloc[0]['POS_B']:,}"
+                            + "-"
+                            + f"{ld.iloc[-1]['POS_B']:,}"
+                        )
+
+                ld = ld[ld["UNPHASED_R2"] >= 0.8]
+                if ld.empty:
+                    span_r8 = peak_pos
+                else:
+                    if is_hap:
+                        span_r8 = (
+                            ch
+                            + ":"
+                            + f"{ld.iloc[0]['POS_B']:,}"
+                            + "-"
+                            + f"{int(ld.iloc[-1]['ID_B'].split('-')[1].split('_')[0]):,}"
+                        )
+                    else:
+                        span_r8 = (
                             ch
                             + ":"
                             + f"{ld.iloc[0]['POS_B']:,}"
@@ -255,6 +303,8 @@ def extract_qtls(genome, params, task_id):
                         # heritability,
                         peak_pos,
                         round(peak[sig_col], 2),
+                        span_r8,
+                        span_r4,
                         span_r2,
                         maf,
                         effect,

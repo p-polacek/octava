@@ -1279,22 +1279,22 @@
                 
               }
             });
-          } else if (data.event.button === 2) {
-            var traces = plotDiv.data;
-            var traceId = traces[data.points[0].curveNumber].Id;
-            if (traceId != null) {
-              var [markers, model, trait] = traceId;
-              contextMenu(
-                event,
-                {action: "pve",
-                 markers: markers,
-                 model: model,
-                 trait: trait,
-                 pos: markerId});
-              return false;
-            } else {
-              showHelp(event, null, "PVE calculation is only supported for single traits.");
-            }
+//          } else if (data.event.button === 2) {
+//            var traces = plotDiv.data;
+//            var traceId = traces[data.points[0].curveNumber].Id;
+//            if (traceId != null) {
+//              var [markers, model, trait] = traceId;
+//              contextMenu(
+//                event,
+//                {action: "pve",
+//                 markers: markers,
+//                 model: model,
+//                 trait: trait,
+//                 pos: markerId});
+//              return false;
+//            } else {
+//              showHelp(event, null, "PVE calculation is only supported for single traits.");
+//            }
           }
         }
       });

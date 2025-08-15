@@ -55,7 +55,7 @@ def kq_process(genome, kq_from, samples, k, q_num, cov):
         k_lab = pd.read_csv(
             f"{kq_root}.rel.id",
             sep="\t",
-            usecols=1,
+            usecols=[1],
             skiprows=[0],
             header=None,
             index_col=None,
