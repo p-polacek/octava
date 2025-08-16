@@ -477,6 +477,9 @@
    filename='js/plotly_config.js')}}"></script>
   <script src="{{url_for(
    'static',
+   filename='js/plot_colors.js')}}"></script>
+  <script src="{{url_for(
+   'static',
    filename='js/help_texts.js')}}"></script>
   <script src="{{url_for(
   'static',
@@ -493,21 +496,9 @@
 {# ============================================================ Setup input #}
     var genome = '{{ genome }}';
     var visibleDropdown = null;
-    // Colors for plotting separate sample groups, default from plotly.js
-    var plotColors = [
-      //"#1f77b4",  // muted blue
-      "#ff7f0e",  // safety orange
-      //"#2ca02c",  // cooked asparagus green
-      "#d62728",  // brick red
-      "#9467bd",  // muted purple
-      "#8c564b",  // chestnut brown
-      "#e377c2",  // raspberry yogurt pink
-      "#7f7f7f",  // middle gray
-      "#bcbd22",  // curry yellow-green
-      "#17becf"   // blue-teal
-    ];
-    var plotColorAll = "#47b023";
-    var plotColorSelected = "#014e60";
+
+    var plotColorAll = "#60cdcd";
+    var plotColorSelected = "#e27267";
     var plotMargins = {l: 80, r: 40, b: 50, t: 30, pad: 4};
 
     var lastClick = 0;
@@ -705,7 +696,7 @@
           bingroup: trait,
           showlegend: legend,
           marker: {
-            color: plotColors[idx],
+            color: filtColorCycle[idx],
           },
           visible: true,
         };
@@ -800,7 +791,7 @@
       var trace = {
         x: plotData,
         type: "histogram",
-        marker: { color: "#014e60" },
+        marker: { color: "#e27267" },
         visible: true,
       };
       var layout = {
@@ -940,7 +931,7 @@
           legendgroup: groupName,
           opacity: opacity,
           marker: {
-            color: plotColors[idx],
+            color: filtColorCycle[idx],
             line: {
               color: "transparent",
             },
@@ -1520,7 +1511,7 @@
               bgcolor: "white",
             },
             marker: {
-              color: plotColors[idx],
+              color: filtColorCycle[idx],
               size: 4,
             },
             visible: true,

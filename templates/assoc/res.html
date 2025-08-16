@@ -443,6 +443,9 @@
    filename='js/plotly_config.js')}}"></script>
   <script src="{{url_for(
    'static',
+   filename='js/plot_colors.js')}}"></script>
+  <script src="{{url_for(
+   'static',
    filename='js/help_texts.js')}}"></script>
   <script src="{{url_for(
    'static',
@@ -454,30 +457,6 @@
 
   <script>
 {# ======================================================= Static variables #}
-    const colorCycle = [
-      "#1f77b4",  // muted blue
-      "#ff7f0e",  // safety orange
-      "#2ca02c",  // cooked asparagus green
-      "#d62728",  // brick red
-      "#9467bd",  // muted purple
-      "#8c564b",  // chestnut brown
-      "#e377c2",  // raspberry yogurt pink
-      "#7f7f7f",  // middle gray
-      "#bcbd22",  // curry yellow-green
-      "#17becf"   // blue-teal
-    ];
-    const ldColorCycle = [ // All raised in luminosity, offset by 3
-      "#F2B7B7",  // brick red
-      "#c6addc",  // muted purple
-      "#d7b9b3",  // chestnut brown
-      "#efafdc",  // raspberry yogurt pink
-      "#baf1f8",  // blue-teal
-      "#cfcfcf",  // middle gray
-      "#eded9c",  // curry yellow-green
-      "#b7dbf2",  // muted blue
-      "#ffd7b3",  // safety orange
-      "#bcedbc",  // cooked asparagus green
-    ];
     const chrNames = {{ chroms|tojson }};
     const chrSizes = {{ sizes|tojson }};
     const chrOffsets = {{ offsets|tojson }};
@@ -931,29 +910,17 @@
 
         var y2Title;
         var modelTypes = [...new Set(dataKeys.map(v => v[1]))];
-        if (modelTypes.length > 1) {
-          if (modelTypes.every(m => ["B", "C"].includes(m))) {
-            y2Title = "Posterior inclusion probability";
-          } else if (modelTypes.every(m => ["glm", "mlm", "mtmlm", "blink"].includes(m))) {
-            y2Title = "-log<sub>10</sub>(P-value)";
-          } else {
-            y2Title = "Significance (multiple scales)";
-            if (event != null && event.clientX != null) {
-              showHelp(event, null, "Significance plotted on y-axis uses multiple scales.<br>Take caution when interpreting results.");
-            }
-          }
+        if (modelTypes.every(m => ["B", "C"].includes(m))) {
+          y2Title = "Posterior inclusion probability";
+        } else if (modelTypes.every(m => ["glm", "mlm", "mtmlm", "blink"].includes(m))) {
+          y2Title = "-log<sub>10</sub>(p-value)";
+        } else if (modelTypes.every(m => ["rf", "rfc"].includes(m))) {
+          y2Title = "Permutation importance";
         } else {
-          y2Title = (() => {
-            if (dataKeys.length > 0) {
-              switch (dataKeys[0][1]) {
-                case "rf": return "Permutation importance";
-                case "rfc": return "Permutation importance";
-                case "B": case "C": return "Posterior inclusion probability";
-                case "glm": case "mlm": case "mtmlm": case "blink": return "-log<sub>10</sub>(P-value)";
-                default: return "Significance";
-              }
-            }
-          })();
+          y2Title = "Significance (multiple scales)";
+          if (event != null && event.clientX != null) {
+            showHelp(event, null, "Significance plotted on y-axis uses multiple scales.<br>Take caution when interpreting results.");
+          }
         }
 
         var layout = {
@@ -968,7 +935,7 @@
             title: "Chromosome",
             tickvals: plotTicks,
             ticktext: plotNames,
-            tickangle: 20,
+            tickangle: -20,
             range: [0, xMax],
             showgrid: false,
             minallowed: 0,

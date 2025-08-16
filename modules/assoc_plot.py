@@ -3,8 +3,10 @@
 # based on https://github.com/PriyaLakr/Manhattan-plot
 
 import numpy as np
+import scipy.stats as st
 from itertools import cycle
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 from modules.load_input import load_gdata
 
@@ -40,28 +42,48 @@ def mqplot(
             lambda ch: (ch if ch not in concat else "Other")
         )
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
-    colors = cycle(["#014e60", "#47b023"])
+    fig = make_subplots(
+        rows=1, cols=2,
+        column_widths=[0.6, 0.4],
+        horizontal_spacing=0.1
+    )
+    #colors = ["#014e60", "#47b023"]
+    colors = ["#e27267", "#60cdcd"]
+    color_cycle = cycle(colors)
 
     # Manhattan plot
-    ax1.grid(visible=True, zorder=-1, axis="y", color="#dbdbdb")
     in_df = in_df.sort_values(by=pos_col)
     for ch, data in in_df.groupby(ch_col, sort=False):
-        color = next(colors)
-        ax1.scatter(
-            x=data[pos_col], y=data[sig_col], color=color, label=ch, s=4, zorder=10
+        color = next(color_cycle)
+        fig.add_trace(
+            go.Scatter(
+                x=data[pos_col],
+                y=data[sig_col],
+                mode="markers",
+                marker=dict(color=color, size=4),
+                showlegend=False  # disable legend for each chromosome
+            ),
+            row=1, col=1
         )
         if end_col:
-            ax1.hlines(
-                y=data[sig_col],
-                xmin=data[start_col],
-                xmax=data[end_col],
-                color=color,
-                linewidth=0.5,
-            )
+            for y, x0, x1 in zip(data[sig_col], data[start_col], data[end_col]):
+                fig.add_trace(
+                    go.Scatter(
+                        x=[x0, x1],
+                        y=[y, y],
+                        mode="lines",
+                        line=dict(color=color, width=0.5),
+                        showlegend=False
+                    ),
+                    row=1, col=1
+                )
 
     if thresh:
-        ax1.axhline(y=-np.log10(0.05 / in_df.shape[0]), color="red", lw=1, zorder=0)
+        fig.add_hline(
+            y=-np.log10(0.05 / in_df.shape[0]),
+            line=dict(color="red", width=1),
+            row=1, col=1
+        )
 
     ticks = [sizes[ch] // 2 + offsets[ch] for ch in chroms if ch not in concat]
     labels = [ch for ch in chroms if ch not in concat]
@@ -75,30 +97,144 @@ def mqplot(
         )
         labels.append("Other")
 
-    ax1.set_xticks(ticks=ticks, labels=labels, rotation=45, ha="right")
-    ax1.set_xlabel("Chromosome")
-    # ax1.set_ylabel("$-log_{10}$(p) value / PIP / importance")
+    max_sig = in_df[sig_col].max()
+    max_pos = in_df.loc[in_df.shape[0] - 1, pos_col]
+    fig.update_xaxes(
+        title_text="Chromosome",
+        tickmode="array",
+        tickvals=ticks,
+        ticktext=labels,
+        tickangle=-20,
+        ticks="outside",
+        ticklen=5,
+        tickwidth=1,
+        tickcolor="black",
+        showline=True,
+        linewidth=1,
+        linecolor="black",
+        mirror=False,
+        range=[-max_pos * 0.02, max_pos * 1.02],
+        row=1,
+        col=1,
+    )
+
     ylabel = (
         "Importance"
         if not qqplot
-        else "PIP" if sig_col == "PIP" else "$-log_{10}$p-value"
+        else "PIP" if sig_col == "PIP" else r"-log<sub>10</sub>(p-value)"
     )
-    ax1.set_ylabel(ylabel)
+    fig.update_yaxes(
+        title_text=ylabel,
+        ticks="outside",
+        ticklen=5,
+        tickwidth=1,
+        tickcolor="black",
+        showgrid=True,
+        gridcolor="#dbdbdb",
+        gridwidth=1,
+        showline=True,
+        linewidth=1,
+        linecolor="black",
+        mirror=False,
+        range=[-max_sig * 0.04, max_sig * 1.04],
+        row=1,
+        col=1,
+    )
 
     # QQ plot
     if qqplot:
         in_df = in_df.sort_values(by=sig_col).dropna()
         num_tests = in_df.shape[0]
         theor_quant = -np.log10(np.linspace(1, 1 / num_tests, num=num_tests))
-        ax2.scatter(x=theor_quant, y=in_df[sig_col], color="#014e60", s=4)
-        ax2.plot([0, theor_quant[-1]], [0, theor_quant[-1]], color="#47b023", zorder=0)
-        ax2.set_xlabel("Expected $-log_{10}$p-value")
-        ax2.set_ylabel("Observed $-log_{10}$p-value")
+
+        i = np.arange(1, num_tests+1)
+        a = num_tests - i + 1   # note the flip vs. Beta(i, n-i+1)
+
+        eps = np.finfo(float).tiny  # guard against 0/1
+        p_lo = np.clip(st.beta.ppf(0.025, a, i), eps, 1 - eps)
+        p_hi = np.clip(st.beta.ppf(0.975, a, i), eps, 1 - eps)
+
+        # After -log10, the ordering flips: smaller p -> larger y
+        y_band_hi = -np.log10(p_lo)  # this is the *upper* envelope in y
+        y_band_lo = -np.log10(p_hi)  # this is the *lower* envelope in y
+        max_y = max(max(y_band_hi), max_sig)
+
+        fig.add_trace(
+            go.Scatter(
+                x=theor_quant,
+                y=in_df[sig_col],
+                mode="markers",
+                marker=dict(color=colors[0], size=4),
+                showlegend=False
+            ),
+            row=1, col=2
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=[0, theor_quant[-1]],
+                y=[0, theor_quant[-1]],
+                mode="lines",
+                line=dict(color="black", width=1),
+                showlegend=False
+            ),
+            row=1, col=2
+        )
+
+        fig.add_trace(
+            go.Scatter(x=theor_quant, y=y_band_hi, mode="lines",
+                       line=dict(width=0), showlegend=False),
+            row=1, col=2
+        )
+        fig.add_trace(
+            go.Scatter(x=theor_quant, y=y_band_lo, mode="lines",
+                       fill="tonexty", line=dict(width=0),
+                       #fillcolor="#ededed", showlegend=False),
+                       fillcolor="rgba(81,180,194,0.15)", showlegend=False),
+            row=1, col=2
+        )
+        
+        fig.update_xaxes(
+            title_text=r"Expected -log<sub>10</sub>(p-value)",
+            showline=True,
+            linewidth=1,
+            linecolor="black",
+            mirror=False,
+            ticks="outside",
+            ticklen=5,
+            tickwidth=1,
+            tickcolor="black",
+            range=[-theor_quant[-1] * 0.04, theor_quant[-1] * 1.04],
+            row=1,
+            col=2
+        )
+        fig.update_yaxes(
+            title_text=r"Observed -log<sub>10</sub>(p-value)",
+            showline=True,
+            linewidth=1,
+            linecolor="black",
+            mirror=False,
+            ticks="outside",
+            ticklen=5,
+            tickwidth=1,
+            tickcolor="black",
+            range=[-max_y * 0.04, max_y * 1.04],
+            row=1,
+            col=2
+        )
     else:
-        ax2.set_visible(False)
+        fig.update_xaxes(visible=False, row=1, col=2)
+        fig.update_yaxes(visible=False, row=1, col=2)
 
-    plt.suptitle(plot_title)
-    plt.tight_layout()
+    fig.update_layout(
+        title=dict(
+            text=plot_title,
+            x=0.5,
+            xanchor="center",
+            yanchor="top"
+        ),
+        plot_bgcolor="white",
+        height=400, width=1000,
+        margin=dict(l=60, r=20, t=80, b=50)
+    )
 
-    fig.savefig(out_fn, dpi=300, format="png")
-    plt.close(fig)
+    fig.write_image(out_fn, format="png", scale=3)

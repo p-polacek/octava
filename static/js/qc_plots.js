@@ -130,7 +130,7 @@ function showPlot() {
         namelength: 0,
         bgcolor: "white",
       },
-      marker: { color: "#47b023" },
+      marker: { color: "#60cdcd" },
       visible: true,
     };
     traces.push(trace);
@@ -163,6 +163,7 @@ function showPlot() {
         pad: 4
       },
       bargap: 0,
+      hovermode: "x",
     };
     var spanShapes = [];
     for (i = 0; i < chrNames.length; i+= 2) {
@@ -227,7 +228,7 @@ function showPlot() {
       },
       marker: {
          size: 6,
-         color: "#47b023",
+         color: "#60cdcd",
       },
       visible: true,
     }
@@ -416,6 +417,11 @@ function showPlot() {
       z: data[0],
       x: data[1],
       y: data[1],
+      //colorscale: [
+      //  [0, "#60cdcd"],
+      //  [0.5, "ffffff"],
+      //  [1, "#e27267"],
+      //],
       colorbar: {
         title: {
           text: "Hamming<br>distance",
@@ -448,7 +454,7 @@ function showPlot() {
       y: chrData.map(v => v[2]),
       textposition: "none",
       width: chrData.map(v => v[2]),
-      marker: { color: "#47b023" },
+      marker: { color: "#60cdcd" },
       visible: true,
     };
     traces.push(trace);
@@ -470,6 +476,7 @@ function showPlot() {
         t: 30,
         pad: 4
       },
+      hovermode: "x",
     }
   } else if (plotChoice === "ld") {
     var trace = {
@@ -562,7 +569,7 @@ function showPlot() {
 //          size: 13,
 //        },
       },
-      marker: { color: "#47b023" },
+      marker: { color: "#60cdcd" },
       offset: 0,
       visible: true,
     };
@@ -586,7 +593,7 @@ function showPlot() {
         minallowed: 0,
         maxallowed: yMax,
       },
-      hovermode: "closest",
+      hovermode: "x",
       margin: {
         l: 80,
         r: 40,
@@ -822,7 +829,7 @@ function ordinal(i) {
 //      y: data,
 //      mode: "lines+markers",
 //      line: {
-//        color: "#47b023",
+//        color: "#60cdcd",
 //      },
 //      marker: {
 //        color: "#014e60",
