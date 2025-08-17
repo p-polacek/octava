@@ -428,7 +428,7 @@ def filt_qc(genome, data, task_id):
         cmd += ["--export", "vcf", "bgz"]
     subprocess.run(cmd, check=True)
 
-    pysam.tabix_index(plink_out + ".vcf.gz")
+    pysam.tabix_index(plink_out + ".vcf.gz", preset="vcf")
 
     rel_matrix = pd.read_csv(f"{plink_out}.rel", sep="\t", header=None, index_col=None)
     # Convert PCA eigenvectors to PVE

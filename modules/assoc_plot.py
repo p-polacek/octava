@@ -5,8 +5,7 @@
 import numpy as np
 import scipy.stats as st
 from itertools import cycle
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+import matplotlib.pyplot as plt
 
 from modules.load_input import load_gdata
 
@@ -31,59 +30,49 @@ def mqplot(
 
     in_df[ch_col] = in_df[ch_col].astype(str)
     in_df[pos_col] = in_df[pos_col] + in_df[ch_col].map(offsets)
+
     if end_col:
         start_col = "__start__"
         in_df[start_col] = in_df.loc[:, pos_col]
         in_df[end_col] = in_df[end_col] + in_df[ch_col].map(offsets)
         in_df[pos_col] = in_df[start_col] + (in_df[end_col] - in_df[start_col]) / 2
         in_df["span"] = in_df[end_col] - in_df[start_col]
+
     if concat:
         in_df[ch_col] = in_df[ch_col].apply(
             lambda ch: (ch if ch not in concat else "Other")
         )
 
-    fig = make_subplots(
-        rows=1, cols=2,
-        column_widths=[0.6, 0.4],
-        horizontal_spacing=0.1
+    fig, (ax1, ax2) = plt.subplots(
+        1, 2,
+        figsize=(10, 4),
+        gridspec_kw={"width_ratios": [0.6, 0.4]}
     )
+
     #colors = ["#014e60", "#47b023"]
     colors = ["#e27267", "#60cdcd"]
     color_cycle = cycle(colors)
 
     # Manhattan plot
+    ax1.grid(visible=True, zorder=-1, axis="y", color="#dbdbdb")
+
     in_df = in_df.sort_values(by=pos_col)
     for ch, data in in_df.groupby(ch_col, sort=False):
         color = next(color_cycle)
-        fig.add_trace(
-            go.Scatter(
-                x=data[pos_col],
-                y=data[sig_col],
-                mode="markers",
-                marker=dict(color=color, size=4),
-                showlegend=False  # disable legend for each chromosome
-            ),
-            row=1, col=1
+        ax1.scatter(
+            x=data[pos_col], y=data[sig_col], color=color, label=ch, s=4, zorder=10
         )
         if end_col:
-            for y, x0, x1 in zip(data[sig_col], data[start_col], data[end_col]):
-                fig.add_trace(
-                    go.Scatter(
-                        x=[x0, x1],
-                        y=[y, y],
-                        mode="lines",
-                        line=dict(color=color, width=0.5),
-                        showlegend=False
-                    ),
-                    row=1, col=1
-                )
+            ax1.hlines(
+                y=data[sig_col],
+                xmin=data[start_col],
+                xmax=data[end_col],
+                color=color,
+                linewidth=0.5,
+            )
 
     if thresh:
-        fig.add_hline(
-            y=-np.log10(0.05 / in_df.shape[0]),
-            line=dict(color="red", width=1),
-            row=1, col=1
-        )
+        ax1.axhline(y=-np.log10(0.05 / in_df.shape[0]), color="red", lw=1, zorder=0)
 
     ticks = [sizes[ch] // 2 + offsets[ch] for ch in chroms if ch not in concat]
     labels = [ch for ch in chroms if ch not in concat]
@@ -97,49 +86,26 @@ def mqplot(
         )
         labels.append("Other")
 
-    max_sig = in_df[sig_col].max()
-    max_pos = in_df.loc[in_df.shape[0] - 1, pos_col]
-    fig.update_xaxes(
-        title_text="Chromosome",
-        tickmode="array",
-        tickvals=ticks,
-        ticktext=labels,
-        tickangle=-20,
-        ticks="outside",
-        ticklen=5,
-        tickwidth=1,
-        tickcolor="black",
-        showline=True,
-        linewidth=1,
-        linecolor="black",
-        mirror=False,
-        range=[-max_pos * 0.02, max_pos * 1.02],
-        row=1,
-        col=1,
-    )
+    ax1.set_xticks(ticks=ticks, labels=labels, rotation=45, ha="right")
+    ax1.set_xlabel("Chromosome")
 
+    max_sig = in_df[sig_col].max()
+    min_sig = in_df[sig_col].min()
+    min_pos = in_df[pos_col].min()
+    max_pos = in_df[pos_col].max()
+    
     ylabel = (
-        "Importance"
-        if not qqplot
-        else "PIP" if sig_col == "PIP" else r"-log<sub>10</sub>(p-value)"
+        "Importance" if sig_col == "Imp" else
+        "PIP" if sig_col == "PIP" else
+        r"$-log_{10}$(p-value)"
     )
-    fig.update_yaxes(
-        title_text=ylabel,
-        ticks="outside",
-        ticklen=5,
-        tickwidth=1,
-        tickcolor="black",
-        showgrid=True,
-        gridcolor="#dbdbdb",
-        gridwidth=1,
-        showline=True,
-        linewidth=1,
-        linecolor="black",
-        mirror=False,
-        range=[-max_sig * 0.04, max_sig * 1.04],
-        row=1,
-        col=1,
-    )
+    ax1.set_ylabel(ylabel)
+    ax1.set_xlim([-max_pos * 0.02 + min_pos, max_pos * 1.02])
+    if not (np.isnan(max_sig) or max_sig == np.inf):
+        ax1.set_ylim([-max_sig * 0.04 + min_sig, max_sig * 1.04])
+
+    ax1.spines["top"].set_visible(False)
+    ax1.spines["right"].set_visible(False)
 
     # QQ plot
     if qqplot:
@@ -159,82 +125,34 @@ def mqplot(
         y_band_lo = -np.log10(p_hi)  # this is the *lower* envelope in y
         max_y = max(max(y_band_hi), max_sig)
 
-        fig.add_trace(
-            go.Scatter(
-                x=theor_quant,
-                y=in_df[sig_col],
-                mode="markers",
-                marker=dict(color=colors[0], size=4),
-                showlegend=False
-            ),
-            row=1, col=2
-        )
-        fig.add_trace(
-            go.Scatter(
-                x=[0, theor_quant[-1]],
-                y=[0, theor_quant[-1]],
-                mode="lines",
-                line=dict(color="black", width=1),
-                showlegend=False
-            ),
-            row=1, col=2
+        ax2.scatter(x=theor_quant, y=in_df[sig_col], color=colors[0], s=4)
+        ax2.plot([0, theor_quant[-1]], [0, theor_quant[-1]], color=colors[1], zorder=0)
+
+        ax2.fill_between(
+            theor_quant,
+            y_band_lo,
+            y_band_hi,
+            color="#51b4c226",
+            edgecolor="none",
+            zorder=0
         )
 
-        fig.add_trace(
-            go.Scatter(x=theor_quant, y=y_band_hi, mode="lines",
-                       line=dict(width=0), showlegend=False),
-            row=1, col=2
-        )
-        fig.add_trace(
-            go.Scatter(x=theor_quant, y=y_band_lo, mode="lines",
-                       fill="tonexty", line=dict(width=0),
-                       #fillcolor="#ededed", showlegend=False),
-                       fillcolor="rgba(81,180,194,0.15)", showlegend=False),
-            row=1, col=2
-        )
-        
-        fig.update_xaxes(
-            title_text=r"Expected -log<sub>10</sub>(p-value)",
-            showline=True,
-            linewidth=1,
-            linecolor="black",
-            mirror=False,
-            ticks="outside",
-            ticklen=5,
-            tickwidth=1,
-            tickcolor="black",
-            range=[-theor_quant[-1] * 0.04, theor_quant[-1] * 1.04],
-            row=1,
-            col=2
-        )
-        fig.update_yaxes(
-            title_text=r"Observed -log<sub>10</sub>(p-value)",
-            showline=True,
-            linewidth=1,
-            linecolor="black",
-            mirror=False,
-            ticks="outside",
-            ticklen=5,
-            tickwidth=1,
-            tickcolor="black",
-            range=[-max_y * 0.04, max_y * 1.04],
-            row=1,
-            col=2
-        )
+        ax2.set_xlabel("Expected $-log_{10}$(p-value)")
+        ax2.set_ylabel("Observed $-log_{10}$(p-value)")
+
+        ax2.set_xlim([-theor_quant[-1] * 0.04, theor_quant[-1] * 1.04])
+        if not (np.isnan(max_sig) or max_sig == np.inf):
+            ax2.set_ylim([-max_y * 0.04 + min_sig, max_y * 1.04])
+
+        ax2.spines["top"].set_visible(False)
+        ax2.spines["right"].set_visible(False)
+
     else:
-        fig.update_xaxes(visible=False, row=1, col=2)
-        fig.update_yaxes(visible=False, row=1, col=2)
+        ax2.set_visible(False)
 
-    fig.update_layout(
-        title=dict(
-            text=plot_title,
-            x=0.5,
-            xanchor="center",
-            yanchor="top"
-        ),
-        plot_bgcolor="white",
-        height=400, width=1000,
-        margin=dict(l=60, r=20, t=80, b=50)
-    )
+    plt.suptitle(plot_title)
+    plt.tight_layout()
+    plt.subplots_adjust(wspace=0.2)
 
-    fig.write_image(out_fn, format="png", scale=3)
+    fig.savefig(out_fn, dpi=300, format="png")
+    plt.close(fig)

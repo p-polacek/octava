@@ -115,7 +115,7 @@
               {% else %}
 {# ======================================================== New input files #}
                 <div class="row-div">
-                  <div class="disp-flex justified small-padded-top" style="width: 260px;">
+                  <div class="disp-flex justified small-padded-top small-padded-bottom" style="width: 260px;">
                     <label class="default-label bold">Icon:</label>
                     <img
                      id="icon-preview"
@@ -124,7 +124,6 @@
                      alt="Default icon">
                   </div>
                 </div>
-{#
                 <h2 class="padded-top">
                   Use files from existing dataset
                 </h2>
@@ -132,9 +131,9 @@
                   {{ form.setup_from.label(class="default-label bold") }}
                   {{ form.setup_from(
                    class="default-input",
-                   id="setup-from-field") }}
+                   id="setup-from",
+                   onchange='toggleSetupFrom();') }}
                 </div>
-#}
                 <div class="row-div padded-top small-padded-bottom">
                   <h2>
                     Required files:
@@ -147,21 +146,21 @@
                    id="vcf-field",
                    onchange="updateChr(this.value);") }}
                 </div>
-                {% for file in ("ann", "seq") %}
-                  <div class="wide-input-div justified small-padded-bottom">
+                {% for file in ("seq", "ann") %}
+                  <div class="wide-input-div justified small-padded-bottom from-ignore">
                     {{ form[file].label(class="default-label bold") }}
                     {{ form[file](
                      class="default-input",
                      id=file+"-field") }}
                   </div>
                 {% endfor %}
-                <div class="row-div padded-top small-padded-bottom">
+                <div class="row-div padded-top small-padded-bottom from-ignore">
                   <h2>
                     Optional files:
                   </h2>
                 </div>
                 {% for file in ("cds", "pep") %}
-                  <div class="wide-input-div justified small-padded-bottom">
+                  <div class="wide-input-div justified small-padded-bottom from-ignore">
                     {{ form[file].label(
                      class="default-label bold") }}
                     {{ form[file](
@@ -180,13 +179,13 @@
                    class="default-input",
                    id="phe-field") }}
                 </div>
-                <div class="row-div padded-top small-padded-bottom">
+                <div class="row-div padded-top small-padded-bottom from-ignore">
                   <h2>
                     Gene expression files:
                   </h2>
                 </div>
                 {% for file in ("exp", "run") %}
-                  <div class="wide-input-div justified small-padded-bottom">
+                  <div class="wide-input-div justified small-padded-bottom from-ignore">
                     {{ form[file].label(class="default-label bold") }}
                     {{ form[file](
                      class="default-input",
@@ -204,7 +203,7 @@
                    class="default-input",
                    id="samp-field") }}
                 </div>
-                <div class="wide-input-div justified small-padded-bottom">
+                <div class="wide-input-div justified small-padded-bottom from-ignore">
                   {{ form.info.label(class="default-label bold") }}
                   {{ form.info(
                    class="default-input",
@@ -213,7 +212,7 @@
                    {# onchange="updateEnr(this.value);" #}
                 </div>
 {# ============================================================== BAM files #}
-                <div class="row-div small-padded-bottom">
+                <div class="row-div small-padded-bottom from-ignore">
                   <button
                    type="button"
                    class="wide-dropdown-button"
@@ -257,7 +256,7 @@
                     {{ form.snpeff(id="snpeff") }}
                   </div>
                 </div>
-                <div class="row-div small-padded-top">
+                <div class="row-div small-padded-top from-ignore">
                   <div class="wide-input-div justified">
                     {{ form.sev.label(
                      class="default-label bold") }}
@@ -290,12 +289,12 @@
                 </span>
 {# ============================================================= Enrichment #}
 {#
-                <div class="row-div padded-top">
+                <div class="row-div padded-top from-ignore">
                   <h2>
                     Additional options:
                   </h2>
                 </div>
-                <div class="row-div padded-top">
+                <div class="row-div padded-top from-ignore">
                   <button
                    type="button"
                    class="wide-dropdown-button"
@@ -324,7 +323,7 @@
                 </div>
 #}
 {# ================================================== Chromosome visibility #}
-                <div class="row-div small-padded-top small-padded-bottom">
+                <div class="row-div small-padded-top small-padded-bottom from-ignore">
                   <button
                    type="button"
                    class="wide-dropdown-button"
@@ -386,6 +385,13 @@
     var genome = "{{ genome }}";
     var edit = {{ edit|tojson }};
     var visibleDropdown = null;
+
+    function toggleSetupFrom() {
+      var isFrom = document.getElementById("setup-from").value !== "";
+      document.querySelectorAll(".from-ignore").forEach(e => {
+        e.classList.toggle("collapsed", isFrom);
+      });
+    }
 
     function updateChr(file) {
       var dropdown = document.getElementById("chr-dropdown");
@@ -474,10 +480,18 @@
       if (edit) {
         document.querySelector("form").submit();
       } else {
-        var requiredFiles = ["vcf", "ann", "seq"];
+        if (document.getElementById("setup-from").value !== "") {
+          var requiredFiles = ["vcf"];
+        } else {
+          var requiredFiles = ["vcf", "ann", "seq"];
+        }
         for (file of requiredFiles) {
           if (document.getElementById(file + "-field").value === "") {
-            alert("Variant, annotation and sequence files are all required.");
+            if (document.getElementById("setup-from").value !== "") {
+              alert("Variant file is required.");
+            } else {
+              alert("Variant, annotation and sequence files are all required.");
+            }
             return;
           } else if (document.getElementById("sev").checked && document.getElementById("pep-field").value === "")  {
             alert("Protein file is required for severity prediction.");
@@ -501,6 +515,7 @@
       if (document.getElementById("info-field") != null) {
         //updateEnr(document.getElementById("info-field").value);
         updateChr(document.getElementById("vcf-field").value);
+        toggleSetupFrom();
       }
     });
     window.addEventListener("pageshow", function() {

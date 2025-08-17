@@ -215,7 +215,7 @@ def new():
 @app.route("/new_dataset/<genome>", methods=["GET"])
 def setup_new(genome):
     form = AddForm()
-    genomes = sorted(
+    avail = sorted(
         [
             genome
             for genome in os.listdir(data_dir)
@@ -223,9 +223,18 @@ def setup_new(genome):
             and not os.path.exists(os.path.join(data_dir, genome, "stats", "init"))
         ]
     )
-    genomes = [(url_for("setup_new", genome=genome), genome) for genome in genomes]
-    form.name.choices = [(url_for("new"), "Select dataset")] + genomes
+    avail = [(url_for("setup_new", genome=genome), genome) for genome in avail]
+    form.name.choices = [(url_for("new"), "Select dataset")] + avail
     form.name.data = url_for("setup_new", genome=genome)
+
+    form.setup_from.choices = [""] + sorted(
+        [
+            genome
+            for genome in os.listdir(data_dir)
+            if os.path.isdir(os.path.join(data_dir, genome))
+            and os.path.exists(os.path.join(data_dir, genome, "stats", "init"))
+        ]
+    )
 
     genome_dir = os.path.join(data_dir, genome)
     exts = {
@@ -292,6 +301,7 @@ def setup(genome):
 
     task_params = [("Task:", "Setting up a new genome"), ("Genome:", genome)]
     param_keys = [
+        "setup_from",
         "vcf",
         "ann",
         "seq",
@@ -309,6 +319,10 @@ def setup(genome):
     ]
     for key in param_keys:
         task_params.append((form._fields[key].label.text, str(form.data[key])))
+        task_params[0] = ("From dataset:", form.setup_from.data)
+
+        if form.setup_from.data:
+            task_params = [p for i, p in enumerate(task_params) if i in (0,1,4,7,9)]
 
     task = [
         "python3",

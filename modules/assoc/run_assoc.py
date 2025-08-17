@@ -453,6 +453,9 @@ def run_assoc(genome, params, task_id):
             )
 
         concat = json.loads(config["concat"])
+        chr_num = len([c for c in gdata["chr_names"] if c not in concat])
+        chr_num = chr_num + 1 if concat else chr_num
+
         # copy/link bed
         if not os.path.exists(f"{in_root}.regenie.bed"):
             if concat:
@@ -584,6 +587,8 @@ def run_assoc(genome, params, task_id):
                 f"--{model}",
                 "--bsize",
                 "1000",
+                "--nauto",
+                chr_num,
                 "--out",
                 os.path.join(tmp_dir, "regenie"),
             ]
@@ -609,6 +614,8 @@ def run_assoc(genome, params, task_id):
             f"--{model}",
             "--bsize",
             "1000",
+            "--nauto",
+            chr_num,
             "--out",
             os.path.join(out_dir, "regenie"),
         ]
@@ -740,6 +747,7 @@ def run_assoc(genome, params, task_id):
                 end_col="end" if is_hap else None,
             )
 
+        os.remove(os.path.join(out_dir, f"regenie_{trait}.regenie"))
         log_file = os.path.join(out_dir, "regenie.log")
         if os.path.exists(log_file):
             os.remove(log_file)

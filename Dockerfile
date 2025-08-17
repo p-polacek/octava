@@ -32,7 +32,7 @@ RUN chmod 600 /root/.ssh/id_rsa &&\
     mv regenie_v4.1.gz_x86_64_Linux regenie &&\
     wget https://s3.amazonaws.com/plink1-assets/plink_linux_x86_64_20241022.zip -O plink1.9.zip &&\
     unzip plink1.9.zip &&\
-    wget https://s3.amazonaws.com/plink2-assets/alpha6/plink2_linux_x86_64_20241124.zip -O plink2.zip &&\
+    wget https://s3.amazonaws.com/plink2-assets/alpha6/plink2_linux_x86_64_20250806.zip -O plink2.zip &&\
     unzip plink2.zip &&\
     wget http://faculty.washington.edu/browning/beagle/beagle.06Aug24.a91.jar -O beagle.jar &&\
     git clone https://github.com/Menggg/BLINK.git &&\

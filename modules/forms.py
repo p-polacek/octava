@@ -21,9 +21,9 @@ from modules.csq import var_csq
 models = [
     ("glm", "GLM"),
     ("mlm", "MLM"),
-    # ("qt", "Fast MLM"),
-    ("bt", "Binary trait MLM"),
     ("mtmlm", "Multi-trait MLM"),
+    ("bt", "Binary regression"),
+    # ("qt", "Fast MLM"),
     # ("bslmm", "Bayesian sparse LMM"),
     # ("rr", "Ridge regression / GBLUP"),
     # ("bin", "Binary trait MLM"),

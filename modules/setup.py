@@ -18,15 +18,13 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from app.dirs import data_dir
 from modules.safe_col import safe_col
 from modules.assoc.assoc_qc import run_qc
+from modules.load_input import load_config
 from modules.snpeff import snpeff_annotate
 
 from modules.sev import (
     #make_db,
     run_blastp,
 )
-
-# process_blastp)
-
 
 def genome_setup(genome, params, task_id):
     stats_dir = os.path.join(data_dir, genome, "stats")
@@ -36,154 +34,223 @@ def genome_setup(genome, params, task_id):
     if os.path.exists(os.path.join(data_dir, genome, "stats", "init")):
         raise OSError("<b>The selected dataset is already set up.</b>")
 
+    if params["setup_from"]:
+        genome_from = params["setup_from"]
+        config_from = load_config(genome_from)
+
+        # Process VCF file
+        file_path = os.path.join(data_dir, genome, params["vcf"])
+        if not file_path.endswith(".gz"):
+            if os.path.islink(file_path):
+                print(f"Copying vcf file")
+                link_path = os.readlink(file_path)
+                os.unlink(file_path)
+                shutil.copy2(link_path, file_path)
+
+            print(f"Compressing vcf file")
+            pysam.tabix_compress(file_path, file_path + ".gz")
+            os.remove(file_path)
+            params["vcf"] += ".gz"
+
+        file_path = os.path.join(data_dir, genome, params["vcf"])
+        if not os.path.exists(file_path + ".tbi"):
+            print(f"Indexing vcf file")
+            pysam.tabix_index(
+                file_path,
+                preset="vcf",
+                force=True,
+            )
+
+        # Link other files
+        for key in (
+            "seq", "ann", "exp", "run", "info", "bam",
+            "cds", "pep", "db_prefix"):
+            params[key] = config_from[key]
+        params["concat"] = json.loads(config_from["concat"])
+        for key in ("seq", "cds", "pep"):
+            for ext in ("", ".fai", ".gzi"):
+                if os.path.exists(os.path.join(data_dir, genome, config_from[key]+ext)):
+                    continue
+                os.link(
+                    os.path.join(data_dir, genome_from, config_from[key]+ext),
+                    os.path.join(data_dir, genome, config_from[key]+ext)
+                )
+        for key in ("ann", "exp"):
+            for ext in ("", ".tbi"):
+                if os.path.exists(os.path.join(data_dir, genome, config_from[key]+ext)):
+                    continue
+                os.link(
+                    os.path.join(data_dir, genome_from, config_from[key]+ext),
+                    os.path.join(data_dir, genome, config_from[key]+ext)
+                )
+        for bam in json.loads(config_from["bam"]):
+            for ext in ("", ".bai"):
+                if os.path.exists(os.path.join(data_dir, genome, config_from[key]+ext)):
+                    continue
+                os.link(
+                    os.path.join(data_dir, genome_from, config_from[key]+ext),
+                    os.path.join(data_dir, genome, config_from[key]+ext)
+                )
+        for key in ("run", "info"):
+            if os.path.exists(os.path.join(data_dir, genome, config_from[key])):
+                continue
+            os.link(
+                os.path.join(data_dir, genome_from, config_from[key]),
+                os.path.join(data_dir, genome, config_from[key])
+            )
+        if not os.path.exists(os.path.join(data_dir, genome, "stats", "gff.db")):
+            os.link(
+                os.path.join(data_dir, genome_from, "stats", "gff.db"),
+                os.path.join(data_dir, genome, "stats", "gff.db")
+            )
+
+        try:
+            os.symlink(
+                os.path.join(data_dir, genome_from, "prot_db"),
+                os.path.join(data_dir, genome, "prot_db")
+            )
+        except FileExistsError:
+            pass
+
+        db = gffutils.FeatureDB(os.path.join(data_dir, genome, "stats", "gff.db"))
+
+    else:
+
 ###############################################################################
 ### Set up GFFUtils database
 ###############################################################################
 
-    ann_path = os.path.join(data_dir, genome, params["ann"])
-    db_path = os.path.join(data_dir, genome, "stats", "gff.db")
-    if not os.path.exists(db_path):
-        print("<b>Creating an annotation database</b>")
-        gffutils.create_db(ann_path, dbfn=db_path, merge_strategy="merge")
-    db = gffutils.FeatureDB(db_path)
+        ann_path = os.path.join(data_dir, genome, params["ann"])
+        db_path = os.path.join(data_dir, genome, "stats", "gff.db")
+        if not os.path.exists(db_path):
+            print("<b>Creating an annotation database</b>")
+            gffutils.create_db(ann_path, dbfn=db_path, merge_strategy="merge")
+        db = gffutils.FeatureDB(db_path)
 
 ###############################################################################
 ### Add gene attributes to GFFUtils database
 ###############################################################################
 
-    if params["info"]:
-        print("<b>Updating database information</b>")
-        annotate_db(genome, db, params["info"], task_id)
-    # if params["enr"]:
-    #    print("Calculating gene enrichment")
-    #    num_genes = db.count_features_of_type("gene")
-    #    calc_enr(
-    #      genome,
-    #      params["info"],
-    #      params["enr"],
-    #      num_genes,
-    #      task_id)
+        if params["info"]:
+            print("<b>Updating database information</b>")
+            annotate_db(genome, db, params["info"], task_id)
+        # if params["enr"]:
+        #    print("Calculating gene enrichment")
+        #    num_genes = db.count_features_of_type("gene")
+        #    calc_enr(
+        #      genome,
+        #      params["info"],
+        #      params["enr"],
+        #      num_genes,
+        #      task_id)
 
 ###############################################################################
 ### Add a dummy pos column to expression file
 ###############################################################################
 
-    if params["exp"]:
-        file_path = os.path.join(data_dir, genome, params["exp"])
-        if os.path.islink(file_path):
-            print(f"Copying exp file")
-            link_path = os.readlink(file_path)
-            os.unlink(file_path)
-            shutil.copy2(link_path, file_path)
+        if params["exp"]:
+            file_path = os.path.join(data_dir, genome, params["exp"])
+            if os.path.islink(file_path):
+                print(f"Copying exp file")
+                link_path = os.readlink(file_path)
+                os.unlink(file_path)
+                shutil.copy2(link_path, file_path)
 
-        is_gz = file_path.endswith(".gz")
-        if not is_gz:
-            params["exp"] += ".gz"
+            is_gz = file_path.endswith(".gz")
+            if not is_gz:
+                params["exp"] += ".gz"
 
-        out_path = file_path[:-3] if is_gz else file_path
-        exp = pd.read_csv(
-            file_path,
-            sep="\t",
-            index_col=0,
-        )
-        exp["Pos"] = 1
-        exp[["Pos"] + exp.columns.tolist()[:-1]].to_csv(
-            out_path,
-            sep="\t",
-        )
-        pysam.tabix_compress(out_path, out_path + ".gz", force=True)
-        file_path = out_path + ".gz"
-        
-        os.remove(out_path)
-        pysam.tabix_index(
-            file_path,
-            seq_col=0,
-            start_col=1,
-            end_col=1,
-            line_skip=1,
-            force=True,
-        )
+            out_path = file_path[:-3] if is_gz else file_path
+            exp = pd.read_csv(
+                file_path,
+                sep="\t",
+                index_col=0,
+            )
+            exp["Pos"] = 1
+            exp[["Pos"] + exp.columns.tolist()[:-1]].to_csv(
+                out_path,
+                sep="\t",
+            )
+            pysam.tabix_compress(out_path, out_path + ".gz", force=True)
+            file_path = out_path + ".gz"
+            
+            os.remove(out_path)
+            pysam.tabix_index(
+                file_path,
+                seq_col=0,
+                start_col=1,
+                end_col=1,
+                line_skip=1,
+                force=True,
+            )
 
 ###############################################################################
 ### BGZip and tabix files if necessary
 ###############################################################################
 
-    for file in ("vcf", "ann", "seq", "pep", "cds"):
-        file_path = os.path.join(data_dir, genome, params[file])
-        if params[file] and not file_path.endswith(".gz"):
-            if os.path.islink(file_path):
-                print(f"Copying {file} file")
-                link_path = os.readlink(file_path)
-                os.unlink(file_path)
-                shutil.copy2(link_path, file_path)
+        for file in ("vcf", "ann", "seq", "pep", "cds"):
+            file_path = os.path.join(data_dir, genome, params[file])
+            if params[file] and not file_path.endswith(".gz"):
+                if os.path.islink(file_path):
+                    print(f"Copying {file} file")
+                    link_path = os.readlink(file_path)
+                    os.unlink(file_path)
+                    shutil.copy2(link_path, file_path)
 
-            print(f"Compressing {file} file")
-            pysam.tabix_compress(file_path, file_path + ".gz")
-            os.remove(file_path)
-            params[file] += ".gz"
+                print(f"Compressing {file} file")
+                pysam.tabix_compress(file_path, file_path + ".gz")
+                os.remove(file_path)
+                params[file] += ".gz"
 
-        file_path = os.path.join(data_dir, genome, params[file])
-        if params[file] and file in ("seq", "pep", "cds"):
-            if not os.path.exists(file_path + ".fai") or not os.path.exists(
-                file_path + ".gzi"
-            ):
-                print(f"Indexing {file} file")
-                _ = pysam.FastaFile(file_path)
-        else:
-            if params[file] and not os.path.exists(file_path + ".tbi"):
-                print(f"Indexing {file} file")
-                pysam.tabix_index(
-                    file_path,
-                    preset=("vcf" if file == "vcf" else "gff"),
-                    force=True,
+            file_path = os.path.join(data_dir, genome, params[file])
+            if params[file] and file in ("seq", "pep", "cds"):
+                if not os.path.exists(file_path + ".fai") or not os.path.exists(
+                    file_path + ".gzi"
+                ):
+                    print(f"Indexing {file} file")
+                    _ = pysam.FastaFile(file_path)
+            else:
+                if params[file] and not os.path.exists(file_path + ".tbi"):
+                    print(f"Indexing {file} file")
+                    pysam.tabix_index(
+                        file_path,
+                        preset=("vcf" if file == "vcf" else "gff"),
+                        force=True,
+                    )
+        for file in params["bam"]:
+            file_path = os.path.join(data_dir, genome, file)
+            if not os.path.exists(file_path + ".bai"):
+                print("Indexing a bam file")
+                pysam.index(file)
+
+        if params["exp"] and not params["run"]:
+            file_path = os.path.join(data_dir, genome, params["exp"])
+            exp_runs = pd.read_csv(file_path, sep="\t", nrows=0)
+            (
+                pd.DataFrame({"Run_ID": exp_runs.columns.tolist()[4:]}).to_csv(
+                    os.path.join(data_dir, genome, "run_info.txt"), sep="\t", index=False
                 )
-    for file in params["bam"]:
-        file_path = os.path.join(data_dir, genome, file)
-        if not os.path.exists(file_path + ".bai"):
-            print("Indexing a bam file")
-            pysam.index(file)
-
-    if params["exp"] and not params["run"]:
-        file_path = os.path.join(data_dir, genome, params["exp"])
-        exp_runs = pd.read_csv(file_path, sep="\t", nrows=0)
-        (
-            pd.DataFrame({"Run_ID": exp_runs.columns.tolist()[4:]}).to_csv(
-                os.path.join(data_dir, genome, "run_info.txt"), sep="\t", index=False
             )
-        )
-        params["run"] = "run_info.txt"
+            params["run"] = "run_info.txt"
 
 ###############################################################################
 ### Annotate variants and setup BLAST / severity prediction
 ###############################################################################
 
-    if params["snpeff"]:
-        print("<b>Running VCF annotation</b>")
-        snpeff_annotate(
-            genome,
-            params["vcf"],
-            params["ann"],
-            params["seq"],
-            params["cds"],
-            params["pep"],
-            task_id,
-        )
-        params["vcf"] = f"ann.{params['vcf']}"
-
-    if params["sev"]:
-        # Some commands cannot handle spaces in paths
-        # (which are allowed in genome names)
-        old_wd = os.getcwd()
-        os.chdir(os.path.join(data_dir, genome))
-        # if params["db_fasta"]:
-        #    make_db(
-        #      task_id,
-        #      params["db_fasta"])
-        # params["db_prefix"] = params["db_fasta"]
-        if params["db_prefix"]:
-            run_blastp(task_id, params["pep"], params["db_prefix"])
-            # process_blastp()
-        os.chdir(old_wd)
+        if params["sev"]:
+            # Some commands cannot handle spaces in paths
+            # (which are allowed in genome names)
+            old_wd = os.getcwd()
+            os.chdir(os.path.join(data_dir, genome))
+            # if params["db_fasta"]:
+            #    make_db(
+            #      task_id,
+            #      params["db_fasta"])
+            # params["db_prefix"] = params["db_fasta"]
+            if params["db_prefix"]:
+                run_blastp(task_id, params["pep"], params["db_prefix"])
+                # process_blastp()
+            os.chdir(old_wd)
 
 #    else:
 #        if params["pep"]:
@@ -213,6 +280,19 @@ def genome_setup(genome, params, task_id):
 ###############################################################################
 ### Get genome and sample data
 ###############################################################################
+
+    if params["snpeff"]:
+        print("<b>Running VCF annotation</b>")
+        snpeff_annotate(
+            genome,
+            params["vcf"],
+            params["ann"],
+            params["seq"],
+            params["cds"],
+            params["pep"],
+            task_id,
+        )
+        params["vcf"] = f"ann.{params['vcf']}"
 
     print("<b>Parsing VCF file</b>")
     vcf_path = os.path.join(data_dir, genome, params["vcf"])
