@@ -14,7 +14,7 @@
   {% if errors == 0 %}
     <div class="padded-left">
       <h3 class="padded-left bold">
-        Phenotypes saved successfully.
+        Files saved successfully.
       </h3>
     </div>
   {% elif errors %}
@@ -85,6 +85,25 @@
                        class="edit-field-width",
                        id="phe-field",
                        accept=".txt,.tsv,.csv") }}
+                    </div>
+                  </div>
+                  <img
+                    class="aux-button clickable"
+                    src="{{ url_for('serve_button', button='delete') }}"
+                    onclick="this.value = '';"
+                    title="Reset file" />
+                </div>
+                <h2 class="small-padded-top">
+                  Additional sample metadata
+                </h2>
+                <div class="row-div">
+                  <div class="wide-input-div justified padded-top padded-bottom">
+                    {{ form.samp.label(class="default-label bold") }}
+                     <div class="input-field-sized">
+                       {{ form.samp(
+                        class="edit-field-width",
+                        id="samp-field",
+                        accept=".txt,.tsv,.csv") }}
                     </div>
                   </div>
                   <img

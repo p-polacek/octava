@@ -55,6 +55,8 @@ function createTable(tableData, table) {
           subcell.className = "subcell";
           subcell.style.width = subcellWidth + "%";
           subcell.textContent = cellData[i];
+          subcell.style.paddingRight = "2px";
+          subcell.style.paddingLeft = "2px";
           td.appendChild(subcell);
         }       
       } else {

@@ -151,10 +151,12 @@
                     document.getElementById('sgl-opt-div')
                     .classList.toggle('collapsed', this.checked);">
                 </div>
+                {#
                 <img
                   class="aux-button clickable"
                   src="{{ url_for('serve_button', button='help') }}"
                   onclick="showHelp(event, 'as-group');" />
+                #}
               </div>
               <div
                id="grouping-opt-div"
@@ -231,13 +233,13 @@
                id="assoc-locus-field"
                onchange="goToLocus(this.value);">
               </textarea>
-              <div class="row-input-div centered-divs small-padded-top padded-bottom">
+              <div class="row-input-div small-padded-top padded-bottom">
                 <button
                  type="button"
                  class="submit-button"
                  value="av">
                   <label class="default-label bold">
-                    Go to allele viewer
+                    Go to Gene / variant view
                   </label>
                 </button>
               </div>
@@ -831,17 +833,7 @@
         }
 
         if (traces.length === 0) {
-          document.getElementById("live-plot").innerHTML = `
-            <h1 class="center-text">
-              Select a analysis results
-            </h1>
-            <div class="centered-div">
-              <img
-               class="assoc-icon"
-               src="{{ url_for('static', filename='icons/assoc.png') }}"
-               alt="">
-            </div>
-          `;
+          document.getElementById("live-plot").innerHTML = '<h1 class="center-text">Select analysis results</h1><div class="centered-div"><img class="assoc-icon" src="{{ url_for('static', filename='icons/assoc.png') }}" alt=""></div>';
           return;
         }
 
@@ -923,7 +915,7 @@
         var modelTypes = [...new Set(dataKeys.map(v => v[1]))];
         if (modelTypes.every(m => ["B", "C"].includes(m))) {
           y2Title = "Posterior inclusion probability";
-        } else if (modelTypes.every(m => ["glm", "mlm", "mtmlm", "blink"].includes(m))) {
+        } else if (modelTypes.every(m => ["glm", "mlm", "mtmlm", "blink","bt", "qt"].includes(m))) {
           y2Title = "-log<sub>10</sub>(p-value)";
         } else if (modelTypes.every(m => ["rf", "rfc"].includes(m))) {
           y2Title = "Permutation importance";
@@ -1155,7 +1147,7 @@
               return;
 
             }
-          } else if (data.event.button === 1) {
+          } else if (data.event.button === 2) {
             if (document.getElementById("fmt-field").value === "coord") {
               replaceLocus = true;
             }
@@ -1167,7 +1159,7 @@
             return;
           }
           var markers = marker.data.Id[0];
-          if (data.event.button === 1) {
+          if (data.event.button === 2) {
             if (document.getElementById("fmt-field").value === "gene") {
               replaceLocus = true;
             }
@@ -1266,7 +1258,7 @@
                 }
             }
             });
-//          } else if (data.event.button === 2) {
+//          } else if (data.event.button === 1) {
 //            var traces = plotDiv.data;
 //            var traceId = traces[data.points[0].curveNumber].Id;
 //            if (traceId != null) {

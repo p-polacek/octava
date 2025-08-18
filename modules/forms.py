@@ -67,7 +67,7 @@ class AddForm(FlaskForm):
     #  "Study info:",
     #  choices=[])
     samp = SelectField("Sample info:", choices=[])
-    info = SelectField("Gene info:", choices=[])
+    info = SelectField("Functional info:", choices=[])
     # enr = MultiCheckboxField(
     #  "Enrichment for:",
     #  choices=[])
@@ -86,6 +86,8 @@ class AddForm(FlaskForm):
 class EditForm(FlaskForm):
     phe = FileField("File:")
     cof = FileField("File:")
+    samp = FileField("File:")
+
 
 
 class RegionForm(FlaskForm):

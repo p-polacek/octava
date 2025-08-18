@@ -284,10 +284,6 @@
                   </div>
                 {% endfor %}
               </div>
-              <img
-               class="aux-button clickable"
-               src="{{ url_for('serve_button', button='help') }}"
-               onclick="showHelp(event, 'model');" />
             </div>
 {# ================================================================= Traits #}
               {% for field in [
@@ -494,10 +490,10 @@
         </div>
         </form>
 {# ========================================================= Plot and table #}
-        <div class="padded-top flex disp-flex results-subcontainer">
+        <div class="scrollable results-subcontainer flex">
           <div
            id="plot-div"
-           class="flex no-min-width">
+           class="results-subcontainer">
             <h1 class="center-text">
               Select a marker set
             </h1>

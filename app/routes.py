@@ -418,6 +418,28 @@ def edit(genome):
                             )
                             errors = 0
 
+        samp_file = request.files["samp"]
+        if samp_file:
+            samp_path = os.path.join(data_dir, genome, config["samp"])
+            with master_lock:
+                lock = get_lock(samp_path)
+            with lock:
+                samp_df = pd.read_csv(samp_path, sep="\t", header=0, index_col=0)
+
+                new_samp = pd.read_csv(
+                    samp_file,
+                    header=0,
+                    index_col=0,
+                    sep="," if samp_file.filename.endswith(".csv") else "\t",
+                )
+
+                if len(new_samp.columns) == 0:
+                    errors.append("<b>No columns found in file.</b>")
+                else:
+                    new_samp = pd.concat([samp_df, new_samp], axis=1)
+                    new_samp.to_csv(samp_path, sep="\t")
+                    errors = 0
+
         cof_file = request.files["cof"]
         if cof_file:
             cof_path = os.path.join(data_dir, genome, "covariates", cof_file.filename)

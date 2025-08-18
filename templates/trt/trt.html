@@ -459,6 +459,15 @@
           <div
             id="plot-div"
             class="results-subcontainer">
+           <h1 class="center-text">
+              No phenotype data found
+            </h1>
+            <div class="centered-div">
+              <img
+               class="assoc-icon"
+               src="{{ url_for('static', filename='icons/phe.png') }}"
+               alt="">
+            </div>
           </div>
           <table id="samples-table">
           </table>
@@ -713,6 +722,9 @@
       var [allSamples, sampleChoice, sampleGroupChoice] = getSampleChoice();
       if (trait == null) {
         var trait = document.getElementById("trait_sgl-field").value;
+        if (trait === "") {
+          return;
+        }
         var zoomedIn = false;
       } else {
         var zoomedIn = true;
@@ -773,16 +785,18 @@
 
     function fillTraitCol() {
       var trait = document.getElementById("trait_sgl-field").value;
-      var traitIdx = pheCols[trait];
-      var samplesTable = document.getElementById("samples-table");
-      samplesTable.querySelectorAll("tbody tr").forEach((row, i) => {
-        row.lastChild.innerText = pheData[row.firstChild.innerText][traitIdx];
-      });
-      var numCols = samplesTable.querySelector("thead tr").children.length;
-      var colIndex = numCols - 1;
-      var traitDropdown = document.getElementById("samples-tabledropdown_" + colIndex.toString());
-      if (traitDropdown != null) {
-        delete dropdowns["samples-table"][colIndex];
+      if (trait !== "") {
+        var traitIdx = pheCols[trait];
+        var samplesTable = document.getElementById("samples-table");
+        samplesTable.querySelectorAll("tbody tr").forEach((row, i) => {
+          row.lastChild.innerText = pheData[row.firstChild.innerText][traitIdx];
+        });
+        var numCols = samplesTable.querySelector("thead tr").children.length;
+        var colIndex = numCols - 1;
+        var traitDropdown = document.getElementById("samples-tabledropdown_" + colIndex.toString());
+        if (traitDropdown != null) {
+          delete dropdowns["samples-table"][colIndex];
+        }
       }
     }
 
@@ -1257,6 +1271,11 @@
     function showTransform() {
       document.getElementById("samples-table").classList.add("collapsed");
       document.getElementById("plot-div").classList.remove("collapsed");
+      var trait = document.getElementById("trait_sgl-field").value;
+      if (trait === "") {
+        return;
+      }
+
       dataTransform = null;
       document.getElementById("plot-div").innerHTML = "";
       var transform = document.querySelector("input[name='transform']:checked");
@@ -1666,6 +1685,9 @@
         var defaultName = document.getElementById("trait_sgl-field").value;
       } else {
         var defaultName = "";
+      }
+      if (defaultName === "") {
+        return;
       }
       var transformName = "";
       while (transformName === "") {

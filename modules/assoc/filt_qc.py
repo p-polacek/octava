@@ -601,7 +601,7 @@ def filt_qc(genome, data, task_id):
     else:
         run_qc(genome, markers=data["name"])
 
-    # Change chromosomes to numeric (required by BLINK)
+    # Change chromosomes to numeric (required by some GWAS tools)
     chr_rename = {ch: idx for idx, ch in enumerate(gdata["chr_names"], start=1)}
     (
         pd.read_csv(f"{plink_out}.bim", sep="\t", index_col=None, header=None)
