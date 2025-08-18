@@ -427,7 +427,8 @@
           </div>
           <div
            id="live-plot"
-           class="results-subcontainer"></div>
+           class="results-subcontainer">
+          </div>
           <div
            id="ld-plot"
            class="results-subcontainer collapsed"></div>
@@ -830,7 +831,17 @@
         }
 
         if (traces.length === 0) {
-          document.getElementById("live-plot").innerHTML = "";
+          document.getElementById("live-plot").innerHTML = `
+            <h1 class="center-text">
+              Select a analysis results
+            </h1>
+            <div class="centered-div">
+              <img
+               class="assoc-icon"
+               src="{{ url_for('static', filename='icons/assoc.png') }}"
+               alt="">
+            </div>
+          `;
           return;
         }
 
@@ -1166,6 +1177,7 @@
             var window = document.getElementById("window-ld").value;
             var r2 = document.getElementById("r2-ld").value;
             var selMarkers = document.querySelector("input[name='markers_sgl']:checked");
+            console.log(selMarkers);
             if (selMarkers != null) {
               markers = selMarkers.value;
             }
@@ -1244,7 +1256,15 @@
 
                 Plotly.addTraces("live-plot", [trace], 0);
                 
-              }
+              }, error: function () {
+                if (request.status === 404) {
+                  showHelp(data.event, null, "Marker not found in selected dataset.");
+                } else if (request.status === 500) {
+                  showHelp(data.event, null, "Out of memory.");
+                } else {
+                  showHelp(data.event, null, "Something went wrong.");
+                }
+            }
             });
 //          } else if (data.event.button === 2) {
 //            var traces = plotDiv.data;

@@ -18,14 +18,12 @@ import pandas as pd
 from flask import jsonify, request
 
 import app.path
-
+from flask_app import app, get_lock, master_lock
 from app.dirs import tmp_dir, data_dir, plink2_path
 
-from flask_app import app, get_lock, master_lock
-
-from modules.load_input import load_gdata, load_config
-
+from modules.mem import get_mem
 from modules.vcf_reader import VcfReader
+from modules.load_input import load_gdata, load_config
 
 ###############################################################################
 ### Setting up a new genome
@@ -93,7 +91,10 @@ def fetch_ld():
     pos_str = marker_id.rsplit(":", 1)[1]
     is_hap = "-" in pos_str and "_" in pos_str
 
-    in_root = os.path.join(data_dir, form["genome"], "assoc", markers, "gt", "gt")
+    if markers:
+        in_root = os.path.join(data_dir, form["genome"], "assoc", markers, "gt", "gt")
+    else:
+        in_root = os.path.join(data_dir, form["genome"], "stats", "gt")
     out_root = os.path.join(tmp_dir, task_id)
     if is_hap:
         ch, pos = marker_id.rsplit("_", 1)[0].split(":")
@@ -101,32 +102,44 @@ def fetch_ld():
     else:
         ch, pos = marker_id.split(":")
         start = end = int(pos)
-    subprocess.run(
-        [
-            plink2_path,
-            "--pfile",
-            in_root,
-            "vzs",
-            "--chr",
-            ch,
-            "--from-bp",
-            str(start - window * 500),
-            "--to-bp",
-            str(end + window * 500),
-            "--r2-unphased",
-            "cols=id" if is_hap else "cols=pos",
-            "--ld-snp",
-            marker_id,
-            "--ld-window-kb",
-            str(window),
-            "--ld-window-r2",
-            "0",
-            # "--silent",
-            "--out",
-            out_root,
-        ],
-        check=True,
-    )
+    try:
+        subprocess.run(
+            [
+                plink2_path,
+                "--pfile",
+                in_root,
+                "vzs",
+                "--memory",
+                f"{get_mem()}",
+                "--chr",
+                ch,
+                "--from-bp",
+                str(start - window * 500),
+                "--to-bp",
+                str(end + window * 500),
+                "--r2-unphased",
+                "cols=id" if is_hap else "cols=pos",
+                "--ld-snp",
+                marker_id,
+                "--ld-window-kb",
+                str(window),
+                "--ld-window-r2",
+                "0",
+                # "--silent",
+                "--out",
+                out_root,
+            ],
+            check=True,
+            capture_output=True,
+        )
+    except Exception as e:
+        err = e.stderr.decode()
+        if err == f"Error: --ld-snps variant '{marker_id}' not found.\n":
+            return "", 404
+        elif err.startswith("Error: Out of memory."):
+            return "", 500
+        return "", 400
+
     ld = pd.read_csv(
         f"{out_root}.vcor", sep="\t", header=0, index_col=None, usecols=[1, 2]
     )

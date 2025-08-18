@@ -84,7 +84,7 @@ a:active {
 	display: flex;
 	justify-content: center;
 	align-items: center;
-	flex-wrap: wrap;
+    height: 100%;
 }
 
 .genome-icon-div {
@@ -349,6 +349,13 @@ a:active {
 .tool-icon {
 	width: 300px;
 	height: auto;
+}
+
+.assoc-icon {
+	width: 300px;
+	height: auto;
+    opacity: 0.6;
+    
 }
 
 .mini-icon {

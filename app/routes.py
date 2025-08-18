@@ -1304,16 +1304,17 @@ def assoc_res(genome):
     markers_root = os.path.join(data_dir, genome, "assoc")
 
     form.markers.choices = [
-        d
+        (d, d)
         for d in os.listdir(markers_root)
         if os.path.isdir(os.path.join(markers_root, d))
         and os.path.exists(os.path.join(markers_root, d, "stats", "init"))
     ]
-    form.markers_sgl.choices = form.markers.choices[:]
+    form.markers_sgl.choices = [("", "Raw VCF")] + form.markers.choices[:]
 
     analysed_traits = list()
     analysed_models = list()
     for marker_set in form.markers.choices:
+        marker_set = marker_set[1]
         assoc_root = os.path.join(data_dir, genome, "assoc", marker_set, "res")
         if not os.path.exists(assoc_root):
             continue
@@ -1358,6 +1359,7 @@ def assoc_res(genome):
 
     is_hap = dict()
     for marker_set in form.markers.choices:
+        marker_set = marker_set[1]
         hap_fn = os.path.join(markers_root, marker_set, "stats", "is_hap")
         is_hap[marker_set] = os.path.exists(hap_fn)
 
