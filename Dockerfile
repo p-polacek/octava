@@ -17,7 +17,7 @@ RUN chmod 600 /root/.ssh/id_rsa &&\
     ssh-keyscan -H github.com >> /root/.ssh/known_hosts &&\
     git clone git@github.com:p-polacek/octava.git . &&\
     chmod +x start.sh &&\
-    apt-get install -y python3.10 python3-pip &&\
+    apt-get install -y --no-install-recommends python3.10 python3-pip &&\
     pip install --upgrade pip &&\
     pip install -r ../requirements.txt &&\
     apt-get update &&\
@@ -38,7 +38,10 @@ RUN chmod 600 /root/.ssh/id_rsa &&\
     git clone https://github.com/Menggg/BLINK.git &&\
     unzip BLINK/blink_linux.zip -d BLINK/ &&\
     apt-get update &&\
-    apt-get install -y emboss gemma ncbi-blast+ cd-hit
+    apt-get install -y emboss gemma ncbi-blast+ cd-hit &&\
+    apt-get purge -y gcc g++ make manpages && \
+    apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/man/* /root/.cache/pip
 
 #    wget https://www.haplotype.org/download/pimass-latest.tar.gz -O pimass.tar.gz &&\
 #    tar -zxf pimass.tar.gz &&\
