@@ -14,14 +14,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".
 
 from app.dirs import data_dir, tool_dir, plink1_path, plink2_path
 
-from modules.block import win_block, block_genotype
-
 from modules.mem import get_mem
-
 from modules.wpgma import wpgma
-
+from modules.block import win_block, block_genotype
 from modules.load_input import load_gdata, load_config
-
 from modules.assoc.assoc_qc import run_qc, calc_chr_ld
 
 

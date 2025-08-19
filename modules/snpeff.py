@@ -8,6 +8,7 @@ import shutil
 import subprocess
 from Bio.bgzf import BgzfWriter
 
+from modules.mem import get_mem
 from app.dirs import data_dir, tool_dir
 
 
@@ -101,6 +102,8 @@ def snpeff_annotate(genome, vcf_file, gff_file, seq_file, cds_file, pep_file, ta
     cmd = [
         "java",
         "-jar",
+        f"-Xms{get_mem()}m",
+        f"-Xmx{get_mem()}m",
         os.path.join(tool_dir, "snpEff", "snpEff.jar"),
         "build",
         gff_option,
@@ -124,6 +127,8 @@ def snpeff_annotate(genome, vcf_file, gff_file, seq_file, cds_file, pep_file, ta
         [
             "java",
             "-jar",
+            f"-Xms{get_mem()}m",
+            f"-Xmx{get_mem()}m",
             os.path.join(tool_dir, "snpEff", "snpEff.jar"),
             genome_safe,
             "-c",
@@ -134,6 +139,8 @@ def snpeff_annotate(genome, vcf_file, gff_file, seq_file, cds_file, pep_file, ta
         stderr=subprocess.PIPE,
         text=True,
     )
+
+    shutil.copytree("snpEff", "data/snpEff")
 
     ann_path = os.path.join(in_root, f"ann.{vcf_file}")
     ann_out = BgzfWriter(ann_path, "w")
