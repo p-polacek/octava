@@ -32,7 +32,7 @@ def serve_icon(genome):
             break
     else:
         icon_dir = os.path.join("static", "icons")
-        fn = "icon_default.png"
+        fn = "Icon_default.png"
 
     return send_from_directory(icon_dir, fn)
 
