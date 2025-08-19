@@ -459,15 +459,6 @@
           <div
             id="plot-div"
             class="results-subcontainer">
-           <h1 class="center-text">
-              No phenotype data found
-            </h1>
-            <div class="centered-div">
-              <img
-               class="assoc-icon"
-               src="{{ url_for('static', filename='icons/phe.png') }}"
-               alt="">
-            </div>
           </div>
           <table id="samples-table">
           </table>
@@ -1775,6 +1766,10 @@
       //document.getElementById("trait_sgl-field").selectedIndex = 0;
       sglPlot();
       fillTraitCol();
+
+      if (document.getElementById("plot-div").innerHTML.trim() === "") {
+        document.getElementById("plot-div").innerHTML = `<h1 class="center-text">No phenotype data found</h1><div class="centered-div"><img class="assoc-icon" src="{{ url_for('static', filename='icons/phe.png') }}" alt=""></div>`
+      }
     });
   </script>
 {% endblock %}
