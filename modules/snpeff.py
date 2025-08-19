@@ -152,8 +152,6 @@ def snpeff_annotate(genome, vcf_file, gff_file, seq_file, cds_file, pep_file, ta
         text=True,
     )
 
-    shutil.copytree("snpEff", "data/snpEff")
-
     ann_path = os.path.join(in_root, f"ann.{vcf_file}")
     ann_out = BgzfWriter(ann_path, "w")
     for line in pr.stdout:
