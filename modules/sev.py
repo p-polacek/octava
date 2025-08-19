@@ -46,8 +46,8 @@ blastp_columns = [
 ]
 
 cdhit_path = "cdhit"
-blastp_path = os.path.join(toold_dir,"blast", "bin", "blastp")
-blastdbcmd_path = os.path.join(toold_dir,"blast", "bin", "blastdbcmd")
+blastp_path = os.path.join(tool_dir,"blast", "bin", "blastp")
+blastdbcmd_path = os.path.join(tool_dir,"blast", "bin", "blastdbcmd")
 
 seq_identity = 0.8
 cluster_to_most_similar = 1
