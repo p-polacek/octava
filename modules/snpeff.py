@@ -145,6 +145,7 @@ def snpeff_annotate(genome, vcf_file, gff_file, seq_file, cds_file, pep_file, ta
     for line in pr.stdout:
         ann_out.write(line)
     pr.wait()
+    ann_out.close()
 
     print("<b>Indexing VCF file</b>")
     pysam.tabix_index(ann_path, preset="vcf", force=True)
