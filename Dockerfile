@@ -25,6 +25,10 @@ RUN chmod 600 /root/.ssh/id_rsa &&\
     mkdir tmp/ &&\
     mkdir ./modules/tools &&\
     cd ./modules/tools/ &&\
+    wget https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/2.16.0/ncbi-blast-2.16.0+-x64-linux.tar.gz -O blast.tar.gz &&\
+    mkdir blast/ &&\
+    tar -zxf blast.tar.gz -C blast/ --strip-components=1  ncbi-blast-2.16.0+/bin/blastp ncbi-blast-2.16.0+/bin/blastdbcmd &&\
+    rm blast.tar.gz &&\
     wget https://cnsgenomics.com/software/gctb/download/gctb_2.5.2_Linux.zip -O gctb.zip &&\
     unzip gctb.zip &&\
     wget https://github.com/rgcgithub/regenie/releases/download/v4.1/regenie_v4.1.gz_x86_64_Linux.zip -O regenie.zip &&\
@@ -38,17 +42,13 @@ RUN chmod 600 /root/.ssh/id_rsa &&\
     git clone https://github.com/Menggg/BLINK.git &&\
     unzip BLINK/blink_linux.zip -d BLINK/ &&\
     apt-get update &&\
-    apt-get install -y emboss gemma ncbi-blast+ cd-hit &&\
+    apt-get install -y emboss gemma cd-hit &&\
     apt-get purge -y gcc g++ make manpages && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/man/* /root/.cache/pip
 
 #    wget https://www.haplotype.org/download/pimass-latest.tar.gz -O pimass.tar.gz &&\
 #    tar -zxf pimass.tar.gz &&\
-#    wget https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/ncbi-blast-2.16.0+-x64-linux.tar.gz -O blast.tar.gz &&\
-#    mkdir blast/ &&\
-#    tar -zxf blast.tar.gz -C blast/ --strip-components=1 &&\
-#    rm blast.tar.gz &&\
 #    wget https://github.com/weizhongli/cdhit/releases/download/V4.8.1/cd-hit-v4.8.1-2019-0228.tar.gz -O cdhit.tar.gz &&\
 #    wget ftp://emboss.open-bio.org:21/pub/EMBOSS/EMBOSS-6.6.0.tar.gz -O emboss.tar.gz &&\
 #    mkdir emboss/ &&\

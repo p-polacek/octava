@@ -16,7 +16,7 @@ from Bio import SeqIO, Seq, SeqRecord
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from app.dirs import data_dir
+from app.dirs import data_dir, tool_dir
 
 from modules.vcf_reader import VcfReader
 from modules.load_input import load_config
@@ -46,7 +46,8 @@ blastp_columns = [
 ]
 
 cdhit_path = "cdhit"
-blastdbcmd_path = "blastdbcmd"
+blastp_path = os.path.join(toold_dir,"blast", "bin", "blastp")
+blastdbcmd_path = os.path.join(toold_dir,"blast", "bin", "blastdbcmd")
 
 seq_identity = 0.8
 cluster_to_most_similar = 1
