@@ -14,13 +14,13 @@ WORKDIR /octava
 RUN chmod 600 /root/.ssh/id_rsa &&\
     apt-get update &&\
     apt-get install -y git wget tar unzip openssh-client &&\
-    ssh-keyscan -H github.com >> /root/.ssh/known_hosts &&\
-    git clone git@github.com:p-polacek/octava.git . &&\
-    chmod +x start.sh &&\
-    apt-get install -y --no-install-recommends python3.10 python3-pip &&\
+    apt-get install -y python3.10 python3-pip &&\
     pip install --upgrade pip &&\
     pip install -r ../requirements.txt &&\
     apt-get update &&\
+    ssh-keyscan -H github.com >> /root/.ssh/known_hosts &&\
+    git clone git@github.com:p-polacek/octava.git . &&\
+    chmod +x start.sh &&\
     mkdir data/ &&\
     mkdir tmp/ &&\
     mkdir ./modules/tools &&\
@@ -28,7 +28,8 @@ RUN chmod 600 /root/.ssh/id_rsa &&\
     wget https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/2.16.0/ncbi-blast-2.16.0+-x64-linux.tar.gz -O blast.tar.gz &&\
     mkdir blast/ &&\
     tar -zxf blast.tar.gz -C blast/ --strip-components=1  ncbi-blast-2.16.0+/bin/blastp ncbi-blast-2.16.0+/bin/blastdbcmd &&\
-    rm blast.tar.gz &&\
+    wget https://downloads.sourceforge.net/project/snpeff/snpEff_latest_core.zip -O snpeff.zip &&\
+    unzip snpeff.zip snpEff/snpEff.jar &&\
     wget https://cnsgenomics.com/software/gctb/download/gctb_2.5.2_Linux.zip -O gctb.zip &&\
     unzip gctb.zip &&\
     wget https://github.com/rgcgithub/regenie/releases/download/v4.1/regenie_v4.1.gz_x86_64_Linux.zip -O regenie.zip &&\
@@ -39,6 +40,7 @@ RUN chmod 600 /root/.ssh/id_rsa &&\
     wget https://s3.amazonaws.com/plink2-assets/alpha6/plink2_linux_x86_64_20250806.zip -O plink2.zip &&\
     unzip plink2.zip &&\
     wget http://faculty.washington.edu/browning/beagle/beagle.06Aug24.a91.jar -O beagle.jar &&\
+    rm blast.tar.gz snpeff.zip regenie.zip plink1.9.zip plink2.zip &&\
     git clone https://github.com/Menggg/BLINK.git &&\
     unzip BLINK/blink_linux.zip -d BLINK/ &&\
     apt-get update &&\

@@ -8,29 +8,16 @@ import shutil
 import subprocess
 from Bio.bgzf import BgzfWriter
 
-from app.dirs import data_dir
-
-
-snpEff_url = "https://snpeff.blob.core.windows.net/versions/snpEff_latest_core.zip"
+from app.dirs import data_dir, tool_dir
 
 
 def snpeff_annotate(genome, vcf_file, gff_file, seq_file, cds_file, pep_file, task_id):
 
-    ###############################################################################
-    ### Download snpEff
-    ###############################################################################
+###############################################################################
+### Prepare input/output
+###############################################################################
 
     genome_safe = re.sub("\W", "_", genome)
-    if not os.path.exists("snpEff/"):
-        print("<b>Downloading snpEff</b>")
-        subprocess.run(["wget", snpEff_url], check=True)
-        subprocess.run(["unzip", "-q", "snpEff_latest_core.zip"], check=True)
-        os.remove("snpEff_latest_core.zip")
-
-    ###############################################################################
-    ### Prepare input/output
-    ###############################################################################
-
     in_root = os.path.join(data_dir, genome)
     # snpEff requires specific filenames for database building
     snpeff_root = os.path.join("snpEff", "data", genome_safe)
@@ -58,19 +45,14 @@ def snpeff_annotate(genome, vcf_file, gff_file, seq_file, cds_file, pep_file, ta
     if not os.path.exists(snpeff_root):
         os.makedirs(snpeff_root)
 
-    with open(os.path.join("snpEff", "snpEff.config"), "r+") as database:
-        for line in database.readlines():
-            # Skip if database with given name is already present
-            if line.startswith(genome_safe + ".genome"):
-                break
-        else:
-            print("<b>Initializing snpEff database</b>")
-            database.write(f"\n# {genome_safe}, created by user via octava\n")
-            database.write(f"{genome_safe}.genome : {genome_safe}\n")
+    print("<b>Initializing snpEff database</b>")
+    with open(os.path.join("snpEff", "snpEff.config"), "w") as database:
+        database.write(f"\n# {genome_safe}, created by user via octava\n")
+        database.write(f"{genome_safe}.genome : {genome_safe}\n")
 
-    ###############################################################################
-    ### Copy input files
-    ###############################################################################
+###############################################################################
+### Copy input files
+###############################################################################
 
     print("<b>Initializing files</b>")
     for source, target in (
@@ -91,9 +73,9 @@ def snpeff_annotate(genome, vcf_file, gff_file, seq_file, cds_file, pep_file, ta
         os.remove(os.path.join(snpeff_root, vcf_file))
     os.link(os.path.join(in_root, vcf_file), os.path.join(snpeff_root, vcf_file))
 
-    ###############################################################################
-    ### Create snpEff database
-    ###############################################################################
+###############################################################################
+### Create snpEff database
+###############################################################################
 
     print("<b>Building database</b>")
     if gff_ext == ".gff":
@@ -103,7 +85,9 @@ def snpeff_annotate(genome, vcf_file, gff_file, seq_file, cds_file, pep_file, ta
     else:
         raise OSError("Invalid gff_file extension.")
     cmd = [
-        "snpEff",
+        "java",
+        "-jar",
+        os.path.join(tool_dir, "snpEff", "snpEff.jar"),
         "build",
         gff_option,
         "-c",
@@ -117,16 +101,16 @@ def snpeff_annotate(genome, vcf_file, gff_file, seq_file, cds_file, pep_file, ta
         cmd.append("-noCheckProtein")
     subprocess.run(cmd, check=True)
 
-    ###############################################################################
-    ### Annotate and index VCF file
-    ###############################################################################
+###############################################################################
+### Annotate and index VCF file
+###############################################################################
 
     print("<b>Annotating VCF file</b>")
     pr = subprocess.Popen(
         [
             "java",
             "-jar",
-            "snpEff/snpEff.jar",
+            os.path.join(tool_dir, "snpEff", "snpEff.jar"),
             genome_safe,
             "-c",
             os.path.join("snpEff", "snpEff.config"),
