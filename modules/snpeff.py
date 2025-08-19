@@ -71,7 +71,21 @@ def snpeff_annotate(genome, vcf_file, gff_file, seq_file, cds_file, pep_file, ta
                 )
     if os.path.exists(os.path.join(snpeff_root, vcf_file)):
         os.remove(os.path.join(snpeff_root, vcf_file))
-    os.link(os.path.join(in_root, vcf_file), os.path.join(snpeff_root, vcf_file))
+
+    # Link VCF or copy if cross-device
+    try:
+        os.link(
+            os.path.join(in_root, vcf_file),
+            os.path.join(snpeff_root, vcf_file)
+        )
+    except OSError as e:
+        if e.errno == 18:
+            shutil.copy2(
+                os.path.join(in_root, vcf_file),
+                os.path.join(snpeff_root, vcf_file)
+            )
+        else:
+            raise
 
 ###############################################################################
 ### Create snpEff database
