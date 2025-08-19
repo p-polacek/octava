@@ -13,6 +13,7 @@ import subprocess
 import portalocker
 import pandas as pd
 from Bio import SeqIO, Seq, SeqRecord
+from Bio.Align import PairwiseAligner, substitution_matrices
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -47,7 +48,7 @@ blastp_columns = [
 
 cdhit_path = "cdhit"
 blastp_path = os.path.join(tool_dir,"blast", "bin", "blastp")
-blastdbcmd_path = os.path.join(tool_dir,"blast", "bin", "blastdbcmd")
+blastdbcmd_path = os.path.join("..", "..", "..", tool_dir,"blast", "bin", "blastdbcmd")
 
 seq_identity = 0.8
 cluster_to_most_similar = 1
@@ -56,11 +57,9 @@ cluster_to_most_similar = 1
 # Add the conversion of "Ter" to "*" to the dictionary
 convertAA["Ter"] = "*"
 
-# Needle options
-needle_path = "needle"
-
-needle_gapopen = "10"
-needle_gapextend = "1"
+aln_gapopen = -10
+aln_gapextend = -1
+aln_endscore = 0
 
 sev_helpstring = {
     "Number": ".",
@@ -424,6 +423,15 @@ def annotate_sev(genome, markers, task_id):
 
     blastp_out_fn = os.path.join(prot_dir, "blastp_out.txt.gz")
     blastp_out = pysam.TabixFile(blastp_out_fn)
+
+    aligner = PairwiseAligner(
+        mode="global",
+        internal_open_gap_score=aln_gapopen,
+        internal_extend_gap_score=aln_gapextend,
+        end_gap_score=aln_endscore,
+        substitution_matrix=substitution_matrices.load("BLOSUM62"),
+    )
+
     for t_id, anns in ann_df.groupby("Feature_ID", sort=False):
         print(f"<b>{t_id}</b>")
         anns = anns.reset_index(drop=True)
@@ -435,9 +443,6 @@ def annotate_sev(genome, markers, task_id):
             t_seq = pep_fa[t_id]
         except KeyError:
             continue
-
-        seq_path = os.path.join(prot_dir, "wt.fasta")
-        SeqIO.write([SeqRecord.SeqRecord(Seq.Seq(t_seq))], seq_path, "fasta")
 
         blastp_out_df = pd.DataFrame(
             [line.split("\t") for line in blastp_out.fetch(t_id)],
@@ -532,49 +537,16 @@ def annotate_sev(genome, markers, task_id):
 
         if len(full_set) == 0:
             continue
+        full_set = [hits[seq_name] for seq_name in full_set]
 
-        supp_set_fn = os.path.join(prot_dir, "supporting_set.fasta")
-        SeqIO.write([hits[seq_name] for seq_name in full_set], supp_set_fn, "fasta")
-
+        wt_scores = list()
         try:
-            p = subprocess.run(
-                [
-                    needle_path,
-                    "-asequence",
-                    seq_path,
-                    "-bsequence",
-                    supp_set_fn,
-                    "-gapopen",
-                    needle_gapopen,
-                    "-gapextend",
-                    needle_gapextend,
-                    "-endweight",
-                    "false",
-                    "-aformat",
-                    "score",
-                    "-stdout",
-                    "-auto",
-                ],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-        except subprocess.CalledProcessError as e:
-            print(f"<b>Alignment for ref-{t_id} failed: {e}</b>")
+            for seq in full_set:
+                alignments = aligner.align(t_seq, seq.seq)
+                wt_scores.append(statistics.mean([a.score for a in alignments]))
+        except Exception:
+            print(f"<b>Alignment for ref-{t_id} failed.</b>")
             continue
-        else:
-            query_needle_out = p.stdout
-
-            query_needle_df = (
-                pd.read_csv(
-                    io.StringIO(query_needle_out), header=None, sep=" ", comment="#"
-                )
-                .set_axis(["qseqid", "sseqid", "length", "score"], axis=1)
-                .drop(["qseqid", "length"], axis=1)
-            )
-            query_needle_df["score"] = pd.to_numeric(
-                query_needle_df["score"].str.strip("()")
-            )
 
         pos_groups = anns.groupby(["Chrom", "Pos"])
         num_markers = len(pos_groups)
@@ -597,69 +569,32 @@ def annotate_sev(genome, markers, task_id):
                     continue
 
                 mutated_seq[var["Start_pos"] - 1 : var["End_pos"]] = var["Subs"]
-                mutated_seq_fn = os.path.join(prot_dir, "mutated.fasta")
-                SeqIO.write([SeqRecord.SeqRecord(mutated_seq)], mutated_seq_fn, "fasta")
 
                 # Get alignment for the mutated sequence
+                mut_scores = list()
                 try:
-                    p = subprocess.run(
-                        [
-                            needle_path,
-                            "-asequence",
-                            mutated_seq_fn,
-                            "-bsequence",
-                            supp_set_fn,
-                            "-gapopen",
-                            needle_gapopen,
-                            "-gapextend",
-                            needle_gapextend,
-                            "-endweight",
-                            "false",
-                            "-aformat",
-                            "score",
-                            "-stdout",
-                            "-auto",
-                        ],
-                        check=True,
-                        capture_output=True,
-                        text=True,
-                    )
-                except subprocess.CalledProcessError as e:
+                    for seq in full_set:
+                        alignments = aligner.align(mutated_seq, seq.seq)
+                        mut_scores.append(statistics.mean([a.score for a in alignments]))
+                except Exception:
                     print()
-                    print(f"<b>Alignment for {t_id}-{var['Subs']} failed: {e}</b>")
+                    print(f"<b>Alignment for {t_id}-{var['Subs']} failed.</b>")
                     continue
-                else:
-                    mut_needle_out = p.stdout
-                    mut_needle_df = (
-                        pd.read_csv(
-                            io.StringIO(mut_needle_out),
-                            header=None,
-                            sep=" ",
-                            comment="#",
-                        )
-                        .set_axis(["qseqid", "sseqid", "length", "score"], axis=1)
-                        .drop(["qseqid", "length"], axis=1)
-                    )
-                    mut_needle_df["score"] = pd.to_numeric(
-                        mut_needle_df["score"].str.strip("()")
-                    )
 
-                if not query_needle_df.shape[0] == mut_needle_df.shape[0]:
+                if len(wt_scores) != len(mut_scores):
                     print()
                     print(
-                        f"<b>Needle output mismatched in length: {t_id}-{var['Subs']}.</b>"
+                        f"<b>Alignment output mismatched in length: {t_id}-{var['Subs']}.</b>"
                     )
                     continue
 
-                mut_needle_df["delta"] = (
-                    mut_needle_df["score"] - query_needle_df["score"]
-                )
+                score_df = pd.DataFrame(
+                  {"wt": wt_scores, "mut": mut_scores}).set_axis([seq.id for seq in full_set])
+                score_df["delta"] = score_df["mut"] - score_df["wt"]
 
                 avg_deltas = list()
                 for cluster in var["Supporting_set"]:
-                    deltas = mut_needle_df[mut_needle_df["sseqid"].isin(cluster)][
-                        "delta"
-                    ]
+                    deltas = score_df[score_df.index.isin(cluster)]["delta"]
                     avg_deltas.append(deltas.mean())
                     sev_score = (
                         round(statistics.mean(avg_deltas), 4)

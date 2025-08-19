@@ -44,7 +44,7 @@ RUN chmod 600 /root/.ssh/id_rsa &&\
     git clone https://github.com/Menggg/BLINK.git &&\
     unzip BLINK/blink_linux.zip -d BLINK/ &&\
     apt-get update &&\
-    apt-get install -y emboss gemma cd-hit &&\
+    apt-get install -y gemma cd-hit &&\
     apt-get purge -y gcc g++ make manpages && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/man/* /root/.cache/pip
