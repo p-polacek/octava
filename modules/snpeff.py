@@ -116,7 +116,6 @@ def snpeff_annotate(genome, vcf_file, gff_file, seq_file, cds_file, pep_file, ta
         cmd.append("-noCheckCds")
     if not pep_file:
         cmd.append("-noCheckProtein")
-    print(" ".join(cmd))
     subprocess.run(cmd, check=True)
 
 ###############################################################################
@@ -124,17 +123,6 @@ def snpeff_annotate(genome, vcf_file, gff_file, seq_file, cds_file, pep_file, ta
 ###############################################################################
 
     print("<b>Annotating VCF file</b>")
-    print(" ".join([
-            "java",
-            "-jar",
-            f"-Xms{get_mem()}m",
-            f"-Xmx{get_mem()}m",
-            os.path.join(tool_dir, "snpEff", "snpEff.jar"),
-            genome_safe,
-            "-c",
-            os.path.join("snpEff", "snpEff.config"),
-            os.path.join(snpeff_root, vcf_file),
-        ]))
     pr = subprocess.Popen(
         [
             "java",
@@ -142,9 +130,9 @@ def snpeff_annotate(genome, vcf_file, gff_file, seq_file, cds_file, pep_file, ta
             f"-Xms{get_mem()}m",
             f"-Xmx{get_mem()}m",
             os.path.join(tool_dir, "snpEff", "snpEff.jar"),
-            genome_safe,
             "-c",
             os.path.join("snpEff", "snpEff.config"),
+            genome_safe,
             os.path.join(snpeff_root, vcf_file),
         ],
         stdout=subprocess.PIPE,
