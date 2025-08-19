@@ -134,7 +134,7 @@ def snpeff_annotate(genome, vcf_file, gff_file, seq_file, cds_file, pep_file, ta
             "-c",
             os.path.join("snpEff", "snpEff.config"),
             os.path.join(snpeff_root, vcf_file),
-        ])
+        ]))
     pr = subprocess.Popen(
         [
             "java",
