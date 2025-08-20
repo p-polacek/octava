@@ -73,7 +73,7 @@ def run_assoc(genome, params, task_id):
         elif os.path.exists(f"{in_root}.cov"):
             os.remove(f"{in_root}.cov")
 
-        blink_path = os.path.join(tool_dir, "BLINK", "blink_linux")
+        blink_path = os.path.join(tool_dir, "blink")
         print("<b>Running analysis</b>")
         command = [
             blink_path,
@@ -337,7 +337,7 @@ def run_assoc(genome, params, task_id):
                 .to_csv(f"{in_root}.kin", sep=" ", header=False, index=True)
             )
 
-        gctb_path = os.path.join(tool_dir, "gctb_2.5.2_Linux", "gctb")
+        gctb_path = os.path.join(tool_dir, "gctb")
         print("<b>Running analysis</b>")
 
         num_traits = len(params["trait"])

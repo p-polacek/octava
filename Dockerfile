@@ -1,16 +1,16 @@
 # syntax=docker/dockerfile:1
 
-FROM openjdk:11-jre-slim
+##########################
+# Stage 1: Builder
+##########################
+FROM openjdk:11-jre-slim AS builder
 
-ENV PYTHONUNBUFFERED=1
-
-COPY . .
-COPY requirements.txt .
 COPY id_rsa /root/.ssh/id_rsa
+COPY snpEff.jar .
+COPY requirements.txt .
 
 WORKDIR /octava
 
-# Download external tools
 RUN chmod 600 /root/.ssh/id_rsa &&\
     apt-get update &&\
     apt-get install -y git wget tar unzip openssh-client &&\
@@ -21,51 +21,55 @@ RUN chmod 600 /root/.ssh/id_rsa &&\
     ssh-keyscan -H github.com >> /root/.ssh/known_hosts &&\
     git clone git@github.com:p-polacek/octava.git . &&\
     chmod +x start.sh &&\
-    mkdir data/ &&\
-    mkdir tmp/ &&\
-    mkdir ./modules/tools &&\
-    cd ./modules/tools/ &&\
+    mkdir -p data/ tmp/ modules/tools/snpEff &&\
+    mv ../snpEff.jar modules/tools/snpEff/snpEff.jar &&\
+    cd modules/tools/ &&\
     wget https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/2.16.0/ncbi-blast-2.16.0+-x64-linux.tar.gz -O blast.tar.gz &&\
     mkdir blast/ &&\
     tar -zxf blast.tar.gz -C blast/ --strip-components=1  ncbi-blast-2.16.0+/bin/blastp ncbi-blast-2.16.0+/bin/blastdbcmd &&\
-    wget https://downloads.sourceforge.net/project/snpeff/snpEff_latest_core.zip -O snpeff.zip &&\
-    unzip snpeff.zip snpEff/snpEff.jar &&\
+    #wget https://downloads.sourceforge.net/project/snpeff/snpEff_latest_core.zip -O snpeff.zip &&\
+    #unzip snpeff.zip snpEff/snpEff.jar &&\
     wget https://cnsgenomics.com/software/gctb/download/gctb_2.5.2_Linux.zip -O gctb.zip &&\
-    unzip gctb.zip &&\
+    unzip -j gctb.zip gctb_2.5.2_Linux/gctb -d . &&\
     wget https://github.com/rgcgithub/regenie/releases/download/v4.1/regenie_v4.1.gz_x86_64_Linux.zip -O regenie.zip &&\
     unzip regenie.zip &&\
     mv regenie_v4.1.gz_x86_64_Linux regenie &&\
     wget https://s3.amazonaws.com/plink1-assets/plink_linux_x86_64_20241022.zip -O plink1.9.zip &&\
-    unzip plink1.9.zip &&\
+    unzip plink1.9.zip plink &&\
     wget https://s3.amazonaws.com/plink2-assets/alpha6/plink2_linux_x86_64_20250806.zip -O plink2.zip &&\
-    unzip plink2.zip &&\
+    unzip plink2.zip plink2 &&\
     wget http://faculty.washington.edu/browning/beagle/beagle.06Aug24.a91.jar -O beagle.jar &&\
-    rm blast.tar.gz snpeff.zip regenie.zip plink1.9.zip plink2.zip &&\
+    rm blast.tar.gz gctb.zip regenie.zip plink1.9.zip plink2.zip &&\
+    # snpeff.zip 
     git clone https://github.com/Menggg/BLINK.git &&\
     unzip BLINK/blink_linux.zip -d BLINK/ &&\
+    mv BLINK/blink_linux ./blink &&\
+    rm -rf BLINK/ &&\
     apt-get update &&\
     apt-get install -y gemma cd-hit &&\
     apt-get purge -y gcc g++ make manpages && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/man/* /root/.cache/pip
+    
+##########################
+# Stage 2: Runtime
+##########################
 
-#    wget https://www.haplotype.org/download/pimass-latest.tar.gz -O pimass.tar.gz &&\
-#    tar -zxf pimass.tar.gz &&\
-#    wget https://github.com/weizhongli/cdhit/releases/download/V4.8.1/cd-hit-v4.8.1-2019-0228.tar.gz -O cdhit.tar.gz &&\
-#    wget ftp://emboss.open-bio.org:21/pub/EMBOSS/EMBOSS-6.6.0.tar.gz -O emboss.tar.gz &&\
-#    mkdir emboss/ &&\
-#    tar -zxf emboss.tar.gz -C emboss/ --strip-components=1 &&\
-#    rm emboss.tar.gz &&\
-#    mkdir cdhit/ &&\
-#    tar -zxf cdhit.tar.gz -C cdhit/ --strip-components=1 &&\
-#    cd cdhit/ &&\
-#    make &&\
-#    rm cdhit.tar.gz &&\
-#    wget https://github.com/genetics-statistics/GEMMA/releases/download/v0.98.5/gemma-0.98.5-linux-static-AMD64.gz -O gemma.gz &&\
-#    gunzip gemma.gz &&\
+FROM openjdk:11-jre-slim
+
+ENV PYTHONUNBUFFERED=1
+WORKDIR /octava
+
+COPY --from=builder /usr/local /usr/local
+COPY --from=builder /octava /octava
+
+COPY id_rsa /root/.ssh/id_rsa
+
+RUN chmod 600 /root/.ssh/id_rsa &&\
+    apt-get update && apt-get install -y \
+    git openssh-client python3.10 python3-pip gemma cd-hit &&\
+    ssh-keyscan -H github.com >> /root/.ssh/known_hosts &&\
+    chmod +x start.sh && mkdir -p data tmp
 
 EXPOSE 5101
-
-# ENTRYPOINT FLASK_APP=flask_app.py flask run --host=0.0.0.0 --port 5101
-
 ENTRYPOINT ["/bin/bash", "./start.sh"]

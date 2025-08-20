@@ -47,7 +47,6 @@ def concat(genome):
 @app.route("/chr_ld", methods=["POST"])
 def fetch_chr_ld():
     form = request.form
-    print(form)
     genome = form["genome"]
     markers = form["markers"]
     chrom = form["chrom"]
@@ -287,7 +286,6 @@ def fetch_mplot():
 @app.route("/bblplot", methods=["POST"])
 def fetch_bblplot():
     form = request.form
-    print(form)
     genome = form["genome"]
     window = int(form["window"]) // 2
     thresh = float(form["thresh"])
