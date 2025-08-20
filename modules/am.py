@@ -203,6 +203,7 @@ def am_pipeline(genome, form):
                         *[t.attributes.get(attr, [""])[0] for attr in gene_attrs],
                     ]
                 )
+                print([t.attributes.get(attr, [""])[0] for attr in gene_attrs])
 
 ###############################################################################
 ### Get list of genes and regions to search through - region/coord input

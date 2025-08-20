@@ -485,6 +485,9 @@ def ts(genome):
     if request.method == "POST":
         form = TraitViewForm(request.form)
         params = form.data
+        traits = params["trait"]
+        for group in params["trait_group"]:
+            traits += [t for t in json.loads(group) if t not in traits]
 
         if params["t_name"]:
             with master_lock:
@@ -493,79 +496,82 @@ def ts(genome):
                 phe_df = pd.read_csv(phe_path, sep="\t", header=0, index_col=0)
 
                 samples = json.loads(params["sample_sel"]) or phe_df.index.tolist()
-                raw_phe = phe_df.loc[samples, [params["trait_sgl"]]].dropna()
-
-                if params["transform"] == "log":
-                    transform = np.log(raw_phe)
-                elif params["transform"] == "pca":
-                    traits = params["trait"]
-                    for group in params["trait_group"]:
-                        traits += json.loads(group)
+                if params["transform"] == "pca":
                     pca = PCA(n_components=params["num_pc"])
                     phe = phe_df[traits].dropna()
                     columns = [
                         params["t_name"] + f"_PC{i}"
                         for i in range(1, params["num_pc"] + 1)
                     ]
-                    transform = pd.DataFrame(
+                    transforms = pd.DataFrame(
                         pca.fit_transform(phe), index=phe.index, columns=columns
                     )
-                elif params["transform"] == "bin":
-                    transform = (raw_phe >= float(params["binthr"])).astype(int)
-                elif params["transform"] == "zs":
-                    transform = pd.DataFrame(zscore(raw_phe))
-                elif params["transform"] == "outl":
-                    transform = raw_phe.mask(
-                        np.abs(zscore(raw_phe)) > float(params["num_sd"])
-                    )
-                elif params["transform"] == "thr":
-                    transform = raw_phe.mask(
-                        (
-                            raw_phe
-                            < (
-                                params["thr_min"]
-                                if params["thr_min"] is not None
-                                else -np.inf
-                            )
-                        )
-                        | (
-                            raw_phe
-                            > (
-                                params["thr_max"]
-                                if params["thr_max"] is not None
-                                else np.inf
-                            )
-                        )
-                    )
-                elif params["transform"] == "bc":
-                    transform[params["trait_sgl"]] = boxcox(
-                        transform[params["trait_sgl"]]
-                    )[0]
-                elif params["transform"] == "corr":
-                    phe_corr = kq_correct(
-                        genome,
-                        raw_phe[params["trait_sgl"]],
-                        None,
-                        params["k"],
-                        int(params["q_num"]) if params["q"] else 0,
-                        params["kq_from"],
-                        params["cov"],
-                    )
-                    transform = pd.DataFrame(phe_corr)
-
                 else:
-                    transform = pd.DataFrame(raw_phe)
+                    transforms = list()
+                    for trait in traits:
+                        raw_phe = phe_df.loc[samples, [trait]].dropna()
 
-                transform = transform.set_axis([params["t_name"]], axis=1)
+                        if params["transform"] == "log":
+                            transform = np.log(raw_phe)
+                        elif params["transform"] == "bin":
+                            transform = (raw_phe >= float(params["binthr"])).astype(int)
+                        elif params["transform"] == "zs":
+                            transform = pd.DataFrame(zscore(raw_phe))
+                        elif params["transform"] == "outl":
+                            transform = raw_phe.mask(
+                                np.abs(zscore(raw_phe)) > float(params["num_sd"])
+                            )
+                        elif params["transform"] == "thr":
+                            transform = raw_phe.mask(
+                                (
+                                    raw_phe
+                                    < (
+                                        params["thr_min"]
+                                        if params["thr_min"] is not None
+                                        else -np.inf
+                                    )
+                                )
+                                | (
+                                    raw_phe
+                                    > (
+                                        params["thr_max"]
+                                        if params["thr_max"] is not None
+                                        else np.inf
+                                    )
+                                )
+                            )
+                        elif params["transform"] == "bc":
+                            transform[params["trait_sgl"]] = boxcox(
+                                transform[params["trait_sgl"]]
+                            )[0]
+                        elif params["transform"] == "corr":
+                            phe_corr = kq_correct(
+                                genome,
+                                raw_phe[params["trait_sgl"]],
+                                None,
+                                params["k"],
+                                int(params["q_num"]) if params["q"] else 0,
+                                params["kq_from"],
+                                params["cov"],
+                            )
+                            transform = pd.DataFrame(phe_corr)
 
-                safe_cols = [safe_col(col) for col in transform.columns]
-                transform = transform.set_axis(safe_cols, axis=1)
-                col_dup = transform.columns.intersection(phe_df.columns)
+                        else:
+                            transform = pd.DataFrame(raw_phe)
+                        transform = transform.set_axis(
+                            [trait + "_" + params["t_name"]],
+                            axis=1)
+                        transforms.append(transform)
+                    transforms = pd.concat(transforms, axis=1)
+
+                safe_cols = [safe_col(col) for col in transforms.columns]
+                transforms = transforms.set_axis(safe_cols, axis=1)
+                col_dup = transforms.columns.intersection(phe_df.columns)
                 if not col_dup.empty:
                     col_dup = ", ".join(col_dup.tolist())
-                    errors.append(f"<b>Duplicate traits:</b><br>{col_dup}")
+                    errors.append(f"<b>Duplicate traits after processing:</b><br>{col_dup}")
                 else:
-                    (pd.concat([phe_df, transform], axis=1).to_csv(phe_path, sep="\t"))
+                    (pd.concat([phe_df, transforms], axis=1).to_csv(phe_path, sep="\t"))
                     errors = 0
 
             flash(errors)
