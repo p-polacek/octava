@@ -5,13 +5,13 @@
 ##########################
 FROM openjdk:11-jre-slim AS builder
 
-COPY id_rsa /root/.ssh/id_rsa
+COPY .id /root/.ssh/.id
 COPY snpEff.jar .
 COPY requirements.txt .
 
 WORKDIR /octava
 
-RUN chmod 600 /root/.ssh/id_rsa &&\
+RUN chmod 600 /root/.ssh/.id &&\
     apt-get update &&\
     apt-get install -y git wget tar unzip openssh-client &&\
     apt-get install -y python3.10 python3-pip &&\
@@ -19,6 +19,7 @@ RUN chmod 600 /root/.ssh/id_rsa &&\
     pip install -r ../requirements.txt &&\
     apt-get update &&\
     ssh-keyscan -H github.com >> /root/.ssh/known_hosts &&\
+    echo "Host github.com\n  IdentityFile /root/.ssh/.id\n  StrictHostKeyChecking yes" > /root/.ssh/config &&\
     git clone git@github.com:p-polacek/octava.git . &&\
     chmod +x start.sh &&\
     mkdir -p data/ tmp/ modules/tools/snpEff &&\
@@ -63,13 +64,14 @@ WORKDIR /octava
 COPY --from=builder /usr/local /usr/local
 COPY --from=builder /octava /octava
 
-COPY id_rsa /root/.ssh/id_rsa
+COPY .id /root/.ssh/.id
 
-RUN chmod 600 /root/.ssh/id_rsa &&\
+RUN chmod 600 /root/.ssh/.id &&\
     apt-get update && apt-get install -y \
     git openssh-client python3.10 python3-pip gemma cd-hit &&\
     ssh-keyscan -H github.com >> /root/.ssh/known_hosts &&\
-    chmod +x start.sh && chmod +x process_external.py && mkdir -p data tmp
+    echo "Host github.com\n  IdentityFile /root/.ssh/.id\n  StrictHostKeyChecking yes" > /root/.ssh/config &&\
+    chmod +x start.sh process_external.py && mkdir -p data tmp
 
 EXPOSE 5101
 ENTRYPOINT ["/bin/bash", "./start.sh"]

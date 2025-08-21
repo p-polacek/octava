@@ -742,8 +742,6 @@
         var lastChrom = chrNames[chrNames.length - 1];
         var xMax = chrOffsets.slice(-1)[0] + chrSizes.slice(-1)[0];
 
-        var plotEffect = false;
-
         dataKeys = dataKeys.filter(k => mplotData[JSON.stringify(k)] != null);
 
         if (!selOnly) {
@@ -751,12 +749,7 @@
             var stringKey = JSON.stringify(key);
             var data = mplotData[stringKey];
             var isHap = isHapDict[key[0]];
-            var yIdx = plotEffect ? data[0].length - 1 : 0;
-            if (plotEffect) {
-              yMax = Math.max(yMax, ...data.map(v => Math.abs(v[yIdx])));
-            } else {
-              yMax = Math.max(yMax, data[0][0]);
-            }
+            yMax = Math.max(yMax, data[0][0]);
 
             var traceName = [...key];
             var thresh = document.getElementById("thresh").value;
