@@ -6,7 +6,6 @@
 FROM openjdk:11-jre-slim AS builder
 
 COPY .id /root/.ssh/.id
-COPY snpEff.jar .
 COPY requirements.txt .
 
 WORKDIR /octava
@@ -22,14 +21,12 @@ RUN chmod 600 /root/.ssh/.id &&\
     echo "Host github.com\n  IdentityFile /root/.ssh/.id\n  StrictHostKeyChecking yes" > /root/.ssh/config &&\
     git clone git@github.com:p-polacek/octava.git . &&\
     chmod +x start.sh &&\
-    mkdir -p data/ tmp/ modules/tools/snpEff &&\
-    mv ../snpEff.jar modules/tools/snpEff/snpEff.jar &&\
     cd modules/tools/ &&\
     wget https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/2.16.0/ncbi-blast-2.16.0+-x64-linux.tar.gz -O blast.tar.gz &&\
     mkdir blast/ &&\
     tar -zxf blast.tar.gz -C blast/ --strip-components=1  ncbi-blast-2.16.0+/bin/blastp ncbi-blast-2.16.0+/bin/blastdbcmd &&\
-    #wget https://downloads.sourceforge.net/project/snpeff/snpEff_latest_core.zip -O snpeff.zip &&\
-    #unzip snpeff.zip snpEff/snpEff.jar &&\
+    wget https://downloads.sourceforge.net/project/snpeff/snpEff_latest_core.zip -O snpeff.zip &&\
+    unzip snpeff.zip snpEff/snpEff.jar &&\
     wget https://cnsgenomics.com/software/gctb/download/gctb_2.5.2_Linux.zip -O gctb.zip &&\
     unzip -j gctb.zip gctb_2.5.2_Linux/gctb -d . &&\
     wget https://github.com/rgcgithub/regenie/releases/download/v4.1/regenie_v4.1.gz_x86_64_Linux.zip -O regenie.zip &&\
