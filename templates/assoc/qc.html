@@ -13,6 +13,10 @@
       <h1 class="padded-left">
         Genotype data preparation
       </h1>
+      <img
+        class="aux-button clickable"
+        src="{{ url_for('serve_button', button='help') }}"
+        onclick="showHelp(event, 'assoc-qc');" />
     </div>
     <div class="results-container padded-top">
       <div class="disp-flex">
@@ -307,17 +311,8 @@
                 {{ form.hap(id="hap", onchange="bMethod();") }}
               </div>
             </div>
-            <div class="row-div mini-padded-top padded-bottom">
-              <div class="
-               row-input-div
-               justified">
-                {{ form.run_ext.label(
-                 class="default-label bold") }}
-                {{ form.run_ext(id="run_ext") }}
-              </div>
-            </div>
 {# ====================================================== Haplotype options #}
-            <div id="bopt-div" class="padded-bottom collapsed">
+            <div id="bopt-div" class="small-padded-top small-padded-bottom collapsed">
               <div
                 class="row-input-div justified"
                 id="btype-div">
@@ -340,6 +335,15 @@
                     class="small-num-input") }}
                 </div>
               {% endfor %}
+            </div>
+            <div class="row-div mini-padded-top padded-bottom">
+              <div class="
+               row-input-div
+               justified">
+                {{ form.run_ext.label(
+                 class="default-label bold") }}
+                {{ form.run_ext(id="run_ext") }}
+              </div>
             </div>
 {# ====================================================== Set name and save #}
             <div class="

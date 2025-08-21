@@ -69,7 +69,7 @@ RUN chmod 600 /root/.ssh/id_rsa &&\
     apt-get update && apt-get install -y \
     git openssh-client python3.10 python3-pip gemma cd-hit &&\
     ssh-keyscan -H github.com >> /root/.ssh/known_hosts &&\
-    chmod +x start.sh && mkdir -p data tmp
+    chmod +x start.sh && chmod +x process_external.py && mkdir -p data tmp
 
 EXPOSE 5101
 ENTRYPOINT ["/bin/bash", "./start.sh"]

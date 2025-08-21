@@ -1001,11 +1001,11 @@
             var plotDiv = document.getElementById("plot-div");
             plotDiv.on("plotly_click", function(data) {
               if (data.event.button === 2) {
-                  if (zoomedIn) {
-                    correlMatrix();
-                  } else {
-                    correlMatrix([data.points[0].x], scatterZoom=false, heatmap=true);
-                  }
+                if (zoomedIn) {
+                  correlMatrix();
+                } else {
+                  correlMatrix([data.points[0].x], scatterZoom=false, heatmap=true);
+                }
               }
             });
           }
@@ -1049,13 +1049,13 @@
               barmode: "overlay",
               showlegend: true,
               xaxis: {
-                title: traitChoice[0],
+                title: traitChoice[1],
                 exponentformat: "e",
                 minexponent: 3,
                 tickangle: 45,
               },
               yaxis: {
-                title: traitChoice[1],
+                title: traitChoice[0],
                 exponentformat: "e",
                 minexponent: 3,
                 //tickangle: -45,
