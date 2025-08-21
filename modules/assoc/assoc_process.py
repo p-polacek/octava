@@ -25,7 +25,7 @@ def assoc_process(
     pos_col,
     sig_col,
     sep="\t",
-    eff_col=[],
+    eff_col=None,
     sig_log=True,
     se_col=None,
     delete=True,
@@ -34,11 +34,12 @@ def assoc_process(
     config = load_config(genome)
     assoc_out = os.path.join(out_dir, assoc_fn)
     processed_out = os.path.join(out_dir, out_root)
-    columns = [c for c in (ch_col, pos_col, sig_col, *eff_col) if c]  # , se_col
+    columns = [c for c in (ch_col, pos_col, sig_col, eff_col) if c]  # , se_col
 
     # Output files
     mqplot_fn = f"{processed_out}.mqplot.png"
     out_feather = f"{processed_out}.feather"
+    out_eff_feather = f"{processed_out}.eff.feather"
     out_gz = f"{processed_out}.tsv.gz"
 
     # Save raw results, rename numeric chromosomes back to original
@@ -50,9 +51,9 @@ def assoc_process(
     )
 
     # res = res[~pd.isna(res[ch_col])]
-    # if eff_col:
-    #    res[eff_col] = res[eff_col].abs()
     res.to_csv(out_gz, sep="\t", index=False)
+    if eff_col:
+        res[eff_col] = res[eff_col].abs()
 
     if sig_log:
         res[sig_col] = -np.log10(res[sig_col])
@@ -77,21 +78,38 @@ def assoc_process(
         res["idx"] = res.groupby([ch_col, pos_col]).cumcount() + 1
         c = res.columns.tolist()
         (
-            res[c[2:3] + c[:2] + c[-2:] + eff_col]
+            res[c[2:3] + c[:2] + c[-2:]]
             .sort_values(by=sig_col, ascending=False)
             .head(5000)
             .reset_index(drop=True)
             .to_feather(out_feather)
         )
+        c = res.columns.tolist()
+        if eff_col:
+            (
+                res[[eff_col] + c[:2] + c[-2:]]
+                .sort_values(by=eff_col, ascending=False)
+                .head(5000)
+                .reset_index(drop=True)
+                .to_feather(out_eff_feather)
+            )
     else:
         c = res.columns.tolist()
         (
-            res[c[2:3] + c[:2] + eff_col]
+            res[c[2:3] + c[:2]]
             .sort_values(by=sig_col, ascending=False)
             .head(5000)
             .reset_index(drop=True)
             .to_feather(out_feather)
         )
+        if eff_col:
+            (
+                res[[eff_col] + c[:2]]
+                .sort_values(by=eff_col, ascending=False)
+                .head(5000)
+                .reset_index(drop=True)
+                .to_feather(out_eff_feather)
+            )
     mqplot(
         genome,
         res,

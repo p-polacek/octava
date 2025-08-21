@@ -11,7 +11,7 @@ from flask_app import (
     cancelled_tasks,
 )
 
-from app.dirs import data_dir
+from app.dirs import data_dir, tmp_dir
 
 import os
 import re
@@ -21,6 +21,8 @@ import pysam
 import tabix
 import shutil
 import signal
+import tarfile
+import portalocker
 import numpy as np
 import pandas as pd
 
@@ -60,9 +62,8 @@ from modules.am import am_pipeline
 from modules.tmp_clean import clean
 from modules.safe_col import safe_col
 
-from modules.assoc.assoc_qc import mdbin
-
 from modules.assoc.kq import kq_correct
+from modules.assoc.assoc_qc import mdbin
 
 from modules.forms import (
     AddForm,
@@ -168,6 +169,7 @@ def index():
         for genome in genomes
     }
 
+    load_ext = any(fn.endswith(".out.tar.gz") for fn in os.listdir(data_dir))
     update_failed = os.path.exists("updatefailed")
     if update_failed:
         os.remove("updatefailed")
@@ -178,8 +180,51 @@ def index():
         links=links,
         genome="",
         update_failed=update_failed,
+        load_ext=load_ext,
     )
 
+###############################################################################
+### Error page
+###############################################################################
+
+@app.route("/load_ext")
+def load_ext():
+    errors = []
+    ext_files = [
+        f for f in os.listdir(data_dir)
+        if f.endswith(".out.tar.gz")]
+    for tar_file in ext_files:
+        ext_samp_fn = []
+        tar_path = os.path.join(data_dir, tar_file)
+        try:
+            with tarfile.open(tar_path, "r:gz") as tar:
+                ext_samp_fn = [
+                    m.name for m in tar.getmembers()
+                    if m.name.endswith("/samp_ext.txt")]
+                tar.extractall()
+        except Exception:
+            errors.append(f"Problem loading {tar_file}")
+        else:
+            os.remove(tar_path)
+
+        if ext_samp_fn:
+            ext_samp_fn = ext_samp_fn[0]
+            genome = os.path.basename(os.path.dirname(os.path.dirname(ext_samp_fn)))
+            config = load_config(genome)
+            samp_fn = os.path.join(data_dir, genome, config["samp"])
+
+            with portalocker.Lock(samp_fn, "r+", flags=portalocker.LOCK_EX) as locked_f:
+                samp_df = pd.concat([
+                    pd.read_csv(samp_fn, sep="\t", index_col=0),
+                    pd.read_csv(ext_samp_fn, sep="\t", index_col=0)],
+                    axis=1)
+                locked_f.seek(0)
+                samp_df.to_csv(locked_f, sep="\t")
+                locked_f.truncate()
+
+    errors = errors or 0
+    flash(errors)
+    return redirect(url_for("index"))
 
 ###############################################################################
 ### Error page
@@ -276,6 +321,7 @@ def setup_new(genome):
                 if (match := re.match(r"(.+)(\.\d+)?\.phr$", fn))
             )
         )
+
         # form.db_fasta.choices = [""] + list(
         #  set(
         #    match.group(1)
@@ -296,8 +342,15 @@ def setup_new(genome):
 @app.route("/<genome>/setup", methods=["POST"])
 def setup(genome):
     form = AddForm(request.form)
+    data = form.data
     task_id = str(uuid.uuid4())
     task_spec = ("setup", genome)
+
+    if data["run_ext"]:
+        files_ext = [
+            os.path.join(genome, "stats", ".gdata"),
+            os.path.join(genome, "stats", "config.ini"),
+        ]
 
     task_params = [("Task:", "Setting up a new genome"), ("Genome:", genome)]
     param_keys = [
@@ -318,17 +371,17 @@ def setup(genome):
         "concat",
     ]
     for key in param_keys:
-        task_params.append((form._fields[key].label.text, str(form.data[key])))
-        task_params[0] = ("From dataset:", form.setup_from.data)
+        task_params.append((form._fields[key].label.text, str(data[key])))
+        task_params[0] = ("From dataset:", data["setup_from"])
 
-        if form.setup_from.data:
+        if form["setup_from"]:
             task_params = [p for i, p in enumerate(task_params) if i in (0,1,4,7,9)]
 
     task = [
         "python3",
         os.path.join("modules", "setup.py"),
         genome,
-        json.dumps(form.data),
+        json.dumps(data),
         task_id,
     ]
 
@@ -347,9 +400,31 @@ def setup(genome):
                 "error.html", error="Dataset is already being processed."
             )
         else:
-            #            queue_lock = get_lock("__task_queue__")
-            #            with queue_lock:
+            if data["run_ext"]:
+                tar_task = [
+                    "python3",
+                    os.path.join("modules", "tar", "tar_make.py"),
+                    json.dumps(files_ext),
+                    task_id,
+                ]
+                task.append("yes")
+
+                ext_task_id = str(uuid.uuid4())
+                ext_task = [
+                    "python3",
+                    os.path.join("modules", "assoc", "assoc_qc.py"),
+                    genome,
+                    task_id,
+                ]
+
+                with open(os.path.join(tmp_dir, f"{task_id}.cmd"), "w") as cmd_out:
+                    json.dump(ext_task, cmd_out)
+                task_queue.put((ext_task_id, task_spec, task_params, tar_task))
+                tar_path = os.path.join(data_dir, f"{task_id}.tar.gz")
+                flash([f"Your tar.gz file will soon be ready at {tar_path}."])
+
             task_queue.put((task_id, task_spec, task_params, task))
+
             return render_template(
                 "loading.html",
                 genome=genome,
@@ -967,9 +1042,30 @@ def assoc_qc(genome):
 @app.route("/<genome>/Association_analysis/Filter", methods=["POST"])
 def assoc_filt(genome):
     form = AssocQCform(request.form)
+    data = form.data
     markers = form.data["name"]
     task_id = str(uuid.uuid4())
     task_spec = ("filt_qc", genome, markers)
+
+    if data["run_ext"]:
+        if data["filt_from"]:
+            plink_in = os.path.join(genome, "assoc", data["filt_from"], "gt", "gt")
+            stats_dir = os.path.join(genome, "assoc", data["filt_from"], "stats")
+        else:
+            stats_dir = os.path.join(genome, "stats")
+            plink_in = os.path.join(stats_dir, "gt")
+
+        files_ext = [
+            os.path.join(genome, "stats", ".gdata"),
+            os.path.join(genome, "stats", "config.ini"),
+            f"{plink_in}.pgen",
+            f"{plink_in}.psam",
+            f"{plink_in}.pvar.zst",
+            os.path.join(stats_dir, "shet.txt.gz"),
+            os.path.join(stats_dir, "cnts"),
+        ]
+        if data["vhet"]:
+            files_ext.append(os.path.join(stats_dir, "vhet.txt.gz"))
 
     task_params = [("Task:", "Filtering a marker set"), ("Genome:", genome)]
     param_keys = [
@@ -988,13 +1084,13 @@ def assoc_filt(genome):
         "imp",
         "hap",
     ]
-    if form.data["hap"]:
-        if form.data["btype"] == "ld":
+    if data["hap"]:
+        if data["btype"] == "ld":
             param_keys += ["btype", "bsize"]
         else:
             param_keys += ["btype", "bspan", "bstep"]
     for key in param_keys:
-        task_params.append((form._fields[key].label.text, str(form.data[key])))
+        task_params.append((form._fields[key].label.text, str(data[key])))
     task_params.insert(6, ("Missingness per:",))
     task_params.insert(9, ("Heterozygosity per:",))
     task_params.insert(14, ("Pruning:",))
@@ -1003,7 +1099,7 @@ def assoc_filt(genome):
         "python3",
         os.path.join("modules", "assoc", "filt_qc.py"),
         genome,
-        json.dumps(form.data),
+        json.dumps(data),
         task_id,
     ]
 
@@ -1026,7 +1122,20 @@ def assoc_filt(genome):
                 "error.html", error="Set name is taken. Choose another name."
             )
         else:
-            task_queue.put((task_id, task_spec, task_params, task))
+
+            if data["run_ext"]:
+                tar_task = [
+                    "python3",
+                    os.path.join("modules", "tar", "tar_make.py"),
+                    json.dumps(files_ext),
+                    task_id,
+                ]
+                with open(os.path.join(tmp_dir, f"{task_id}.cmd"), "w") as cmd_out:
+                    json.dump(task, cmd_out)
+                task_queue.put((task_id, task_spec, task_params, tar_task))
+            else:
+                task_queue.put((task_id, task_spec, task_params, task))
+
             return render_template(
                 "loading.html",
                 genome=genome,
@@ -1078,6 +1187,7 @@ def assoc_opts(genome):
     form.trait_group.choices = [
         [json.dumps(group[0]), group[1]] for group in gdata["group"].get("trait", [])
     ]
+
     form.sample_group.choices = [
         (json.dumps(group[0]), group[1]) for group in gdata["group"].get("sample", [])
     ]
@@ -1116,6 +1226,39 @@ def assoc_run(genome):
     res_dir = os.path.join(data_dir, genome, "assoc", data["markers_sgl"], "res")
     if not os.path.exists(res_dir):
         os.makedirs(res_dir)
+
+    if data["run_ext"]:
+        config = load_config(genome)
+        assoc_dir = os.path.join(genome, "assoc", data["markers_sgl"])
+        kq_dir = os.path.join(genome, "assoc", data["kq_from"] or data["markers_sgl"])
+        files_ext = [
+            os.path.join(genome, config["phe"]),
+            os.path.join(genome, "stats", ".gdata"),
+            os.path.join(genome, "stats", "config.ini"),
+            os.path.join(assoc_dir, "gt", "gt.bed"),
+            os.path.join(assoc_dir, "gt", "gt.bim"),
+            os.path.join(assoc_dir, "gt", "gt.fam"),
+            os.path.join(assoc_dir, "stats", "cnts"),
+            os.path.join(kq_dir, "gt", "gt.eigenvec"),
+            os.path.join(kq_dir, "gt", "gt.rel"),
+            os.path.join(kq_dir, "gt", "gt.rel.id"),
+        ]
+
+        if data["model_sgl"] in ("bt", "qt"):
+            for suffix in ("regenie", "regenie.step1"):
+                for ext in ("bed", "bim", "fam"):
+                    r_path = os.path.join(assoc_dir, "gt", f"gt.{suffix}.{ext}")
+                    if os.path.exists(r_path):
+                        files_ext.append(r_path)
+        files_ext += [
+            os.path.join(genome, "covariates", cov_fn)
+            for cov_fn in data["cov"]]
+        hap_path = os.path.join(assoc_dir, "stats", "is_hap")
+        if os.path.exists(hap_path):
+            files_ext += [
+                hap_path,
+                os.path.join(assoc_dir, "gt", "gt.blockmap"),
+            ]
 
     task_params = [("Task:", "Running association analysis"), ("Genome:", genome)]
     param_keys = [
@@ -1214,7 +1357,20 @@ def assoc_run(genome):
                 task_id,
             ]
 
-            task_queue.put((task_id, task_spec, task_params, task))
+            if data["run_ext"]:
+                tar_task = [
+                    "python3",
+                    os.path.join("modules", "tar", "tar_make.py"),
+                    json.dumps(files_ext),
+                    task_id,
+                ]
+                with open(os.path.join(tmp_dir, f"{task_id}.cmd"), "w") as cmd_out:
+                    json.dump(task, cmd_out)
+                task_queue.put((task_id, task_spec, task_params, tar_task))
+
+            else:
+                task_queue.put((task_id, task_spec, task_params, task))
+
             return render_template(
                 "loading.html",
                 genome=genome,
@@ -1289,7 +1445,20 @@ def assoc_run(genome):
                     task_id,
                 ]
 
-                task_queue.put((task_id, task_spec, task))
+                if data["run_ext"]:
+                    tar_task = [
+                        "python3",
+                        os.path.join("modules", "tar", "tar_make.py"),
+                        json.dumps(files_ext),
+                        task_id,
+                    ]
+                    with open(os.path.join(tmp_dir, f"{task_id}.cmd"), "w") as cmd_out:
+                        json.dump(task, cmd_out)
+                    task_queue.put((task_id, task_spec, task_params, tar_task))
+
+                else:
+                    task_queue.put((task_id, task_spec, task_params, task))
+
                 return render_template(
                     "loading.html",
                     genome=genome,

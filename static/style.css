@@ -375,6 +375,15 @@ a:active {
     visibility: visible;
 }
 
+#load-ext-label {
+    visibility: hidden;
+    text-align: center;
+}
+
+#load-ext-div:hover .genome-icon-div #load-ext-label {
+    visibility: visible;
+}
+
 /*
 ####################              Input fields             ####################
 */

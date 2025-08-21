@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 
 import os
+import sys
 import gzip
 import json
 import pysam
+import tarfile
 
 # import pgenlib
 import subprocess
@@ -13,7 +15,9 @@ import pandas as pd
 from collections import Counter
 from collections import defaultdict
 
-from app.dirs import data_dir, plink2_path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+
+from app.dirs import data_dir, tmp_dir, plink2_path
 
 from modules.mem import get_mem
 
@@ -23,9 +27,19 @@ from modules.load_input import load_gdata, load_config
 mdbin = 1000000
 
 
-def run_qc(genome, markers=None):
+
+def run_qc(genome, task_id, markers=None, data_ext=False):
     config = load_config(genome)
     gdata = load_gdata(genome)
+
+    if data_ext:
+        global data_dir
+        ext_data_dir = data_dir
+        data_dir = tmp_dir
+        os.link(
+            os.path.join(ext_data_dir, genome, config["vcf"]),
+            os.path.join(data_dir, genome, config["vcf"])
+        )
 
     if not markers:
         in_path = os.path.join(data_dir, genome, config["vcf"])
@@ -200,41 +214,39 @@ def run_qc(genome, markers=None):
 
     # Keep full data for sample missingness and heterozygosity
     if not markers:
-        samp_path = os.path.join(data_dir, genome, config["samp"])
-        with portalocker.Lock(samp_path, "r+", flags=portalocker.LOCK_EX) as locked_f:
-            samp_df = pd.read_csv(locked_f, sep="\t", header=0, index_col=0)
-            for metric, ext in (("smiss", "smiss"), ("shet", "het")):
-                qc_in = f"{stats_out}.{ext}"
-                df = pd.read_csv(
-                    qc_in, sep="\t", index_col=0, usecols=[0] + usecols[metric]
-                ).rename_axis("Acc")
-                if metric == "smiss":
-                    samp_df = pd.concat(
-                        [
-                            samp_df,
-                            (
-                                (df["MISSING_CT"] / df["OBS_CT"])
-                                .rename("Missingness")
-                                .round(5)
-                            ),
-                        ],
-                        axis=1,
-                    )
-                elif metric == "shet":
-                    samp_df = pd.concat(
-                        [
-                            samp_df,
-                            (
-                                (df["O(HET)"] / df["OBS_CT"])
-                                .rename("Heterozygosity")
-                                .round(5)
-                            ),
-                        ],
-                        axis=1,
-                    )
-            locked_f.seek(0)
-            samp_df.to_csv(locked_f, sep="\t")
-            locked_f.truncate()
+        smiss_in = f"{stats_out}.smiss"
+        smiss_df = pd.read_csv(
+            smiss_in, sep="\t", index_col=0, usecols=[0] + usecols["smiss"]
+        ).rename_axis("Acc")
+        smiss_df = (
+            (smiss_df["MISSING_CT"] / smiss_df["OBS_CT"])
+            .rename("Missingness")
+            .round(5)
+        )
+
+        shet_in = f"{stats_out}.het"
+        shet_df = pd.read_csv(
+            shet_in, sep="\t", index_col=0, usecols=[0] + usecols["shet"]
+        ).rename_axis("Acc")
+        shet_df = (
+            (shet_df["O(HET)"] / shet_df["OBS_CT"])
+            .rename("Heterozygosity")
+            .round(5)
+        )
+
+        if data_ext:
+            samp_path = os.path.join(data_dir, genome, "stats", "samp_ext.txt")
+            pd.concat([smiss_df, shet_df], axis=1).to_csv(samp_path, sep="\t")
+        else:
+            samp_path = os.path.join(data_dir, genome, config["samp"])
+            with portalocker.Lock(samp_path, "r+", flags=portalocker.LOCK_EX) as locked_f:
+                samp_df = pd.read_csv(locked_f, sep="\t", header=0, index_col=0)
+                samp_df = pd.concat(
+                    [samp_df, smiss_df, shet_df],
+                    axis=1)
+                locked_f.seek(0)
+                samp_df.to_csv(locked_f, sep="\t")
+                locked_f.truncate()
 
     # LD decay scatter plot
     print("<b>Calculating LD per distance</b>")
@@ -372,6 +384,18 @@ def run_qc(genome, markers=None):
         ):
             os.remove(os.path.join(stats_dir, fn))
 
+    if data_ext:
+        init_path = os.path.join(stats_dir, "init")
+        open(init_path, "w").close()
+
+        tar_path = os.path.join(ext_data_dir, f"{task_id}.out.tar.gz")
+        with tarfile.open(tar_path, "w:gz") as tar:
+            arcpath = os.path.join(ext_data_dir, genome, "stats")
+            tar.add(
+                stats_dir,
+                arcname=arcpath
+            )
+        print(f"Your files are ready at {tar_path}")
 
 def calc_chr_ld(genome, markers=None):
     config = load_config(genome)
@@ -447,3 +471,7 @@ def calc_chr_ld(genome, markers=None):
 
         os.remove(f"{stats_out}.unphased.vcor2")
         os.remove(f"{stats_out}.unphased.vcor2.vars")
+
+if __name__ == "__main__":
+    genome, task_id = sys.argv[1:3]
+    run_qc(genome, task_id, markers=None, data_ext=True)

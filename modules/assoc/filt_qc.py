@@ -5,6 +5,7 @@ import sys
 import json
 import pysam
 import shutil
+import tarfile
 import bed_reader
 import subprocess
 import numpy as np
@@ -12,7 +13,7 @@ import pandas as pd
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from app.dirs import data_dir, tool_dir, plink1_path, plink2_path
+from app.dirs import data_dir, tmp_dir, tool_dir, plink1_path, plink2_path
 
 from modules.mem import get_mem
 from modules.wpgma import wpgma
@@ -26,6 +27,11 @@ def filt_qc(genome, data, task_id):
     gdata = load_gdata(genome)
     config = load_config(genome)
     markers = data["name"]
+
+    if data["run_ext"]:
+        global data_dir
+        ext_data_dir = data_dir
+        data_dir = tmp_dir
 
     stats_dir = os.path.join(data_dir, genome, "stats")
     assoc_dir = os.path.join(data_dir, genome, "assoc", markers)
@@ -595,7 +601,7 @@ def filt_qc(genome, data, task_id):
 
         calc_chr_ld(genome, markers=data["name"])
     else:
-        run_qc(genome, markers=data["name"])
+        run_qc(genome, task_id, markers=data["name"], data_ext=True)
 
     # Change chromosomes to numeric (required by some GWAS tools)
     chr_rename = {ch: idx for idx, ch in enumerate(gdata["chr_names"], start=1)}
@@ -608,6 +614,16 @@ def filt_qc(genome, data, task_id):
 
     init_path = os.path.join(gt_stats_dir, "init")
     open(init_path, "w").close()
+
+    if data["run_ext"]:
+        tar_path = os.path.join(ext_data_dir, f"{task_id}.out.tar.gz")
+        with tarfile.open(tar_path, "w:gz") as tar:
+            arcpath = os.path.join(ext_data_dir, genome, "assoc", markers)
+            tar.add(
+                assoc_dir,
+                arcname=arcpath
+            )
+        print(f"Your files are ready at {tar_path}")
 
 
 if __name__ == "__main__":

@@ -3,6 +3,19 @@
 {% block title %} Task progress {% endblock %}
 
 {% block errors %}
+  {% with msgs = get_flashed_messages()[0] %}
+    {% if msgs %}
+      <div class="padded-left">
+        <h2 class="padded-left">
+        {% for msg in msgs %}
+          {{ msg|safe }}
+        <br>
+        {% endfor %}
+        </h2>
+      </div>
+    {% endif %}
+  {% endwith %}
+
   {% if errors %}
     <div class="padded-left padded-bottom">
       <h2 class="padded-left red-text">

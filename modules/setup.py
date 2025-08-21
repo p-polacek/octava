@@ -281,19 +281,6 @@ def genome_setup(genome, params, task_id):
 ### Get genome and sample data
 ###############################################################################
 
-    if params["snpeff"]:
-        print("<b>Running VCF annotation</b>")
-        snpeff_annotate(
-            genome,
-            params["vcf"],
-            params["ann"],
-            params["seq"],
-            params["cds"],
-            params["pep"],
-            task_id,
-        )
-        params["vcf"] = f"ann.{params['vcf']}"
-
     print("<b>Parsing VCF file</b>")
     vcf_path = os.path.join(data_dir, genome, params["vcf"])
 
@@ -341,6 +328,19 @@ def genome_setup(genome, params, task_id):
             "vcf and seq files.</b>"
         )
         raise OSError
+
+    if params["snpeff"]:
+        print("<b>Running VCF annotation</b>")
+        snpeff_annotate(
+            genome,
+            params["vcf"],
+            params["ann"],
+            params["seq"],
+            params["cds"],
+            params["pep"],
+            task_id,
+        )
+        params["vcf"] = f"ann.{params['vcf']}"
 
     print("<b>Parsing phenotypes</b>")
     # Save sample list, combine with phenotyped samples
@@ -437,7 +437,6 @@ def genome_setup(genome, params, task_id):
         config.write(config_out)
 
     # Run raw marker set QC
-    run_qc(genome)
     assoc_dir = os.path.join(data_dir, genome, "assoc")
     if not os.path.exists(assoc_dir):
         os.mkdir(assoc_dir)
@@ -445,8 +444,11 @@ def genome_setup(genome, params, task_id):
     if not os.path.exists(cof_dir):
         os.mkdir(cof_dir)
 
-    init_path = os.path.join(stats_dir, "init")
-    open(init_path, "w").close()
+    if not params["run_ext"]:
+        run_qc(genome, task_id)
+
+        init_path = os.path.join(stats_dir, "init")
+        open(init_path, "w").close()
 
 
 def annotate_db(genome, db, info, task_id):

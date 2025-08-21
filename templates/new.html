@@ -64,7 +64,7 @@
             {{ form.hidden_tag() }}
 {# =================================================================== Name #}
             {% if not edit %}
-              <div class="wide-input-div justified mini-padded-top small-padded-bottom">
+              <div class="wide-input-div justified mini-padded-top padded-bottom">
                 {{ form.name.label(class="default-label bold") }}
                 {{ form.name(
                  class="default-input",
@@ -155,7 +155,7 @@
                 </div>
                 <div class="row-div padded-top small-padded-bottom">
                   <h2>
-                    Required files:
+                    Required files
                   </h2>
                 </div>
                 <div class="wide-input-div justified small-padded-bottom">
@@ -175,7 +175,7 @@
                 {% endfor %}
                 <div class="row-div padded-top small-padded-bottom from-ignore">
                   <h2>
-                    Optional files:
+                    Optional files
                   </h2>
                 </div>
                 {% for file in ("cds", "pep") %}
@@ -189,7 +189,7 @@
                 {% endfor %}
                 <div class="row-div padded-top small-padded-bottom">
                   <h2>
-                    Phenotype file:
+                    Phenotype file
                   </h2>
                 </div>
                 <div class="wide-input-div justified small-padded-bottom">
@@ -200,7 +200,7 @@
                 </div>
                 <div class="row-div padded-top small-padded-bottom from-ignore">
                   <h2>
-                    Gene expression files:
+                    Gene expression files
                   </h2>
                 </div>
                 {% for file in ("exp", "run") %}
@@ -213,7 +213,7 @@
                 {% endfor %}
                 <div class="row-div padded-top small-padded-bottom">
                   <h2>
-                    Additional information files:
+                    Additional information files
                   </h2>
                 </div>
                 <div class="wide-input-div justified small-padded-bottom">
@@ -268,7 +268,39 @@
                   </div>
                 </div>
 {# =============================================================== Annotate #}
-                <div class="row-div padded-top">
+                <div class="row-div padded-top small-padded-bottom">
+                  <h2>
+                    Additional options
+                  </h2>
+                </div>
+                <div class="row-div small-padded-top padded-bottom from-ignore">
+                  <button
+                   type="button"
+                   class="wide-dropdown-button"
+                   onclick="showDropdown(event, this);">
+                    {{ form.concat.label(class="default-label bold") }}
+                    <span
+                     class="default-label counter"
+                     id="concat-count">
+                      0 selected
+                    </span>
+                  </button>
+                  <div class="dropdown-menu collapsed" id="chr-dropdown">
+                    <div class="sticky non-transparent small-padding">
+                      <input
+                       type="text"
+                       class="search-bar"
+                       placeholder="Search..."
+                       onkeyup="filterDropdown(visibleDropdown);">
+                      <button
+                       type="button"
+                       onclick="toggleAll(visibleDropdown);">
+                        Select all
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div class="row-div">
                   <div class="wide-input-div justified">
                     {{ form.snpeff.label(
                      class="default-label bold") }}
@@ -296,7 +328,7 @@
                   onchange="document.getElementById('db_prefix-field').value='';"
                   onchange="document.getElementById('db_fasta-field').value='';"
 #}
-                  <div class="row-div padded-top">
+                  <div class="row-div padded-top small-padded-bottom">
                     <div class="wide-input-div justified">
                       {{ form.db_prefix.label(
                        class="default-label bold") }}
@@ -306,6 +338,15 @@
                     </div>
                   </div>
                 </span>
+                <div class="row-div small-padded-top padded-bottom">
+                  <div class="
+                   wide-input-div
+                   justified">
+                    {{ form.run_ext.label(
+                     class="default-label bold") }}
+                    {{ form.run_ext(id="run_ext") }}
+                  </div>
+                </div>
 {# ============================================================= Enrichment #}
 {#
                 <div class="row-div padded-top from-ignore">
@@ -342,33 +383,6 @@
                 </div>
 #}
 {# ================================================== Chromosome visibility #}
-                <div class="row-div small-padded-top small-padded-bottom from-ignore">
-                  <button
-                   type="button"
-                   class="wide-dropdown-button"
-                   onclick="showDropdown(event, this);">
-                    {{ form.concat.label(class="default-label bold") }}
-                    <span
-                     class="default-label counter"
-                     id="concat-count">
-                      0 selected
-                    </span>
-                  </button>
-                  <div class="dropdown-menu collapsed" id="chr-dropdown">
-                    <div class="sticky non-transparent small-padding">
-                      <input
-                       type="text"
-                       class="search-bar"
-                       placeholder="Search..."
-                       onkeyup="filterDropdown(visibleDropdown);">
-                      <button
-                       type="button"
-                       onclick="toggleAll(visibleDropdown);">
-                        Select all
-                      </button>
-                    </div>
-                  </div>
-                </div>
               {% endif %}
             {% endif %}
             <div class="row-input-div justified padded-top padded-bottom">

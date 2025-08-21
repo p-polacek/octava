@@ -269,8 +269,12 @@ def fetch_mplot():
     markers = form["markers"]
     model = form["model"]
     trait = form["trait"]
+    effect = json.loads(form["eff"])
 
-    assoc_fn = f"{model}.{trait}.feather"
+    if effect:
+        assoc_fn = f"{model}.{trait}.eff.feather"
+    else:
+        assoc_fn = f"{model}.{trait}.feather"
     assoc_path = os.path.join(data_dir, genome, "assoc", markers, "res", assoc_fn)
     if os.path.exists(assoc_path):
         df = (
@@ -289,6 +293,7 @@ def fetch_bblplot():
     genome = form["genome"]
     window = int(form["window"]) // 2
     thresh = float(form["thresh"])
+    effect = json.loads(form["eff"])
     groups = json.loads(form["keys"])
     min_size = math.ceil(float(form.get("min_size", 0)))
     genome_path = os.path.join(data_dir, genome)
@@ -304,7 +309,10 @@ def fetch_bblplot():
         for key in group:
             markers, model, trait = key
             string_key = ", ".join(key)
-            assoc_fn = f"{model}.{trait}.feather"
+            if effect:
+                assoc_fn = f"{model}.{trait}.eff.feather"
+            else:
+                assoc_fn = f"{model}.{trait}.feather"
             assoc_path = os.path.join(genome_path, "assoc", markers, "res", assoc_fn)
             if not os.path.exists(assoc_path):
                 continue

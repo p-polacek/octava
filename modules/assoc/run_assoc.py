@@ -5,6 +5,7 @@ import sys
 import json
 import random
 import shutil
+import tarfile
 import bed_reader
 import subprocess
 import portalocker
@@ -34,10 +35,18 @@ def run_assoc(genome, params, task_id):
     markers = params["markers_sgl"]
     model = params["model_sgl"]
 
+    if params["run_ext"]:
+        global data_dir
+        ext_data_dir = data_dir
+        data_dir = tmp_dir
+
     print("<b>Preparing input files</b>")
     assoc_dir = os.path.join(data_dir, genome, "assoc", markers)
     out_dir = os.path.join(assoc_dir, "res")
     in_root = os.path.join(assoc_dir, "gt", "gt")
+
+    if not os.path.exists(out_dir):
+        os.mkdir(out_dir)
 
     # Load samples and phenotype data
     fam_file = f"{in_root}.fam"
@@ -144,6 +153,7 @@ def run_assoc(genome, params, task_id):
                 ch_col="chr",
                 pos_col="pos",
                 sig_col="p_value",
+                eff_col=None
             )
 
         if os.path.exists(os.path.join(out_dir, "BLINK.log")):
@@ -419,7 +429,7 @@ def run_assoc(genome, params, task_id):
                 pos_col="Position",
                 sig_col="PIP",
                 sig_log=False,
-                eff_col=["A1Effect"],
+                eff_col="A1Effect",
                 sep="\s+",
             )
 
@@ -670,6 +680,7 @@ def run_assoc(genome, params, task_id):
             processed_out = os.path.join(out_dir, f"{model}.{trait}")
             mqplot_fn = f"{processed_out}.mqplot.png"
             out_feather = f"{processed_out}.feather"
+            out_eff_feather = f"{processed_out}.eff.feather"
             out_gz = f"{processed_out}.tsv.gz"
             chr_rename = dict(enumerate(gdata["chr_names"], start=1))
 
@@ -702,6 +713,7 @@ def run_assoc(genome, params, task_id):
             # Save results for MP visualisation
             hap_fn = os.path.join(assoc_dir, "stats", "is_hap")
             is_hap = os.path.exists(hap_fn)
+            res["BETA"] = res["BETA"].abs()
             if is_hap:
                 blockmap = pd.read_csv(
                     os.path.join(assoc_dir, "gt", "gt.blockmap"),
@@ -720,20 +732,34 @@ def run_assoc(genome, params, task_id):
                 res["idx"] = res.groupby(["CHROM", "GENPOS"]).cumcount() + 1
                 c = res.columns.tolist()
                 (
-                    res[["LOG10P", "CHROM", "GENPOS", "end", "BETA", "SE"]]
+                    res[["LOG10P", "CHROM", "GENPOS", "end"]]
                     .sort_values(by="LOG10P", ascending=False)
                     .head(5000)
                     .reset_index(drop=True)
                     .to_feather(out_feather)
                 )
+                (
+                    res[["BETA", "CHROM", "GENPOS", "end"]]
+                    .sort_values(by="BETA", ascending=False)
+                    .head(5000)
+                    .reset_index(drop=True)
+                    .to_feather(out_eff_feather)
+                )
             else:
                 c = res.columns.tolist()
                 (
-                    res[["LOG10P", "CHROM", "GENPOS", "BETA", "SE"]]
+                    res[["LOG10P", "CHROM", "GENPOS"]]
                     .sort_values(by="LOG10P", ascending=False)
                     .head(5000)
                     .reset_index(drop=True)
                     .to_feather(out_feather)
+                )
+                (
+                    res[["BETA", "CHROM", "GENPOS"]]
+                    .sort_values(by="BETA", ascending=False)
+                    .head(5000)
+                    .reset_index(drop=True)
+                    .to_feather(out_eff_feather)
                 )
             mqplot_title = ", ".join((markers, models_dict[model], trait))
             mqplot(
@@ -835,10 +861,10 @@ def run_assoc(genome, params, task_id):
             # if not q_matr.empty and model not in ("bslmm", "rr", "bin"):
             #    command += ["-c", f"{in_root}.cov"]
 
-            if os.path.exists(f"{in_root}.bimbam"):
-                command += ["-g", f"{in_root}.bimbam", "-a", f"{in_root}.ann"]
-            else:
-                command += ["-bfile", in_root]
+            #if os.path.exists(f"{in_root}.bimbam"):
+            #    command += ["-g", f"{in_root}.bimbam", "-a", f"{in_root}.ann"]
+            #else:
+            command += ["-bfile", in_root]
 
             subprocess.run(command, check=True)
 
@@ -886,21 +912,24 @@ def run_assoc(genome, params, task_id):
                 ch_col="chr",
                 pos_col="ps",
                 sig_col="p_wald",
-                eff_col=(
-                    ["beta"]
-                    if model in ("mlm", "glm")
-                    else (
-                        ["beta_" + str(i) for i in range(1, len(n) + 1)]
-                        if model == "mtmlm"
-                        else []
-                    )
-                ),
+                eff_col="beta" if model in ("mlm", "glm") else [],
                 se_col="se" if model == "mlm" else None,
             )
 
             log_file = os.path.join(out_dir, f"{model}.{trait_name}.log.txt")
             if os.path.exists(log_file):
                 os.remove(log_file)
+
+    if params["run_ext"]:        
+        tar_path = os.path.join(ext_data_dir, f"{task_id}.out.tar.gz")
+        with tarfile.open(tar_path, "w:gz") as tar:
+            for out_file in os.listdir(out_dir):
+                arcpath = os.path.join(ext_data_dir, genome, "assoc", markers, "res")
+                tar.add(
+                    os.path.join(out_dir, out_file),
+                    arcname=os.path.join(arcpath, out_file)
+                )
+        print(f"Your files are ready at {tar_path}")
 
 
 if __name__ == "__main__":

@@ -24,6 +24,9 @@ def serve_icon(genome):
     if genome == "add_new":
         icon_dir = os.path.join("static", "icons")
         return send_from_directory(icon_dir, "add_new.png")
+    if genome == "load_ext":
+        icon_dir = os.path.join("static", "icons")
+        return send_from_directory(icon_dir, "load_ext.png")
 
     icon_dir = os.path.join(data_dir, genome)
     for ext in (".jpg", ".jpeg", ".png"):

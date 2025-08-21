@@ -72,16 +72,17 @@ class AddForm(FlaskForm):
     #  "Enrichment for:",
     #  choices=[])
     bam = MultiCheckboxField("BAM file(s):", choices=[])
-    snpeff = BooleanField("Annotate variants with SnpEff:")
+    snpeff = BooleanField("Annotate variants with SnpEff")
     cds = SelectField("CDS:", choices=[])
     pep = SelectField("Proteins:", choices=[])
-    sev = BooleanField("Enable severity prediction:")
+    sev = BooleanField("Enable severity prediction")
     # db_fasta = SelectField(
     #  "DB FASTA file:",
     #  choices=[])
     db_prefix = SelectField("DB prefix:", choices=[])
     concat = MultiCheckboxField("Concatenate contigs:", choices=[])
 
+    run_ext = BooleanField("Process externally")
 
 class EditForm(FlaskForm):
     phe = FileField("File:")
@@ -231,6 +232,7 @@ class PlotForm(FlaskForm):
         "PCs to plot:", choices=[(i, f"PC {i+1}") for i in range(15)], default=[0, 1, 2]
     )
 
+    run_ext = BooleanField("Process externally")
 
 class AssocQCform(PlotForm):
     filt_from = RadioField("From marker set:", choices=[])

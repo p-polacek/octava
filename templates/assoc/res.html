@@ -138,6 +138,19 @@
               <div class="row-div">
                 <div class="row-input-div justified">
                   <label
+                   for="plot-eff"
+                   class="default-label bold" >
+                    Plot effect size
+                  </label>
+                  <input
+                   type="checkbox"
+                   id="plot-eff"
+                   onchange="mplotData=[];">
+                </div>
+              </div>
+              <div class="row-div mini-padded-top">
+                <div class="row-input-div justified">
+                  <label
                    for="as-group"
                    class="default-label bold" >
                     Plot a bubble plot
@@ -537,6 +550,7 @@
       var thresh  = Math.max(0, document.getElementById("min-sig").value);
       var window  = Math.max(0, document.getElementById("window-bbl").value);
       var minSize = Math.max(0, document.getElementById("min-size").value);
+      var plotEff = document.getElementById("plot-eff").checked;
       document.getElementById("assoc-locus-field").value = "";
 
       var checkboxClasses = [
@@ -618,6 +632,7 @@
             window: parseInt(window) * 1000,
             thresh, thresh,
             min_size: minSize,
+            eff: plotEff,
           },
           success: function(data) {
             for (let i = 0; i < data.length; i++) {
@@ -711,6 +726,7 @@
                   markers: key[0],
                   model: key[1],
                   trait: key[2],
+                  eff: plotEff,
                 },
                 success: function(data) {
                   if (typeof data == "string") {
@@ -913,7 +929,9 @@
 
         var y2Title;
         var modelTypes = [...new Set(dataKeys.map(v => v[1]))];
-        if (modelTypes.every(m => ["B", "C"].includes(m))) {
+        if (plotEff) {
+          y2Title = "Absolute effect size";
+        } else if (modelTypes.every(m => ["B", "C"].includes(m))) {
           y2Title = "Posterior inclusion probability";
         } else if (modelTypes.every(m => ["glm", "mlm", "mtmlm", "blink","bt", "qt"].includes(m))) {
           y2Title = "-log<sub>10</sub>(p-value)";

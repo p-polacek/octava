@@ -463,10 +463,22 @@
               </div>
             </div>
 {# ================================================================= Submit #}
-            <div class="row-input-div justified padded-top small-padded-bottom">
+            <h2 class="small-padded-top small-padded-bottom">
+              Additional options
+            </h2>
+            <div class="row-input-div justified">
               {{ form.overwrite.label(
                class="default-label bold") }}
               {{ form.overwrite() }}
+            </div>
+            <div class="row-div mini-padded-top padded-bottom">
+              <div class="
+               row-input-div
+               justified">
+                {{ form.run_ext.label(
+                 class="default-label bold") }}
+                {{ form.run_ext(id="run_ext") }}
+              </div>
             </div>
             <div class="row-input-div justified padded-top">
               <button type="submit" onclick="setAction();">

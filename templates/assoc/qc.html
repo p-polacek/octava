@@ -254,7 +254,7 @@
             <h3 class="padded-top bold">
               Hardy-Weinberg equilibrium:
             </h3>
-            <div class="row-input-div justified small-padded-top padded-bottom">
+            <div class="row-input-div justified small-padded-top">
               {{ form.hwe.label(
                for="hwe-thresh",
                class="default-label") }}
@@ -264,11 +264,9 @@
                onchange="showPlot();") }}
             </div>
 {# ================================================================ Pruning #}
-            <div class="row-div padded-top">
-              <h2>
-                LD pruning
-              </h2>
-            </div>
+            <h3 class="bold padded-top">
+              LD pruning:
+            </h3>
             <div class="row-input-div justified small-padded-top">
               {{ form.prune.label(
                class="default-label") }}
@@ -288,7 +286,10 @@
                id="window") }}
             </div>
 {# ==================================================Imputation, haplotypes #}
-            <div class="row-div small-padded-top padded-bottom">
+            <h2 class="small-padded-top small-padded-bottom">
+              Additional options
+            </h2>
+            <div class="row-div">
               <div class="
                row-input-div
                justified">
@@ -297,13 +298,22 @@
                 {{ form.imp(id="imp") }}
               </div>
             </div>
-            <div class="row-div padded-bottom">
+            <div class="row-div mini-padded-top">
               <div class="
                row-input-div
                justified">
                 {{ form.hap.label(
                  class="default-label bold") }}
                 {{ form.hap(id="hap", onchange="bMethod();") }}
+              </div>
+            </div>
+            <div class="row-div mini-padded-top padded-bottom">
+              <div class="
+               row-input-div
+               justified">
+                {{ form.run_ext.label(
+                 class="default-label bold") }}
+                {{ form.run_ext(id="run_ext") }}
               </div>
             </div>
 {# ====================================================== Haplotype options #}
