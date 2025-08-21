@@ -636,7 +636,6 @@
               if (traceData !== []) {
                 var yVals = traceData.map(i => i[1]);
                 yMax = Math.max(yMax, ...yVals);
-                yIdx = 0;
 
                 const trace = {
                   name: groupNames[i],
@@ -771,7 +770,7 @@
                   return i[2] + offsetDict[i[1]];
                 }
               }),
-              y: data.map(i => Math.abs(i[yIdx])),
+              y: data.map(i => Math.abs(i[0])),
               text: data.map(i => {
                 if (1 || i[0] >= thresh) {
                   if (isHap) {
@@ -809,7 +808,7 @@
               var yLines = [];
               data.forEach(point => {
                 xLines.push(point[2] + offsetDict[point[1]], point[3] + offsetDict[point[1]], null);
-                yLines.push(Math.abs(point[yIdx]), Math.abs(point[yIdx]), null);
+                yLines.push(Math.abs(point[0]), Math.abs(point[0]), null);
               });
               traces.push({
                 x: xLines,
