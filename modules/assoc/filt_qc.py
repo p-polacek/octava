@@ -56,19 +56,23 @@ def filt_qc(genome, data, task_id):
         stats_dir = os.path.join(data_dir, genome, "assoc", data["filt_from"], "stats")
 
     if data["sample_group"]:
+        data["sample_group"] = [
+            samp for group in data["sample_group"]
+            for samp in json.loads(group)
+        ]
         samp_inc = os.path.join(filt_dir, "samp_include.txt")
         with open(samp_inc, "w") as samp_out:
-            for group in data["sample_group"]:
-                _ = samp_out.write("\n".join(json.loads(group)) + "\n")
+            _ = samp_out.write("\n".join(data["sample_group"]) + "\n")
 
     if data["coord"]:
-        coord = []
-        for group in data["coord"]:
-            coord += json.loads(group)
+        data["coord"] = [
+            coord for group in data["coord"]
+            for coord in json.loads(group)
+        ]
 
         coord_inc = f"{plink_out}.bed1"
         with open(coord_inc, "w") as coord_out:
-            for locus in coord:
+            for locus in data["coord"]:
                 chrom, start = locus.split(":")
                 start = start.replace(",", "")
                 if "-" in start:
@@ -497,6 +501,10 @@ def filt_qc(genome, data, task_id):
     with open(params_fn, "w") as params_out:
         params = [
             [
+                "Samples",
+                "Regions",
+                "Min variant size",
+                "Max variant size",
                 "Sample missingness",
                 "Variant missingness",
                 "Sample heterozygosity",
@@ -511,6 +519,10 @@ def filt_qc(genome, data, task_id):
                 "From markers",
             ],
             [
+                " ".join(data["sample_group"]) if data["sample_group"] else "—",
+                " ".join(data["coord"]) if data["coord"] else "—",
+                int(data["min_size"]) if data["min_size"] else "—",
+                int(data["max_size"]) if data["max_size"] else "—",
                 float(data["smiss"]) if data["smiss"] else "—",
                 float(data["vmiss"]) if data["vmiss"] else "—",
                 float(data["shet"]) if data["shet"] else "—",

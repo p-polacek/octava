@@ -249,7 +249,7 @@ class AssocQCform(PlotForm):
     prune = FloatField("Threshold <")
     window = IntegerField("Window (kb):")
     imp = BooleanField("Impute")
-    hap = BooleanField("Make Haplotypes")
+    hap = BooleanField("Make haplotypes")
     btype = SelectField(
         "Method:",
         choices=[

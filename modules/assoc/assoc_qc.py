@@ -32,7 +32,7 @@ def run_qc(genome, task_id, markers=None, data_ext=False):
     config = load_config(genome)
     gdata = load_gdata(genome)
 
-    if data_ext:
+    if not markers and data_ext:
         global data_dir
         ext_data_dir = data_dir
         data_dir = tmp_dir
@@ -384,7 +384,7 @@ def run_qc(genome, task_id, markers=None, data_ext=False):
         ):
             os.remove(os.path.join(stats_dir, fn))
 
-    if data_ext:
+    if not markers and data_ext:
         init_path = os.path.join(stats_dir, "init")
         open(init_path, "w").close()
 

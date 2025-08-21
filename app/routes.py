@@ -206,6 +206,7 @@ def load_ext():
             errors.append(f"Problem loading {tar_file}")
         else:
             os.remove(tar_path)
+            os.remove(tar_path.replace(".out.", ".in."))
 
         if ext_samp_fn:
             ext_samp_fn = ext_samp_fn[0]
@@ -372,10 +373,10 @@ def setup(genome):
     ]
     for key in param_keys:
         task_params.append((form._fields[key].label.text, str(data[key])))
-        task_params[0] = ("From dataset:", data["setup_from"])
 
-        if form["setup_from"]:
-            task_params = [p for i, p in enumerate(task_params) if i in (0,1,4,7,9)]
+    if form["setup_from"]:
+        task_params = [p for i, p in enumerate(task_params) if i in (0,1,4,7,9)]
+        task_params[0] = ("From dataset:", data["setup_from"])
 
     task = [
         "python3",
@@ -1073,6 +1074,8 @@ def assoc_filt(genome):
         "filt_from",
         "sample_group",
         "coord",
+        "min_size",
+        "max_size",
         "smiss",
         "vmiss",
         "shet",
@@ -1084,6 +1087,7 @@ def assoc_filt(genome):
         "imp",
         "hap",
     ]
+    data["filt_from"] = data["filt_from"] or ""
     if data["hap"]:
         if data["btype"] == "ld":
             param_keys += ["btype", "bsize"]
@@ -1091,9 +1095,10 @@ def assoc_filt(genome):
             param_keys += ["btype", "bspan", "bstep"]
     for key in param_keys:
         task_params.append((form._fields[key].label.text, str(data[key])))
-    task_params.insert(6, ("Missingness per:",))
-    task_params.insert(9, ("Heterozygosity per:",))
-    task_params.insert(14, ("Pruning:",))
+    task_params.insert(6, ("Variant size:",))
+    task_params.insert(9, ("Missingness per:",))
+    task_params.insert(12, ("Heterozygosity per:",))
+    task_params.insert(17, ("Pruning:",))
 
     task = [
         "python3",
