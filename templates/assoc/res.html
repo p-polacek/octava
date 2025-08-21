@@ -636,6 +636,7 @@
               if (traceData !== []) {
                 var yVals = traceData.map(i => i[1]);
                 yMax = Math.max(yMax, ...yVals);
+                yIdx = 0;
 
                 const trace = {
                   name: groupNames[i],
