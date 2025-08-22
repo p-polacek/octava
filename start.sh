@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ ! -d data/.noupdate ]; then
+if [ ! -e data/.noupdate ]; then
   # Pull the latest code from GitHub
   echo "Pulling the latest code from GitHub"
 

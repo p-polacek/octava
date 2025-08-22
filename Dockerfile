@@ -37,14 +37,13 @@ RUN chmod 600 /root/.ssh/.id &&\
     wget https://s3.amazonaws.com/plink2-assets/alpha6/plink2_linux_x86_64_20250806.zip -O plink2.zip &&\
     unzip plink2.zip plink2 &&\
     wget http://faculty.washington.edu/browning/beagle/beagle.06Aug24.a91.jar -O beagle.jar &&\
-    rm blast.tar.gz gctb.zip regenie.zip plink1.9.zip plink2.zip &&\
-    # snpeff.zip 
+    rm blast.tar.gz gctb.zip regenie.zip plink1.9.zip plink2.zip snpeff.zip &&\
     git clone https://github.com/Menggg/BLINK.git &&\
     unzip BLINK/blink_linux.zip -d BLINK/ &&\
     mv BLINK/blink_linux ./blink &&\
     rm -rf BLINK/ &&\
     apt-get update &&\
-    apt-get install -y gemma cd-hit &&\
+    # apt-get install -y gemma cd-hit &&\
     apt-get purge -y gcc g++ make manpages && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/man/* /root/.cache/pip
