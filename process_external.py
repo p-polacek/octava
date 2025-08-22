@@ -51,8 +51,5 @@ def process_ext(mem):
     shutil.rmtree(os.path.join(tmp_dir, top_name))
 
 if __name__ == "__main__":
-    if len(sys.argv) = 2:
-        mem = sys.argv[1]
-    else:
-        mem = 0
+    mem = sys.argv[1] if len(sys.argv) == 2 else 0
     process_ext(mem)
