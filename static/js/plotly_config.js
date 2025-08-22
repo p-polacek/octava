@@ -183,8 +183,6 @@ var buttonsToAdd = {
         Plotly.restyle(
           gd,
           {opacity: opacityChoice,
-           line: {
-             opacity: opacityChoice},
           },
           traceIdxs);
       });
