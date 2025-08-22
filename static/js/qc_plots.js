@@ -259,7 +259,7 @@ function showPlot() {
             bgcolor: "white",
           },
           marker: {
-             color: plotColors[idx],
+             color: colorCycle[idx],
              size: 6,
           },
           visible: true,
@@ -545,9 +545,9 @@ function showPlot() {
       },
       yaxis: {
         title: "Count",
-        range: [0, yMax],
+        //range: [0, yMax],
         minallowed: 0,
-        maxallowed: yMax,
+        //maxallowed: yMax,
       },
       showlegend: true,
     }
@@ -631,8 +631,11 @@ function showPlot() {
   };
   if (plotChoice === "pca") {
     config.modeBarButtonsToAdd.push(buttonsToAdd["pve"]);
+    config.modeBarButtonsToAdd.push(buttonsToAdd["m_size"]);
+    config.modeBarButtonsToAdd.push(buttonsToAdd["move_down"]);
   }
-  if (["pca", "baf"].includes(plotChoice)) {
+  if (plotChoice === "baf") {
+    config.modeBarButtonsToAdd.push(buttonsToAdd["group"]);
     config.modeBarButtonsToAdd.push(buttonsToAdd["move_down"]);
     config.modeBarButtonsToAdd.push(buttonsToAdd["_delete"]);
   }

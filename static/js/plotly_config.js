@@ -190,6 +190,61 @@ var buttonsToAdd = {
       });
     },
   },
+  m_size: {
+    name: "Change marker size of visible traces",
+    icon: {
+      "width": 100,
+      "height": 100,
+      "path": "M 65 6 C 54 7 43 14 39 25 C 35 39 42 55 57 60 C 71 64 86 57 91 42 L 91 42 C 96 28 88 12 74 8 C 71 7 68 6 65 6 z M 22 61 C 15 61 9 65 7 72 C 4 80 9 89 17 92 C 25 95 34 90 37 82 L 37 82 C 40 74 35 65 27 62 C 25 62 24 61 22 61 z",
+    },
+    click: function(gd) {
+      var clickEvent = event;
+      var traceSizes = [];
+      var traceIdxs = [];
+      var traceColors = [];
+      var editLine = false;
+      gd.data.forEach(function(trace, idx) {
+        if (trace.visible === true && (trace.traceType == null || ["mp_sgl", "hapline"].includes(trace.traceType))) {
+          if (trace.type.includes("scatter") || trace.type === "box") {
+            if (trace.traceType != null) {
+                editLine = true;
+            }
+            traceIdxs.push(idx);
+            if (trace.marker != null) {
+              traceSizes.push(trace.marker.size || 6);
+              traceColors.push(trace.marker.color);
+            } else if (trace.line != null) {
+              traceSizes.push(trace.line.size || 6)
+              traceColors.push(trace.line.color);
+            }
+          }
+        }
+      });
+      var sizeValue = 6;
+      if ([...new Set(traceSizes)].length === 1) {
+        sizeValue = traceSizes[0];
+      }
+
+      showHelp(clickEvent, null, `<input type="range" id="sizeSlider" min="1" max="20" step="1" value="${sizeValue}" />`);
+      document.getElementById("sizeSlider").addEventListener("input", function() {
+        var sizeChoice = this.value;
+        var updateDict = {
+            "marker.size": Array(traceIdxs.length).fill(sizeChoice),
+            "marker.color": traceColors,
+        }
+        if (editLine) {
+            updateDict["line.width"] = Array(traceIdxs.length).fill(sizeChoice);
+            updateDict["line.color"] = traceColors;
+        }
+
+        Plotly.restyle(
+          gd,
+          updateDict,
+          traceIdxs
+        );
+      });
+    },
+  },
   reset_color: {
     name: "Reset colors of visible traces",
     icon: {
@@ -262,6 +317,7 @@ var buttonsToAdd = {
 //        .filter(v => v.startsWith("yaxis"))
 //        .map(v => v.replace("axis", ""));
       var tracesByY = {};
+      var maxesByY = {};
       visibleData.forEach((trace, index) => {
         let yAxis = trace.yaxis || "y";
         if (!tracesByY[yAxis]) {
@@ -275,7 +331,11 @@ var buttonsToAdd = {
         var cmb = traces[0];
         for (let i = 1; i < traces.length; i++) {
           cmb.x = cmb.x.concat(traces[i].x);
-          cmb.y = cmb.y.concat(traces[i].y);
+          if (cmb.type === "bar") {
+            cmb.y = cmb.y.map((_,idx) => { return cmb.y[idx] + traces[i].y[idx] });
+          } else {
+            cmb.y = cmb.y.concat(traces[i].y);
+          }
           if (cmb.hovertext != null) {
             cmb.hovertext = cmb.hovertext.concat(traces[i].hovertext);
           }
@@ -286,6 +346,7 @@ var buttonsToAdd = {
 
       Plotly.deleteTraces(gd, visibleIdxs);
       Plotly.addTraces(gd, newTraces);
+      //Plotly.relayout(
     }
   },
   group_mp: {

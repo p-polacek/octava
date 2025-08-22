@@ -1036,7 +1036,7 @@
           },
         });
 
-      var customButtons = ["legend", "edit", "recolor", "reshade", "opacity", "group_mp", "move_down", "_delete"];
+      var customButtons = ["legend", "edit", "recolor", "reshade", "opacity", "m_size", "group_mp", "move_down", "_delete"];
       var config = {
         editable: false,
         modeBarButtons: [
@@ -1176,7 +1176,6 @@
             var window = document.getElementById("window-ld").value;
             var r2 = document.getElementById("r2-ld").value;
             var selMarkers = document.querySelector("input[name='markers_sgl']:checked");
-            console.log(selMarkers);
             if (selMarkers != null) {
               markers = selMarkers.value;
             }
