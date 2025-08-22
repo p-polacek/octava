@@ -22,19 +22,22 @@ from modules.load_input import load_gdata, load_config
 from modules.assoc.assoc_qc import run_qc, calc_chr_ld
 
 
-def filt_qc(genome, data, task_id):
+def filt_qc(genome, data, task_id, mem=0):
 
-    gdata = load_gdata(genome)
-    config = load_config(genome)
+    mem = mem or get_mem()
+    gdata = load_gdata(genome, load_ext=data["run_ext"])
+    config = load_config(genome, load_ext=data["run_ext"])
     markers = data["name"]
 
     if data["run_ext"]:
-        global data_dir
         ext_data_dir = data_dir
-        data_dir = tmp_dir
+        fn_data_dir = tmp_dir
+    else:
+        fn_data_dir = data_dir
 
-    stats_dir = os.path.join(data_dir, genome, "stats")
-    assoc_dir = os.path.join(data_dir, genome, "assoc", markers)
+
+    stats_dir = os.path.join(fn_data_dir, genome, "stats")
+    assoc_dir = os.path.join(fn_data_dir, genome, "assoc", markers)
     filt_dir = os.path.join(assoc_dir, "gt")
     plink_in = os.path.join(stats_dir, "gt")
     plink_out = os.path.join(filt_dir, "gt")
@@ -44,16 +47,16 @@ def filt_qc(genome, data, task_id):
     if not os.path.exists(stats_dir):
         os.makedirs(stats_dir)
 
-    gt_stats_dir = os.path.join(data_dir, genome, "assoc", markers, "stats")
+    gt_stats_dir = os.path.join(fn_data_dir, genome, "assoc", markers, "stats")
     if not os.path.exists(gt_stats_dir):
         os.makedirs(gt_stats_dir)
 
     print("<b>Preparing filters</b>")
     if data["filt_from"]:
         plink_in = os.path.join(
-            data_dir, genome, "assoc", data["filt_from"], "gt", "gt"
+            fn_data_dir, genome, "assoc", data["filt_from"], "gt", "gt"
         )
-        stats_dir = os.path.join(data_dir, genome, "assoc", data["filt_from"], "stats")
+        stats_dir = os.path.join(fn_data_dir, genome, "assoc", data["filt_from"], "stats")
 
     if data["sample_group"]:
         data["sample_group"] = [
@@ -172,7 +175,7 @@ def filt_qc(genome, data, task_id):
         )
     ):
         cmd = [plink2_path, "--pfile", plink_in, "vzs"]
-        cmd = cmd + ["--memory", f"{get_mem()}"]
+        cmd = cmd + ["--memory", f"{mem}"]
         cmd = cmd + ["--remove", shet_exc] if data["shet"] else cmd
         cmd = cmd + ["--keep", samp_inc] if data["sample_group"] else cmd
         cmd = cmd + ["--exclude", *exc] if exc else cmd
@@ -206,7 +209,7 @@ def filt_qc(genome, data, task_id):
                 [
                     plink2_path,
                     "--memory",
-                    f"{get_mem()}",
+                    f"{mem}",
                     "--pfile",
                     filt_out,
                     "vzs",
@@ -255,8 +258,8 @@ def filt_qc(genome, data, task_id):
         cmd = [
             "java",
             "-jar",
-            f"-Xms{get_mem()}m",
-            f"-Xmx{get_mem()}m",
+            f"-Xms{mem}m",
+            f"-Xmx{mem}m",
             beagle_path,
             f"gt={vcf_filt}",
             f"out={imp_out}",
@@ -269,7 +272,7 @@ def filt_qc(genome, data, task_id):
             [
                 plink2_path,
                 "--memory",
-                f"{get_mem()}",
+                f"{mem}",
                 "--vcf",
                 imp_vcf,
                 "--make-pgen",
@@ -292,7 +295,7 @@ def filt_qc(genome, data, task_id):
         cmd = [
             plink2_path,
             "--memory",
-            f"{get_mem()}",
+            f"{mem}",
             "--pfile",
             imp_out,
             "vzs",
@@ -309,7 +312,7 @@ def filt_qc(genome, data, task_id):
         cmd = [
             plink2_path,
             "--memory",
-            f"{get_mem()}",
+            f"{mem}",
             "--pfile",
             imp_out,
             "vzs",
@@ -340,7 +343,7 @@ def filt_qc(genome, data, task_id):
     cmd = [
         plink2_path,
         "--memory",
-        f"{get_mem()}",
+        f"{mem}",
         "--pfile",
         plink_out,
         "vzs",
@@ -359,7 +362,7 @@ def filt_qc(genome, data, task_id):
                 [
                     plink1_path,
                     "--memory",
-                    f"{get_mem()}",
+                    f"{mem}",
                     "--bfile",
                     plink_out,
                     "--allow-extra-chr",
@@ -398,7 +401,7 @@ def filt_qc(genome, data, task_id):
             [
                 plink2_path,
                 "--memory",
-                f"{get_mem()}",
+                f"{mem}",
                 "--bfile",
                 plink_out,
                 "--allow-extra-chr",
@@ -419,7 +422,7 @@ def filt_qc(genome, data, task_id):
     cmd = [
         plink2_path,
         "--memory",
-        f"{get_mem()}",
+        f"{mem}",
         "--bfile",
         kin_in,
         "--make-rel",
@@ -461,7 +464,7 @@ def filt_qc(genome, data, task_id):
         [
             plink1_path,
             "--memory",
-            f"{get_mem()}",
+            f"{mem}",
             "--bfile",
             kin_in,
             "--distance",
@@ -640,5 +643,6 @@ def filt_qc(genome, data, task_id):
 
 if __name__ == "__main__":
     genome, params, task_id = sys.argv[1:4]
+    mem = sys.argv[4] if len(sys.argv) == 5 else 0
     params = json.loads(params)
-    filt_qc(genome, params, task_id)
+    filt_qc(genome, params, task_id, mem=mem)

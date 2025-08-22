@@ -29,19 +29,21 @@ from modules.assoc.assoc_process import assoc_process
 models_dict = dict(models_dict)
 
 
-def run_assoc(genome, params, task_id):
-    config = load_config(genome)
-    gdata = load_gdata(genome)
+def run_assoc(genome, params, task_id, mem=0):
+    config = load_config(genome, load_ext=params["run_ext"])
+    gdata = load_gdata(genome, load_ext=params["run_ext"])
     markers = params["markers_sgl"]
     model = params["model_sgl"]
+    mem = mem or get_mem()
 
     if params["run_ext"]:
-        global data_dir
         ext_data_dir = data_dir
-        data_dir = tmp_dir
+        fn_data_dir = tmp_dir
+    else:
+        fn_data_dir = data_dir
 
     print("<b>Preparing input files</b>")
-    assoc_dir = os.path.join(data_dir, genome, "assoc", markers)
+    assoc_dir = os.path.join(fn_data_dir, genome, "assoc", markers)
     out_dir = os.path.join(assoc_dir, "res")
     in_root = os.path.join(assoc_dir, "gt", "gt")
 
@@ -53,7 +55,7 @@ def run_assoc(genome, params, task_id):
     fam_df = pd.read_csv(fam_file, sep="\t", header=None, index_col=None)
     samples = fam_df[1]
 
-    phe_path = os.path.join(data_dir, genome, config["phe"])
+    phe_path = os.path.join(fn_data_dir, genome, config["phe"])
     with portalocker.Lock(phe_path, "r", flags=portalocker.LOCK_SH) as locked_f:
         phe_df = pd.read_csv(locked_f, sep="\t", header=0, index_col=0).loc[samples]
 
@@ -524,7 +526,7 @@ def run_assoc(genome, params, task_id):
                 cmd = [
                     plink2_path,
                     "--memory",
-                    f"{get_mem()}",
+                    f"{mem}",
                     "--bfile",
                     f"{in_root}.regenie",
                     "--allow-extra-chr",
@@ -538,7 +540,7 @@ def run_assoc(genome, params, task_id):
                 cmd = [
                     plink2_path,
                     "--memory",
-                    f"{get_mem()}",
+                    f"{mem}",
                     "--pfile",
                     f"{in_root}.regenie",
                     "--allow-extra-chr",
@@ -564,7 +566,7 @@ def run_assoc(genome, params, task_id):
                     cmd = [
                         plink2_path,
                         "--memory",
-                        f"{get_mem()}",
+                        f"{mem}",
                         "--bfile",
                         f"{in_root}.regenie",
                         "--thin-count",
@@ -934,5 +936,6 @@ def run_assoc(genome, params, task_id):
 
 if __name__ == "__main__":
     genome, params, task_id = sys.argv[1:4]
+    mem = sys.argv[4] if len(sys.argv) == 5 else 0
     params = json.loads(params)
-    run_assoc(genome, params, task_id)
+    run_assoc(genome, params, task_id, mem=mem)

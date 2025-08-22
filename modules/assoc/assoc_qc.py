@@ -28,29 +28,33 @@ mdbin = 1000000
 
 
 
-def run_qc(genome, task_id, markers=None, data_ext=False):
-    config = load_config(genome)
-    gdata = load_gdata(genome)
+def run_qc(genome, task_id, markers=None, load_ext=False, mem=0):
+    config = load_config(genome, load_ext=load_ext)
+    gdata = load_gdata(genome, load_ext=load_ext)
+    mem = mem or get_mem()
 
-    if not markers and data_ext:
-        global data_dir
+    if not markers and load_ext:
         ext_data_dir = data_dir
-        data_dir = tmp_dir
+        fn_data_dir = tmp_dir
+
         os.link(
             os.path.join(ext_data_dir, genome, config["vcf"]),
-            os.path.join(data_dir, genome, config["vcf"])
+            os.path.join(fn_data_dir, genome, config["vcf"])
         )
+    else:
+        fn_data_dir = data_dir
+
 
     if not markers:
-        in_path = os.path.join(data_dir, genome, config["vcf"])
-        stats_dir = os.path.join(data_dir, genome, "stats")
+        in_path = os.path.join(fn_data_dir, genome, config["vcf"])
+        stats_dir = os.path.join(fn_data_dir, genome, "stats")
         gt_out = os.path.join(stats_dir, "gt")
         stats_out = gt_out
     else:
-        stats_dir = os.path.join(data_dir, genome, "assoc", markers, "stats")
-        in_path = os.path.join(data_dir, genome, "assoc", markers, "gt", "gt")
+        stats_dir = os.path.join(fn_data_dir, genome, "assoc", markers, "stats")
+        in_path = os.path.join(fn_data_dir, genome, "assoc", markers, "gt", "gt")
         gt_out = in_path
-        stats_out = os.path.join(data_dir, genome, "assoc", markers, "stats", "gt")
+        stats_out = os.path.join(fn_data_dir, genome, "assoc", markers, "stats", "gt")
 
     if not os.path.exists(stats_dir):
         os.makedirs(stats_dir)
@@ -70,7 +74,7 @@ def run_qc(genome, task_id, markers=None, data_ext=False):
                 [
                     plink2_path,
                     "--memory",
-                    f"{get_mem()}",
+                    f"{mem}",
                     "--pfile",
                     in_path,
                     "vzs",
@@ -96,7 +100,7 @@ def run_qc(genome, task_id, markers=None, data_ext=False):
                 [
                     plink2_path,
                     "--memory",
-                    f"{get_mem()}",
+                    f"{mem}",
                     "--vcf",
                     in_path,
                     "--missing",
@@ -234,11 +238,11 @@ def run_qc(genome, task_id, markers=None, data_ext=False):
             .round(5)
         )
 
-        if data_ext:
-            samp_path = os.path.join(data_dir, genome, "stats", "samp_ext.txt")
+        if load_ext:
+            samp_path = os.path.join(fn_data_dir, genome, "stats", "samp_ext.txt")
             pd.concat([smiss_df, shet_df], axis=1).to_csv(samp_path, sep="\t")
         else:
-            samp_path = os.path.join(data_dir, genome, config["samp"])
+            samp_path = os.path.join(fn_data_dir, genome, config["samp"])
             with portalocker.Lock(samp_path, "r+", flags=portalocker.LOCK_EX) as locked_f:
                 samp_df = pd.read_csv(locked_f, sep="\t", header=0, index_col=0)
                 samp_df = pd.concat(
@@ -255,7 +259,7 @@ def run_qc(genome, task_id, markers=None, data_ext=False):
         [
             plink2_path,
             "--memory",
-            f"{get_mem()}",
+            f"{mem}",
             "--pfile",
             gt_out,
             "vzs",
@@ -348,7 +352,7 @@ def run_qc(genome, task_id, markers=None, data_ext=False):
 
     # LD matrices per chromosome
     print("<b>Calculating linkage disequilibrium</b>")
-    calc_chr_ld(genome, markers=markers)
+    calc_chr_ld(genome, markers=markers, load_ext=load_ext)
 
     if not markers:
         var_only_root = os.path.join(stats_dir, "var_only")
@@ -358,7 +362,7 @@ def run_qc(genome, task_id, markers=None, data_ext=False):
                 [
                     plink2_path,
                     "--memory",
-                    f"{get_mem()}",
+                    f"{mem}",
                     "--pfile",
                     gt_out,
                     "vzs",
@@ -384,7 +388,7 @@ def run_qc(genome, task_id, markers=None, data_ext=False):
         ):
             os.remove(os.path.join(stats_dir, fn))
 
-    if not markers and data_ext:
+    if not markers and load_ext:
         init_path = os.path.join(stats_dir, "init")
         open(init_path, "w").close()
 
@@ -397,19 +401,25 @@ def run_qc(genome, task_id, markers=None, data_ext=False):
             )
         print(f"Your files are ready at {tar_path}")
 
-def calc_chr_ld(genome, markers=None):
-    config = load_config(genome)
-    gdata = load_gdata(genome)
+def calc_chr_ld(genome, markers=None, load_ext=False):
+    config = load_config(genome, load_ext=load_ext)
+    gdata = load_gdata(genome, load_ext=load_ext)
+
+    if not load_ext:
+        ext_data_dir = data_dir
+        fn_data_dir = tmp_dir
+    else:
+        fn_data_dir = data_dir
 
     if not markers:
-        stats_dir = os.path.join(data_dir, genome, "stats")
+        stats_dir = os.path.join(fn_data_dir, genome, "stats")
         in_path = os.path.join(stats_dir, "gt")
         gt_out = stats_out = in_path
     else:
-        stats_dir = os.path.join(data_dir, genome, "assoc", markers, "stats")
-        in_path = os.path.join(data_dir, genome, "assoc", markers, "gt", "gt")
+        stats_dir = os.path.join(fn_data_dir, genome, "assoc", markers, "stats")
+        in_path = os.path.join(fn_data_dir, genome, "assoc", markers, "gt", "gt")
         gt_out = in_path
-        stats_out = os.path.join(data_dir, genome, "assoc", markers, "stats", "gt")
+        stats_out = os.path.join(fn_data_dir, genome, "assoc", markers, "stats", "gt")
 
     # Determine empty chromosomes (skipped for LD calculation)
     chr_s = set()
@@ -440,7 +450,7 @@ def calc_chr_ld(genome, markers=None):
             [
                 plink2_path,
                 "--memory",
-                f"{get_mem()}",
+                f"{mem}",
                 "--pfile",
                 gt_out,
                 "vzs",
@@ -474,4 +484,5 @@ def calc_chr_ld(genome, markers=None):
 
 if __name__ == "__main__":
     genome, task_id = sys.argv[1:3]
-    run_qc(genome, task_id, markers=None, data_ext=True)
+    mem = sys.argv[3] if len(sys.argv) == 4 else 0
+    run_qc(genome, task_id, markers=None, load_ext=True, mem=mem)

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import sys
 import json
 import shutil
 import signal
@@ -9,7 +10,7 @@ import subprocess
 
 from app.dirs import tmp_dir, data_dir
 
-def process_ext():
+def process_ext(mem):
     ext_files = [
         f for f in os.listdir(data_dir)
         if f.endswith(".in.tar.gz")]
@@ -26,6 +27,7 @@ def process_ext():
 
         with open(os.path.join(tmp_dir, cmd_file)) as cmd_in:
             cmd = json.load(cmd_in)
+            cmd.append(mem)
         pr = subprocess.Popen(
             cmd,
             preexec_fn=os.setsid,
@@ -49,4 +51,8 @@ def process_ext():
     shutil.rmtree(os.path.join(tmp_dir, top_name))
 
 if __name__ == "__main__":
-    process_ext()
+    if len(sys.argv) = 2:
+        mem = sys.argv[1]
+    else:
+        mem = 0
+    process_ext(mem)
