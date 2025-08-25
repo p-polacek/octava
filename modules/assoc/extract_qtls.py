@@ -18,7 +18,7 @@ from modules.load_input import load_config
 
 from modules.assoc.kq import kq_correct
 
-from modules.forms import models as models_dict
+from modules.models import models as models_dict
 
 models_dict = dict(models_dict)
 

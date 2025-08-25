@@ -13,7 +13,7 @@ from wtforms import (
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from modules.forms import models as models_dict
+from modules.models import models as models_dict
 
 models_dict = dict(models_dict)
 
@@ -226,7 +226,7 @@ def template_for_additional(genome, params, task_id, mem=0):
             genome,
             res,
             f"{model}.{trait}.mqplot.png",
-            ", ".join((markers, models_dict[model], trait_name))
+            ", ".join((markers, models_dict[model], trait_name)),
             json.loads(config["concat"]),
             ch_col=ch_col,
             pos_col=pos_col,

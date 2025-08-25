@@ -9,7 +9,7 @@ from modules.load_input import load_gdata, load_config
 
 from modules.assoc_plot import mqplot
 
-from modules.forms import models as models_dict
+from modules.models import models as models_dict
 
 models_dict = dict(models_dict)
 

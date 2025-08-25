@@ -1,0 +1,15 @@
+models = [
+    ("glm", "GLM"),
+    ("mlm", "MLM"),
+    ("mtmlm", "Multi-trait MLM"),
+    ("bt", "Binary regression"),
+    # ("qt", "Fast MLM"),
+    # ("bslmm", "Bayesian sparse LMM"),
+    # ("rr", "Ridge regression / GBLUP"),
+    # ("bin", "Binary trait MLM"),
+    ("blink", "BLINK"),
+    ("rf", "Random forest regressor"),
+    ("rfc", "Random forest classifier"),
+    ("B", "BayesB"),
+    ("C", "BayesC"),
+]

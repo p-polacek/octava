@@ -23,7 +23,7 @@ from modules.assoc.kq import kq_correct, kq_process
 
 from modules.mem import get_mem
 from modules.assoc_plot import mqplot
-from modules.forms import models as models_dict
+from modules.models import models as models_dict
 from modules.assoc.assoc_process import assoc_process
 from modules.assoc.assoc_additional import run_additional
 
