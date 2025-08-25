@@ -6,7 +6,7 @@
     var visibleDropdown = null;
     function toggleFormat() {
       var fmt = document.getElementById("fmt-field").value;
-      ["gene", "region", "coord", "gid", "gcopy", "vcopy"].forEach( function(sel) {
+      ["gene", "region", "coord", "attr", "gid", "gcopy", "vcopy"].forEach( function(sel) {
         var selDiv = document.getElementById(sel + "-div");
         if (selDiv != null) {
           selDiv.classList.add("collapsed");
@@ -76,5 +76,9 @@
     document.addEventListener("DOMContentLoaded", function() {
       toggleFormat();
       toggleImpact();
+
+      var radioBtn = document.getElementsByName("gene_attr")[0];
+      updateTracker(radioBtn.parentElement.parentElement);
+
     });
 {% endblock %}

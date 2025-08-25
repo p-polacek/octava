@@ -113,6 +113,9 @@ class FuncAnalysisForm(RegionForm):
             ("prom", "Promoter regions"),
         ],
     )
+    gene_attr = RadioField("Attribute:", choices=[])
+    attr_str = StringField("Query:")
+
     gene_group = MultiCheckboxField("Gene group:", choices=[])
     coord_group = MultiCheckboxField("Region group:", choices=[])
     prom_size = IntegerField("Size (bp):", default=2000)

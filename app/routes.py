@@ -745,6 +745,12 @@ def fa_opts(genome):
         (json.dumps(group[0]), group[1]) for group in gdata["group"].get("coord", [])
     ]
 
+    if config["info"]:
+        form.fmt.choices.append(("attr", "Gene attribute"))
+        info_fn = os.path.join(data_dir, genome, config["info"])
+        info_header = pd.read_csv(info_fn, sep="\t", index_col=0, nrows=0)
+        form.gene_attr.choices = list(enumerate(info_header.columns.tolist(), start=1))
+
     for key, value in request.args.items():
         form[key].data = value
 
@@ -803,6 +809,12 @@ def fa_res(genome):
     #    form.trait_group.choices = [
     #      [json.dumps(group[0]), group[1]]
     #      for group in gdata["group"].get("trait", [])]
+
+    if config["info"]:
+        form.fmt.choices.append(("attr", "Gene attribute"))
+        info_fn = os.path.join(data_dir, genome, config["info"])
+        info_header = pd.read_csv(info_fn, sep="\t", index_col=0, nrows=0)
+        form.gene_attr.choices = list(enumerate(info_header.columns.tolist(), start=1))
 
     (gts, groups, genes, anns, errors) = am_pipeline(genome, form)
 

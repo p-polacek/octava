@@ -1010,8 +1010,8 @@
             });
           }
         });
-      } else if (numTraits > 1) {
-        if (showCorr) {
+      } else if (numTraits > 1 || dataTransforms) {
+        if (showCorr && !dataTransforms) {
           var traces = [];
           var plotScheme = [];
           var rowCnt = numTraits;
@@ -1426,7 +1426,6 @@
     function calcTransform() {
       var transform = document.querySelector("input[name='transform']:checked");
       t = transform.value;
-      var plotData = [];
       var traits = getTraitChoice();
 
       var [allSamples, sampleChoice, sampleGroupChoice] = getSampleChoice();
@@ -1444,6 +1443,7 @@
 
       var dataTransforms = [];
       for (let i = 0; i < traits.length; i++) {
+        var plotData = [];
         var trait = traits[i];
         selectedSamples.forEach(function(key) {
           plotData.push(pheData[key][pheCols[trait]]);

@@ -168,12 +168,14 @@
                 <td class="center-text relative">
                   <div>
                     <span style="display: inline-block;">{{ ann[6] }}</span>
-                    <span style="background-color: rgba(
-                     {{ [255, ann[6] * 510 * 5]|min *0.8 }},
-                     {{ (255 - [0, (ann[6] * 510 * 5) - 255]|max) *0.8 }},
-                     0,
-                     0.65); position: absolute; right: 0; width: 13px; height: 13px; margin-right: 5px; border-radius: 50%;"></span>
-                  </div>
+                    {% if ann[6] != "—" %}
+                      <span style="background-color: rgba(
+                       {{ [255, ann[6] * 510 * 5]|min *0.8 }},
+                       {{ (255 - [0, (ann[6] * 510 * 5) - 255]|max) *0.8 }},
+                       0,
+                       0.65); position: absolute; right: 0; width: 13px; height: 13px; margin-right: 5px; border-radius: 50%;"></span>
+                     {% endif %}
+                    </div>
                   <div>
                     <span style="display: inline-block;">{{ ann[7] }}</span>
                     {% if ann[7] != "—" %}
@@ -246,6 +248,7 @@
                   <td></td>
                 {% endif %}
               {% endfor %}
+            <tbody oncontextmenu="getGtInfo();">
             {% for gt in gts %}
               {% set sampleId = gt[0][0] %}
               {% set sample = gt[0][1] %}
@@ -260,30 +263,24 @@
                   {% set ann = anns[loop.index0] %}
                   {% set call = call_data[0] %}
                   {% set qual = call_data[1] %}
-                  <td class="center-text help-cursor"
+                  <td
+                    class="center-text help-cursor"
+                    chrom="{{ ann[0] }}"
+                    pos="{{ ann[1] }}"
+                    sampleId="{{ sampleId }}"
                     {% if qual != "" %}
                       style="background-color: rgba(
                         {{ (255 - [0, (qual * 10 - 255)]|max) *0.8 }},
                         {{ [255, qual * 10]|min *0.8 }},
                         0,
                         0.65);"
-                    {% endif %}
-                    oncontextmenu="(function(chrom, pos, sampleId) {
-                      contextMenu(
-                        event,
-                        {'action': 'vars',
-                         'chrom': chrom,
-                         'pos': pos,
-                         'field': 'sample',
-                         'sampleId': sampleId}); })(
-                      '{{ ann[0] }}',
-                      '{{ ann[1] }}',
-                      '{{ sampleId }}');">
+                    {% endif %}>
                     {{ call }}
                   </td>
                 {% endfor %}
               </tr>
             {% endfor %}
+            </tbody>
           </table>
         </div>
       {% endif %}
@@ -889,6 +886,20 @@
         XLSX.writeFile(wb, "variant_data.xlsx");
       }
     }
+{# ====================================================== Get visible genes #}
+    function getGtInfo() {
+      const cell = event.target.closest("td");
+      if (cell == null || cell.cellIndex === 0) {
+        return;
+      }
+      contextMenu(
+        event,
+        {'action': 'vars',
+         'chrom': cell.getAttribute("chrom"),
+         'pos': cell.getAttribute("pos"),
+         'field': 'sample',
+         'sampleId': cell.getAttribute("sampleId")});
+   }
 {# ====================================================== Get visible genes #}
     function visGenes() {
       var genesTable = document.getElementById("genes-table");

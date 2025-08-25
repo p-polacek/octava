@@ -81,7 +81,7 @@
               {% endif %}
             </div>
   {# ============================================================ Input genes #}
-            <span id="gene-div" class="small-padded-bottom">
+            <span id="gene-div" class="small-padded-bottom collapsed">
               <div class="row-div small-padded-top">
                 <div class="row-input-div">
                   <div class="row-div justified flex">
@@ -159,7 +159,7 @@
               </div>
             </span>
   {# ============================================================ Coordinates #}
-            <span id="coord-div" class="small-padded-bottom">
+            <span id="coord-div" class="small-padded-bottom collapsed">
               <div class="row-div small-padded-top">
                 <div class="row-input-div">
                   {{ form.coord(
@@ -216,6 +216,55 @@
                   src="{{ url_for('serve_button', button='delete') }}"
                   onclick="deleteGroup(event, 'coord');"
                   title="Delete selected groups" />
+              </div>
+            </span>
+{# ======================================================== Gene attribute #}
+            <span id="attr-div" class="small-padded-bottom collapsed">
+              <div class="row-div padded-top">
+                <button
+                 type="button"
+                 class="dropdown-button"
+                 onclick="showDropdown(event, this);">
+                  {{ form.gene_attr.label(
+                   class="default-label bold") }}
+                  <span
+                   class="default-label tracker">
+                  </span>
+                </button>
+                <div class="dropdown-menu collapsed">
+                  <div class="sticky non-transparent small-padding">
+                    <input
+                     type="text"
+                     class="search-bar"
+                     placeholder="Search..."
+                     onkeyup="filterDropdown(visibleDropdown);">
+                    <button
+                     type="button"
+                     disabled>
+                      Select all
+                    </button>
+                  </div>
+                  {% for choice in form.gene_attr %}
+                    <div
+                     class="checkbox-row">
+                      {{ choice(
+                       onchange="
+                        updateTracker(this.parentElement.parentElement);")}}
+                      {{ choice.label(
+                       class="checkbox-label") }}
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="row-div padded-top">
+                <div class="row-input-div">
+                  <div class="row-div justified flex">
+                      {{ form.attr_str.label(class="default-label bold") }}
+                      {{ form.attr_str(
+                       class="default-input",
+                       id="attr-str-field") }}
+                  </div>
+                </div>
               </div>
             </span>
             </div>

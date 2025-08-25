@@ -129,7 +129,7 @@ def am_pipeline(genome, form):
     if gconfig["info"]:
         info_path = os.path.join(data_dir, genome, gconfig["info"])
         with open(info_path, "r") as info_in:
-            gene_attrs = next(info_in).strip().split("\t")[1:]
+            gene_attrs = next(info_in).strip().split("\t")
     else:
         gene_attrs = []
 
@@ -143,6 +143,26 @@ def am_pipeline(genome, form):
 
     regions = list()
     regions_concat = list()
+
+###############################################################################
+### Get list of genes by attribute
+###############################################################################
+
+    if query["fmt"] == "attr":
+        info_fn = os.path.join(data_dir, genome, gconfig["info"])
+        info_df = pd.read_csv(info_fn, sep="\t", header=None, skiprows=1, index_col=0)
+        col = int(query["gene_attr"])
+        transcript_ids = info_df[info_df[col].str.contains(query["attr_str"], case=False, na=False)].index.tolist()
+
+        gene_ids = list()
+        for t_id in transcript_ids:
+            g_id = next(db.parents(t_id)).id
+            if g_id not in gene_ids:
+                gene_ids.append(g_id)
+
+        query["gene"] = " ".join(gene_ids)
+        query["fmt"] = "gene"
+        query["gene_group"] = []
 
 ###############################################################################
 ### Get list of genes and regions to search through - gene input
@@ -203,7 +223,6 @@ def am_pipeline(genome, form):
                         *[t.attributes.get(attr, [""])[0] for attr in gene_attrs],
                     ]
                 )
-                print([t.attributes.get(attr, [""])[0] for attr in gene_attrs])
 
 ###############################################################################
 ### Get list of genes and regions to search through - region/coord input
@@ -614,6 +633,9 @@ def am_pipeline(genome, form):
 
                 gts[samp_idx].append([genotype, qual])
 
+            if len(samples) == 0:
+                anns[-1] += ["—", "—", "—"]
+                continue
             gen_c = (len(samples) - mis_c) * 2
             mis = mis_c / len(samples)
             if gen_c > 0:
@@ -640,54 +662,55 @@ def am_pipeline(genome, form):
 ###############################################################################
 
     pos_rmv = list()
-    for pos in range(len(gts[0])):
-        # Check if pos has gts other than those to be filtered out (".", "—")
-        calls = {samp_gts[pos][0] for samp_gts in gts}
-        if calls.issubset(query["skip_var"]):
-            pos_rmv.append(pos)
+    if gts:
+        for pos in range(len(gts[0])):
+            # Check if pos has gts other than those to be filtered out (".", "—")
+            calls = {samp_gts[pos][0] for samp_gts in gts}
+            if calls.issubset(query["skip_var"]):
+                pos_rmv.append(pos)
 
-        # If skipping variants with no variation
-        elif query["skip_no_var"] and len(calls) == 1:
-            pos_rmv.append(pos)
+            # If skipping variants with no variation
+            elif query["skip_no_var"] and len(calls) == 1:
+                pos_rmv.append(pos)
 
-    anns = [ann for idx, ann in enumerate(anns) if idx not in pos_rmv]
-    gts = [
-        [gt for idx, gt in enumerate(sample_gts) if idx not in pos_rmv]
-        for sample_gts in gts
-    ]
+        anns = [ann for idx, ann in enumerate(anns) if idx not in pos_rmv]
+        gts = [
+            [gt for idx, gt in enumerate(sample_gts) if idx not in pos_rmv]
+            for sample_gts in gts
+        ]
 
-    # If there are no valid genotypes
-    if not gts[0]:
-        gts = list()
-        return (gts, groups, genes, anns, errors)
+        # If there are no valid genotypes
+        if not gts[0]:
+            gts = list()
+            return (gts, groups, genes, anns, errors)
 
 ###############################################################################
 ### Group samples based on haplotype
 ###############################################################################
 
-    var_num = len(gts[0])
-    for sample, sample_gts in zip(samples, gts):
-        haplotype = tuple(sample_gts[pos][0] for pos in range(var_num))
+        var_num = len(gts[0])
+        for sample, sample_gts in zip(samples, gts):
+            haplotype = tuple(sample_gts[pos][0] for pos in range(var_num))
 
-        name = samp_dict[sample] if samp_dict else sample
-        groups.setdefault(haplotype, list()).append(name)
+            name = samp_dict[sample] if samp_dict else sample
+            groups.setdefault(haplotype, list()).append(name)
 
 ###############################################################################
 ### Filter out samples without variation
 ###############################################################################
 
-    samp_rmv = list()
-    # If looking for differences between samples,
-    # all samples will be visible
-    if not query["skip_no_var"]:
-        for samp_idx, (samp, samp_gts) in enumerate(zip(samples, gts)):
-            calls = {samp_gts[pos][0] for pos in range(var_num)}
+        samp_rmv = list()
+        # If looking for differences between samples,
+        # all samples will be visible
+        if not query["skip_no_var"]:
+            for samp_idx, (samp, samp_gts) in enumerate(zip(samples, gts)):
+                calls = {samp_gts[pos][0] for pos in range(var_num)}
 
-            if calls.issubset(query["skip_samp"]):
-                samp_rmv.append(samp_idx)
+                if calls.issubset(query["skip_samp"]):
+                    samp_rmv.append(samp_idx)
 
-        gts = [gt for idx, gt in enumerate(gts) if idx not in samp_rmv]
-        samples = [samp for idx, samp in enumerate(samples) if idx not in samp_rmv]
+            gts = [gt for idx, gt in enumerate(gts) if idx not in samp_rmv]
+            samples = [samp for idx, samp in enumerate(samples) if idx not in samp_rmv]
 
 ###############################################################################
 ### Keep track of variant count
