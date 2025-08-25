@@ -202,7 +202,7 @@ def template_for_additional(genome, params, task_id, mem=0):
             pass
 
         (
-            res[sig_col, chr_col, pos_col], # [end_col, idx_col]
+            res[sig_col, chr_col, pos_col] # [end_col, idx_col]
             .sort_values(by=sig_col, ascending=False)
             .head(5000)
             .reset_index(drop=True)
