@@ -34,6 +34,11 @@ models = [
     ("C", "BayesC"),
 ]
 
+from modules.assoc.assoc_additional import additional_models
+models += additional_models
+
+from modules.assoc.assoc_additional import ParametersForm
+
 types = [
     ("snp", "Single nucleotide variant"),
     ("mnp", "Multi-nucleotide variant"),
@@ -267,7 +272,7 @@ class AssocQCform(PlotForm):
     name = StringField("Set name:")
 
 
-class AssocResForm(RegionForm, PlotForm):
+class AssocResForm(RegionForm, PlotForm, ParametersForm):
     markers_sgl = RadioField("Marker set:", choices=[])
     markers = MultiCheckboxField("Marker set:", choices=[])
     model_sgl = RadioField("Model:", choices=models)

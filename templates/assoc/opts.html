@@ -365,6 +365,25 @@
                 </div>
               {% endfor %}
             </span>
+{# ================================================== Additional parameters #}
+            {% for model in additional_models %}
+              {% if parameter_groups[model[0]] %}
+                <span id="{{ model[0] }}-params" class="collapsed small-padded-bottom">
+                  <div class="row-div small-padded-top">
+                    <h3 class="bold">
+                      {{ model[1] }} options:
+                    </h3>
+                  </div>
+                  {% for field in parameter_groups[model[0]] %}
+                    <div class="row-input-div justified small-padded-top">
+                        {{ form[field].label(
+                         class="default-label") }}
+                        {{ form[field]() }}
+                    </div>
+                  {% endfor %}
+                </span>
+              {% endif %}
+            {% endfor %}
 {# ========================================================== KQ correction #}
             <div class="row-div padded-top">
               <h2>
@@ -552,6 +571,7 @@
     var chrData;
     var genome = '{{ genome }}';
     var visibleDropdown = null;
+    var additionalModels = {{ additional_models|tojson }};
 
     var varNum;
     var sampNum;
@@ -642,6 +662,12 @@
       } else {
         rfParams.classList.add("collapsed");
         bayesParams.classList.add("collapsed");
+      }
+      for (addModel of additionalModels) {
+        var modelParams = document.getElementById(addModel[0] + "-params");
+        if (modelParams != null) {
+          modelParams.classList.toggle("collapsed", addModel[0] !== model);
+        }
       }
     }
     function setAction() {      var form = document.querySelector("form");      form.target = "";      form.submit();    }

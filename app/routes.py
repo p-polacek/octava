@@ -65,6 +65,8 @@ from modules.safe_col import safe_col
 from modules.assoc.kq import kq_correct
 from modules.assoc.assoc_qc import mdbin
 
+from modules.assoc.assoc_additional import additional_models, parameter_groups
+
 from modules.forms import (
     AddForm,
     EditForm,
@@ -1225,6 +1227,8 @@ def assoc_opts(genome):
         chr_offsets=gdata["chr_offsets"],
         phe=phe,
         concat=concat,
+        additional_models=additional_models,
+        parameter_groups=parameter_groups,
         errors=None,
     )
 

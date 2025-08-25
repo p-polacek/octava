@@ -72,7 +72,10 @@ def mqplot(
             )
 
     if thresh:
-        ax1.axhline(y=-np.log10(0.05 / in_df.shape[0]), color="red", lw=1, zorder=0)
+        if thresh is True:
+            ax1.axhline(y=-np.log10(0.05 / in_df.shape[0]), color="red", lw=1, zorder=0)
+        else:
+            ax1.axhline(y=thresh, color="red", lw=1, zorder=0)
 
     ticks = [sizes[ch] // 2 + offsets[ch] for ch in chroms if ch not in concat]
     labels = [ch for ch in chroms if ch not in concat]

@@ -25,6 +25,7 @@ from modules.mem import get_mem
 from modules.assoc_plot import mqplot
 from modules.forms import models as models_dict
 from modules.assoc.assoc_process import assoc_process
+from modules.assoc.assoc_additional import run_additional
 
 models_dict = dict(models_dict)
 
@@ -783,7 +784,7 @@ def run_assoc(genome, params, task_id, mem=0):
         if os.path.exists(log_file):
             os.remove(log_file)
 
-    else:
+    elif model in ("glm", "mlm", "mtmlm"):#, "bslmm", "rr", "bin"):
         # GEMMA cannot accept row or column names in phenotype file
         # phenotype file rewritten each time to keep only selected traits
         (
@@ -921,6 +922,9 @@ def run_assoc(genome, params, task_id, mem=0):
             log_file = os.path.join(out_dir, f"{model}.{trait_name}.log.txt")
             if os.path.exists(log_file):
                 os.remove(log_file)
+
+    else:
+        run_additional(genome, params, task_id, mem=mem)
 
     if params["run_ext"]:        
         tar_path = os.path.join(ext_data_dir, f"{task_id}.out.tar.gz")
