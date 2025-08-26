@@ -405,7 +405,7 @@ def calc_chr_ld(genome, markers=None, load_ext=False):
     config = load_config(genome, load_ext=load_ext)
     gdata = load_gdata(genome, load_ext=load_ext)
 
-    if not load_ext:
+    if load_ext:
         ext_data_dir = data_dir
         fn_data_dir = tmp_dir
     else:
