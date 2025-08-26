@@ -352,7 +352,7 @@ def run_qc(genome, task_id, markers=None, load_ext=False, mem=0):
 
     # LD matrices per chromosome
     print("<b>Calculating linkage disequilibrium</b>")
-    calc_chr_ld(genome, markers=markers, load_ext=load_ext)
+    calc_chr_ld(genome, markers=markers, load_ext=load_ext, mem=mem)
 
     if not markers:
         var_only_root = os.path.join(stats_dir, "var_only")
@@ -401,9 +401,10 @@ def run_qc(genome, task_id, markers=None, load_ext=False, mem=0):
             )
         print(f"Your files are ready at {tar_path}")
 
-def calc_chr_ld(genome, markers=None, load_ext=False):
+def calc_chr_ld(genome, markers=None, load_ext=False, mem=0):
     config = load_config(genome, load_ext=load_ext)
     gdata = load_gdata(genome, load_ext=load_ext)
+    mem = int(mem) or get_mem()
 
     if load_ext:
         ext_data_dir = data_dir
