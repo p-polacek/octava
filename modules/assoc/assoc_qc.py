@@ -31,7 +31,7 @@ mdbin = 1000000
 def run_qc(genome, task_id, markers=None, load_ext=False, mem=0):
     config = load_config(genome, load_ext=load_ext)
     gdata = load_gdata(genome, load_ext=load_ext)
-    mem = mem or get_mem()
+    mem = int(mem) or get_mem()
 
     if not markers and load_ext:
         ext_data_dir = data_dir

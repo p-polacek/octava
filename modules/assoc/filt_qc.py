@@ -24,7 +24,7 @@ from modules.assoc.assoc_qc import run_qc, calc_chr_ld
 
 def filt_qc(genome, data, task_id, mem=0):
 
-    mem = mem or get_mem()
+    mem = int(mem) or get_mem()
     gdata = load_gdata(genome, load_ext=data["run_ext"])
     config = load_config(genome, load_ext=data["run_ext"])
     markers = data["name"]

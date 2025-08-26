@@ -35,7 +35,7 @@ def run_assoc(genome, params, task_id, mem=0):
     gdata = load_gdata(genome, load_ext=params["run_ext"])
     markers = params["markers_sgl"]
     model = params["model_sgl"]
-    mem = mem or get_mem()
+    mem = int(mem) or get_mem()
 
     if params["run_ext"]:
         ext_data_dir = data_dir
