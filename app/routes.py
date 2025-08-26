@@ -824,7 +824,7 @@ def fa_res(genome):
     if config["info"]:
         info_path = os.path.join(data_dir, genome, config["info"])
         with open(info_path, "r") as info_in:
-            gene_attrs = next(info_in).strip().split("\t")[1:]
+            gene_attrs = [a.strip() for a in next(info_in).split("\t")[1:]]
     else:
         gene_attrs = []
 
