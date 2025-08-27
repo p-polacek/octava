@@ -165,6 +165,14 @@
                    id="vcf-field",
                    onchange="updateChr(this.value);") }}
                 </div>
+                {#
+                <div class="wide-input-div justified padded-bottom">
+                  {{ form.cl_fmt.label(class="default-label bold") }}
+                  {{ form.cl_fmt(
+                   class="default-input",
+                   id="cl_fmt-field") }}
+                </div>
+                #}
                 {% for file in ("seq", "ann") %}
                   <div class="wide-input-div justified small-padded-bottom from-ignore">
                     {{ form[file].label(class="default-label bold") }}

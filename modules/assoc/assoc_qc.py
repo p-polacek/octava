@@ -44,9 +44,15 @@ def run_qc(genome, task_id, markers=None, load_ext=False, mem=0):
     else:
         fn_data_dir = data_dir
 
+    cl_fmt = ""
+    #if config["cl_fmt"] != "hc":
+    #    cl_fmt = config["cl_fmt"].upper()
 
+    vcf_type = "vcf"
     if not markers:
         in_path = os.path.join(fn_data_dir, genome, config["vcf"])
+        if config["vcf"].endswith("bcf.gz"):
+            vcf_type = "bcf"
         stats_dir = os.path.join(fn_data_dir, genome, "stats")
         gt_out = os.path.join(stats_dir, "gt")
         stats_out = gt_out
@@ -96,12 +102,11 @@ def run_qc(genome, task_id, markers=None, load_ext=False, mem=0):
                 check=True,
             )
         else:
-            subprocess.run(
-                [
+            cmd = [
                     plink2_path,
                     "--memory",
                     f"{mem}",
-                    "--vcf",
+                    f"--{vcf_type}",
                     in_path,
                     "--missing",
                     "scols=nmiss,nobs",
@@ -123,20 +128,25 @@ def run_qc(genome, task_id, markers=None, load_ext=False, mem=0):
                     "--allow-extra-chr",
                     "--set-all-var-ids",
                     "@:#",
-                    "--max-alleles",
-                    "2",
+                    #"--max-alleles",
+                    #"2",
                     "--import-max-alleles",
-                    "255",
+                    "2",
                     "--polyploid-mode",
                     "missing",
                     "--vcf-half-call",
                     "missing",
                     "--out",
                     stats_out,
-                ],
+                ]
+            if cl_fmt:
+                cmd.insert(5, f"dosage={cl_fmt}")
+
+            subprocess.run(
+                cmd,
                 check=True,
             )
-
+    dff
     metrics = ("smiss", "vmiss", "shet", "vhet", "maf", "hwe")
     exts = ("smiss", "vmiss", "het", "gcount", "afreq", "hardy")
     id_cols = ("IID", "ID", "IID", "ID", "ID", "ID")

@@ -117,34 +117,6 @@ def genome_setup(genome, params, task_id):
     else:
 
 ###############################################################################
-### Set up GFFUtils database
-###############################################################################
-
-        ann_path = os.path.join(data_dir, genome, params["ann"])
-        db_path = os.path.join(data_dir, genome, "stats", "gff.db")
-        if not os.path.exists(db_path):
-            print("<b>Creating an annotation database</b>")
-            gffutils.create_db(ann_path, dbfn=db_path, merge_strategy="merge")
-        db = gffutils.FeatureDB(db_path)
-
-###############################################################################
-### Add gene attributes to GFFUtils database
-###############################################################################
-
-        if params["info"]:
-            print("<b>Updating database information</b>")
-            annotate_db(genome, db, params["info"], task_id)
-        # if params["enr"]:
-        #    print("Calculating gene enrichment")
-        #    num_genes = db.count_features_of_type("gene")
-        #    calc_enr(
-        #      genome,
-        #      params["info"],
-        #      params["enr"],
-        #      num_genes,
-        #      task_id)
-
-###############################################################################
 ### Add a dummy pos column to expression file
 ###############################################################################
 
@@ -210,7 +182,8 @@ def genome_setup(genome, params, task_id):
                     print(f"Indexing {file} file")
                     _ = pysam.FastaFile(file_path)
             else:
-                if params[file] and not os.path.exists(file_path + ".tbi"):
+                idx_path = file_path + (".tbi" if not params[file].endswith(".bcf.gz") else ".csi")
+                if params[file] and not os.path.exists(idx_path):
                     print(f"Indexing {file} file")
                     pysam.tabix_index(
                         file_path,
@@ -232,6 +205,34 @@ def genome_setup(genome, params, task_id):
                 )
             )
             params["run"] = "run_info.txt"
+
+###############################################################################
+### Set up GFFUtils database
+###############################################################################
+
+        ann_path = os.path.join(data_dir, genome, params["ann"])
+        db_path = os.path.join(data_dir, genome, "stats", "gff.db")
+        if not os.path.exists(db_path):
+            print("<b>Creating an annotation database</b>")
+            gffutils.create_db(ann_path, dbfn=db_path, merge_strategy="merge")
+        #db = gffutils.FeatureDB(db_path)
+
+###############################################################################
+### Add gene attributes to GFFUtils database
+###############################################################################
+
+        if params["info"]:
+            print("<b>Updating database information</b>")
+            annotate_db(genome, db, params["info"], task_id)
+        # if params["enr"]:
+        #    print("Calculating gene enrichment")
+        #    num_genes = db.count_features_of_type("gene")
+        #    calc_enr(
+        #      genome,
+        #      params["info"],
+        #      params["enr"],
+        #      num_genes,
+        #      task_id)
 
 ###############################################################################
 ### Annotate variants and setup BLAST / severity prediction
@@ -306,9 +307,10 @@ def genome_setup(genome, params, task_id):
     gdata["chr_offsets"] = offsets
 
     # Get first gene ID in the file
-    for rec in db.region(region=str(chroms[0]), featuretype="gene"):
-        gdata["id_fmt"] = rec.id
-        break
+    #for rec in db.region(region=str(chroms[0]), featuretype="gene"):
+    #    gdata["id_fmt"] = rec.id
+    #    break
+    gdata["id_fmt"] = "PGSC0003DMG400015133"
 
     # Check that samples match between VCF and SEQ files
     chroms = idx_df.iloc[:, 0].astype(str).tolist()
@@ -423,15 +425,16 @@ def genome_setup(genome, params, task_id):
         json.dump(gdata, gdata_out)
 
     # Save parameters as config.ini
-    _ = [params.pop(v) for v in ("name", "csrf_token")]
-    params["bam"] = json.dumps(params["bam"])
-    # params["enr"] = json.dumps(params["enr"])
-    params["concat"] = json.dumps(params["concat"])
-    params = {k: str(v) for k, v in params.items()}
-    params["rm_markers"] = True
+    config_params = {k: v for k, v in params.items()}
+    _ = [config_params.pop(v) for v in ("name", "csrf_token")]
+    config_params["bam"] = json.dumps(config_params["bam"])
+    # config_params["enr"] = json.dumps(config_params["enr"])
+    config_params["concat"] = json.dumps(config_params["concat"])
+    config_params = {k: str(v) for k, v in config_params.items()}
+    config_params["rm_markers"] = True
 
     config = configparser.ConfigParser()
-    config["setup"] = params
+    config["setup"] = config_params
     config_path = os.path.join(data_dir, genome, "stats", "config.ini")
     with open(config_path, "w") as config_out:
         config.write(config_out)

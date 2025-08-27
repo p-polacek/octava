@@ -30,7 +30,7 @@ blastp_max_seqs = "5000"
 
 blastp_columns = [
     "qseqid",
-    "sseqid",
+    "sacc",
     "sallseqid",
     "qstart",
     "qend",
@@ -82,23 +82,6 @@ sev_helpstring = {
 }
 
 
-def make_db(task_id, db_fasta):
-    print("<b>Making a BLAST database</b>")
-    subprocess.run(
-        [
-            "makeblastdb",
-            "-in",
-            os.path.join("prot_db", db_fasta),
-            "-out",
-            os.path.join("prot_db", db_fasta),
-            "-dbtype",
-            "prot",
-            "-parse_seqids",
-        ],
-        check=True,
-    )
-
-
 def run_blastp(task_id, prot_file, db_prefix):
     # Split input sequences file into single-sequence FASTA files
     # Initialize a progress counter based on number of proteins finished
@@ -126,7 +109,7 @@ def run_blastp(task_id, prot_file, db_prefix):
     print("<b>Running BLAST</b>")
     pr = subprocess.Popen(
         [
-            "blastp",
+            blastp_path,
             "-query",
             "prot.fasta",
             "-db",
@@ -203,7 +186,7 @@ def run_blastp(task_id, prot_file, db_prefix):
 #              split_dir,
 #              f"{prot_id}.blastp_out.txt")
 #            (hits[
-#               ["sseqid",
+#               ["sacc",
 #                "sallseqid",
 #                "qstart",
 #                "qend",
@@ -508,7 +491,7 @@ def annotate_sev(genome, markers, task_id):
             # Format: <whitespace> >seq_id...at x% <identity>
             seq_names = [line.split(">")[1].split("...")[0] for line in clust_lines]
             clust_seqs.append(seq_names)
-            mean_evalue = blastp_out_df[blastp_out_df["sseqid"].isin(seq_names)][
+            mean_evalue = blastp_out_df[blastp_out_df["sacc"].isin(seq_names)][
                 "evalue"
             ].mean()
             clust_evalues.append((seq_names, mean_evalue))
@@ -524,7 +507,7 @@ def annotate_sev(genome, markers, task_id):
                 blastp_out_df[
                     (blastp_out_df["qstart"] <= start_pos)
                     & (blastp_out_df["qend"] >= end_pos)
-                ]["sseqid"]
+                ]["sacc"]
             )
             for cluster in clusters:
                 filt_cluster = [seq for seq in cluster if seq in matching_seqs]

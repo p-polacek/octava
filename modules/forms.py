@@ -48,6 +48,11 @@ class AddForm(FlaskForm):
 
     setup_from = SelectField("Dataset:", choices=[])
     vcf = SelectField("Variants:", choices=[])
+    cl_fmt = SelectField("Call format:", choices=[
+        ("hc", "Hard calls"),
+        ("ds", "Dosages"),
+        ("gp", "Genotype probabilities"),
+    ])
     ann = SelectField("Annotation:", choices=[])
     seq = SelectField("Sequence:", choices=[])
     phe = SelectField("Phenotype:", choices=[])

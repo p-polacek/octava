@@ -158,7 +158,7 @@ class VcfReader(object):
         self.encoding = encoding
         self._tabix = None
         if self.bcf is None:
-            self.bcf = filename.endswith(".bcf")
+            self.bcf = filename.endswith((".bcf", ".bcf.gz"))
         if self.compressed is None:
             self.compressed = filename.endswith((".gz", ".bgz"))
         if self.bcf:
