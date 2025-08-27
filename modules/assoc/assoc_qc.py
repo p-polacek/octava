@@ -27,7 +27,6 @@ from modules.load_input import load_gdata, load_config
 mdbin = 1000000
 
 
-
 def run_qc(genome, task_id, markers=None, load_ext=False, mem=0):
     config = load_config(genome, load_ext=load_ext)
     gdata = load_gdata(genome, load_ext=load_ext)
