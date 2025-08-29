@@ -48,7 +48,7 @@ def process_ext(mem):
             except ProcessLookupError:
                 pass
 
-    shutil.rmtree(os.path.join(tmp_dir, top_name))
+        shutil.rmtree(os.path.join(tmp_dir, top_name))
 
 if __name__ == "__main__":
     mem = sys.argv[1] if len(sys.argv) == 2 else "0"
