@@ -3,10 +3,10 @@
 ##########################
 # Stage 1: Builder
 ##########################
-FROM openjdk:11-jre-slim AS builder
+FROM eclipse-temurin:11-jre-jammy AS builder
 
-COPY .id /root/.ssh/.id
-COPY requirements.txt .
+COPY res/.id /root/.ssh/.id
+COPY res/requirements.txt .
 
 WORKDIR /octava
 
@@ -24,7 +24,9 @@ RUN chmod 600 /root/.ssh/.id &&\
     cd modules/tools/ &&\
     wget https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/2.16.0/ncbi-blast-2.16.0+-x64-linux.tar.gz -O blast.tar.gz &&\
     mkdir blast/ &&\
-    tar -zxf blast.tar.gz -C blast/ --strip-components=1  ncbi-blast-2.16.0+/bin/blastp ncbi-blast-2.16.0+/bin/blastdbcmd &&\
+    tar -zxf blast.tar.gz -C blast/ --strip-components=1 ncbi-blast-2.16.0+/bin/blastdbcmd &&\
+    wget http://github.com/bbuchfink/diamond/releases/download/v2.1.13/diamond-linux64.tar.gz -O diamond.tar.gz &&\
+    tar -zxf diamond.tar.gz &&\
     wget https://downloads.sourceforge.net/project/snpeff/snpEff_latest_core.zip -O snpeff.zip &&\
     unzip snpeff.zip snpEff/snpEff.jar &&\
     wget https://cnsgenomics.com/software/gctb/download/gctb_2.5.2_Linux.zip -O gctb.zip &&\
@@ -37,7 +39,7 @@ RUN chmod 600 /root/.ssh/.id &&\
     wget https://s3.amazonaws.com/plink2-assets/alpha6/plink2_linux_x86_64_20250806.zip -O plink2.zip &&\
     unzip plink2.zip plink2 &&\
     wget http://faculty.washington.edu/browning/beagle/beagle.06Aug24.a91.jar -O beagle.jar &&\
-    rm blast.tar.gz gctb.zip regenie.zip plink1.9.zip plink2.zip snpeff.zip &&\
+    rm blast.tar.gz diamond.tar.gz gctb.zip regenie.zip plink1.9.zip plink2.zip snpeff.zip &&\
     git clone https://github.com/Menggg/BLINK.git &&\
     unzip BLINK/blink_linux.zip -d BLINK/ &&\
     mv BLINK/blink_linux ./blink &&\
@@ -52,7 +54,7 @@ RUN chmod 600 /root/.ssh/.id &&\
 # Stage 2: Runtime
 ##########################
 
-FROM openjdk:11-jre-slim
+FROM eclipse-temurin:11-jre-jammy
 
 ENV PYTHONUNBUFFERED=1
 WORKDIR /octava
@@ -67,7 +69,8 @@ RUN chmod 600 /root/.ssh/.id &&\
     git openssh-client python3.10 python3-pip gemma cd-hit &&\
     ssh-keyscan -H github.com >> /root/.ssh/known_hosts &&\
     echo "Host github.com\n  IdentityFile /root/.ssh/.id\n  StrictHostKeyChecking yes" > /root/.ssh/config &&\
-    chmod +x start.sh process_external.py && mkdir -p data tmp
+    chmod +x start.sh modules/tools/provean &&\
+    mkdir -p data tmp prot_db
 
 EXPOSE 5101
 ENTRYPOINT ["/bin/bash", "./start.sh"]
