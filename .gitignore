@@ -10,7 +10,6 @@ app/__pycache__/
 res/gffutils_db/
 modules/R/
 modules/old/
-modules/tools/
 modules/__pycache__/
 modules/sort_gff.txt
 modules/Original_scripts/

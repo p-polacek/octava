@@ -336,10 +336,6 @@ def am_pipeline(genome, form):
     else:
         samples = vcf_reader.header.samples
 
-    # Initiate sample entries beforehand
-    for sample in samples:
-        gts.append([])
-
     # Concatenate nearby markers into single region for faster querying
     if query["fmt"] == "coord":
         unmerged_regions = regions[:]
@@ -368,6 +364,7 @@ def am_pipeline(genome, form):
         regions_concat += [True for s in merged_spans]
         regions = spans + merged_spans
 
+    vars_list = list()
     for region_idx, region in enumerate(regions):
         chrom = region[0]
         # VcfReader is 0-based
@@ -401,6 +398,21 @@ def am_pipeline(genome, form):
 ### Iterate over annotations, extract those matching query
 ###############################################################################
 
+            vars_list.append(var)
+
+    if len(samples) * len(vars_list) > 5000000:
+        samples = []
+        errors.append(
+          "Too many variants and samples to render; " +\
+          "genotype data was removed from Variants table."
+        )
+
+    # Initiate sample entries beforehand
+    for sample in samples:
+        gts.append([])
+
+    for var in vars_list:
+        for i in range(1):
             ann_list = list()
             pos = var.POS
             ref = var.REF
@@ -532,7 +544,7 @@ def am_pipeline(genome, form):
                             str_var = "Unknown"
                         score = str(round(float(data[7]), 2))
                         sevs.append(" | ".join((str_var, data[0], score)))
-                        sevs.append(data[11])
+                        sevs.append(data[10])
 
 ###############################################################################
 ### Save variant entry

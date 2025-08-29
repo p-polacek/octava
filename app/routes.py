@@ -11,7 +11,7 @@ from flask_app import (
     cancelled_tasks,
 )
 
-from app.dirs import data_dir, tmp_dir
+from app.dirs import data_dir, tmp_dir, prot_db_dir
 
 import os
 import re
@@ -315,23 +315,14 @@ def setup_new(genome):
             f for f in os.listdir(genome_dir) if f.endswith(ext)
         ]
     form.bam.choices = [f for f in os.listdir(genome_dir) if f.endswith(".bam")]
-    prot_db_path = os.path.join(genome_dir, "prot_db")
-    if os.path.exists(prot_db_path):
+    if os.path.exists(prot_db_dir):
         form.db_prefix.choices = [""] + list(
             set(
                 match.group(1)
-                for fn in os.listdir(prot_db_path)
-                if (match := re.match(r"(.+)(\.\d+)?\.phr$", fn))
+                for fn in os.listdir(prot_db_dir)
+                if (match := re.match(r"(.+?)(\.\d+)?\.phr$", fn))
             )
         )
-
-        # form.db_fasta.choices = [""] + list(
-        #  set(
-        #    match.group(1)
-        #    for fn in os.listdir(prot_db_path)
-        #    if (match := re.match(
-        #      r"((.+)\.(fasta|fa)(.gz)?)$",
-        #      fn))))
 
     return render_template(
         "new.html",

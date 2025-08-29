@@ -537,6 +537,9 @@
           } else if (document.getElementById("sev").checked && document.getElementById("pep-field").value === "")  {
             alert("Protein file is required for severity prediction.");
             return;
+          } else if (document.getElementById("sev").checked && document.getElementById("db_prefix-field").value === "")  {
+            alert("BLAST database prefix is required for severity prediction.");
+            return;
           } else {
             document.querySelector("form").submit();
           }

@@ -1049,6 +1049,7 @@
       };
 
       if (traces.length > 0) {
+        document.getElementById("live-plot").innerHTML = "";
         Plotly.newPlot("live-plot", traces, layout, config);
         replaceLocus = true;
         highlightRegions();

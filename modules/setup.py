@@ -21,10 +21,7 @@ from modules.assoc.assoc_qc import run_qc
 from modules.load_input import load_config
 from modules.snpeff import snpeff_annotate
 
-from modules.sev import (
-    #make_db,
-    run_blastp,
-)
+from modules.sev import run_blastp
 
 def genome_setup(genome, params, task_id):
     stats_dir = os.path.join(data_dir, genome, "stats")
@@ -104,13 +101,20 @@ def genome_setup(genome, params, task_id):
                 os.path.join(data_dir, genome, "stats", "gff.db")
             )
 
-        try:
-            os.symlink(
-                os.path.join(data_dir, genome_from, "prot_db"),
-                os.path.join(data_dir, genome, "prot_db")
-            )
-        except FileExistsError:
-            pass
+        if config_from["db_prefix"]:
+            prot_db_dir = os.path.join(data_dir, genome, "prot_db")
+            if not os.path.exists(prot_db_dir):
+                os.mkdir(prot_db_dir)
+
+            for ext in ("gz", "gz.tbi"):
+                file = f"blastp_out.txt.{ext}"
+                try:
+                    os.link(
+                        os.path.join(data_dir, genome_from, "prot_db", file),
+                        os.path.join(data_dir, genome, "prot_db", file)
+                    )
+                except FileExistsError:
+                    pass
 
         db = gffutils.FeatureDB(os.path.join(data_dir, genome, "stats", "gff.db"))
 
@@ -239,44 +243,7 @@ def genome_setup(genome, params, task_id):
 ###############################################################################
 
         if params["sev"]:
-            # Some commands cannot handle spaces in paths
-            # (which are allowed in genome names)
-            old_wd = os.getcwd()
-            os.chdir(os.path.join(data_dir, genome))
-            # if params["db_fasta"]:
-            #    make_db(
-            #      task_id,
-            #      params["db_fasta"])
-            # params["db_prefix"] = params["db_fasta"]
-            if params["db_prefix"]:
-                run_blastp(task_id, params["pep"], params["db_prefix"])
-                # process_blastp()
-            os.chdir(old_wd)
-
-#    else:
-#        if params["pep"]:
-#            prot_dir = os.path.join(data_dir, genome, "prot_db", "prot")
-#            if not os.path.exists(prot_dir):
-#                os.makedirs(prot_dir, exist_ok=True)
-#            prot_file = os.path.join(data_dir, genome, params["pep"])
-
-#            _open = partial(gzip.open, mode="rt") if prot_file.endswith(".gz") else open
-#            with _open(prot_file) as f:
-#                for prot in SeqIO.parse(f, "fasta"):
-#                    prot_path = os.path.join(prot_dir, f"{prot.id}.fasta")
-#                    SeqIO.write([prot], prot_path, "fasta")
-
-#        if params["cds"]:
-#            cds_dir = os.path.join(data_dir, genome, "prot_db", "cds")
-#            if not os.path.exists(cds_dir):
-#                os.makedirs(cds_dir, exist_ok=True)
-#            cds_file = os.path.join(data_dir, genome, params["cds"])
-
-#            _open = partial(gzip.open, mode="rt") if cds_file.endswith(".gz") else open
-#            with _open(cds_file) as f:
-#                for cds in SeqIO.parse(f, "fasta"):
-#                    cds_path = os.path.join(cds_dir, f"{cds.id}.fasta")
-#                    SeqIO.write([cds], cds_path, "fasta")
+            run_blastp(genome, params["pep"], params["db_prefix"], task_id)
 
 ###############################################################################
 ### Get genome and sample data

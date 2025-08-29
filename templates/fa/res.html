@@ -1880,7 +1880,7 @@
 
     var expDict = {};
     var geneIds = [];
-	if (expData !== "") {
+	if (expData !== "" && expData != null) {
       expData.forEach(exp => {
         var geneExp = {};
         for (let i = 0; i < runIds.length; i++) {

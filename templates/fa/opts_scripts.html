@@ -78,7 +78,9 @@
       toggleImpact();
 
       var radioBtn = document.getElementsByName("gene_attr")[0];
-      updateTracker(radioBtn.parentElement.parentElement);
+      if (radioBtn != null) {
+        updateTracker(radioBtn.parentElement.parentElement);
+      }
 
     });
 {% endblock %}

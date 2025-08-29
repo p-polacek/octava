@@ -145,7 +145,7 @@ def run_qc(genome, task_id, markers=None, load_ext=False, mem=0):
                 cmd,
                 check=True,
             )
-    dff
+
     metrics = ("smiss", "vmiss", "shet", "vhet", "maf", "hwe")
     exts = ("smiss", "vmiss", "het", "gcount", "afreq", "hardy")
     id_cols = ("IID", "ID", "IID", "ID", "ID", "ID")
