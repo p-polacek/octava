@@ -359,6 +359,8 @@ def annotate_sev(genome, markers, task_id):
             sev_anns = list()
             for var in pos.to_dict(orient="records"):
 
+                if var["Var"] not in scores_df.index:
+                    continue
                 sev_score = scores_df.loc[var["Var"]]["SCORE"]
                 sev_anns.append(
                     "|".join(

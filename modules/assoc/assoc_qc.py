@@ -467,7 +467,7 @@ def calc_chr_ld(genome, markers=None, load_ext=False, mem=0):
                 "--chr",
                 str(ch),
                 "--bp-space",
-                str(span // 2000),
+                str(span // 1000),
                 "--r2-unphased",
                 "square0",
                 "--out",

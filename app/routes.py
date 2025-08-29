@@ -785,6 +785,15 @@ def fa_res(genome):
             .to_records()
             .tolist()
         )
+
+    markers_root = os.path.join(data_dir, genome, "assoc")
+    form.dataset.choices += [
+        (d, d)
+        for d in os.listdir(markers_root)
+        if os.path.isdir(os.path.join(markers_root, d))
+        and os.path.exists(os.path.join(markers_root, d, "stats", "init"))
+    ]
+
     form.sample.choices = samples
 
     form.sample_group.choices = [
