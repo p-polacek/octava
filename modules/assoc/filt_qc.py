@@ -616,7 +616,7 @@ def filt_qc(genome, data, task_id, mem=0):
 
         calc_chr_ld(genome, markers=data["name"], load_ext=data["run_ext"], mem=mem)
     else:
-        run_qc(genome, task_id, markers=data["name"], data_ext=data["run_ext"])
+        run_qc(genome, task_id, markers=data["name"], load_ext=data["run_ext"])
 
     # Change chromosomes to numeric (required by some GWAS tools)
     chr_rename = {ch: idx for idx, ch in enumerate(gdata["chr_names"], start=1)}
