@@ -287,6 +287,6 @@ class AssocResForm(RegionForm, PlotForm, ParametersForm):
     overwrite = BooleanField("Overwrite existing")
 
     plot_thr = FloatField("Plot threshold:", default=8)
-    window_ld = IntegerField("Window (kb):", default=5000)
+    window_ld = IntegerField("Window (kb) ±", default=5000)
     r2_ld = FloatField("r<sup>2</sup> to peak ≥", default=0.2)
     qtl_runs = StringField()

@@ -367,8 +367,8 @@ def setup(genome):
     for key in param_keys:
         task_params.append((form._fields[key].label.text, str(data[key])))
 
-    if form["setup_from"]:
-        task_params = [p for i, p in enumerate(task_params) if i in (0,1,4,7,9)]
+    if form["setup_from"].data:
+        task_params = [p for i, p in enumerate(task_params) if i in (0,1,2,3,6,9,11)]
         task_params[0] = ("From dataset:", data["setup_from"])
 
     task = [
@@ -812,12 +812,6 @@ def fa_res(genome):
     #      [json.dumps(group[0]), group[1]]
     #      for group in gdata["group"].get("trait", [])]
 
-    if config["info"]:
-        form.fmt.choices.append(("attr", "Gene attribute"))
-        info_fn = os.path.join(data_dir, genome, config["info"])
-        info_header = pd.read_csv(info_fn, sep="\t", index_col=0, nrows=0)
-        form.gene_attr.choices = list(enumerate(info_header.columns.tolist(), start=1))
-
     (gts, groups, genes, anns, errors) = am_pipeline(genome, form)
 
     # Get attribute names of additional information for genes
@@ -825,6 +819,12 @@ def fa_res(genome):
         info_path = os.path.join(data_dir, genome, config["info"])
         with open(info_path, "r") as info_in:
             gene_attrs = [a.strip() for a in next(info_in).split("\t")[1:]]
+
+        form.fmt.choices.append(("attr", "Gene attribute"))
+        info_fn = os.path.join(data_dir, genome, config["info"])
+        info_header = pd.read_csv(info_fn, sep="\t", index_col=0, nrows=0)
+        form.gene_attr.choices = list(enumerate(info_header.columns.tolist(), start=1))
+
     else:
         gene_attrs = []
 

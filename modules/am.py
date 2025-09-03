@@ -181,10 +181,15 @@ def am_pipeline(genome, form):
         for gene in query["gene"]:
             try:
                 rec = db[gene]
-                if rec not in recs:
-                    recs.append(rec)
+                if rec.featuretype == "mRNA":
+                    rec = next(db.parents(rec))
+                    if rec not in recs:
+                        recs.append(rec)
                 else:
-                    errors.append("Duplicate gene entered: " + gene)
+                    if rec not in recs:
+                        recs.append(rec)
+                    else:
+                        errors.append("Duplicate gene entered: " + gene)
 
             except gffutils.exceptions.FeatureNotFoundError as error:
                 errors.append("Gene not found: " + error.feature_id)
@@ -412,270 +417,270 @@ def am_pipeline(genome, form):
         gts.append([])
 
     for var in vars_list:
-        for i in range(1):
-            ann_list = list()
-            pos = var.POS
-            ref = var.REF
-            typ = var.VAR_TYPE.upper()
+        ann_list = list()
+        chrom = var.CHROM
+        pos = var.POS
+        ref = var.REF
+        typ = var.VAR_TYPE.upper()
 
-            # Multiple vars per position are given an index to distinguish
-            if pos == prev_pos:
-                dup_cnt += 1
-                pos = ".".join(map(str, (pos, dup_cnt)))
+        # Multiple vars per position are given an index to distinguish
+        if pos == prev_pos:
+            dup_cnt += 1
+            pos = ".".join(map(str, (pos, dup_cnt)))
+        else:
+            dup_cnt = 0
+            prev_pos = pos
+
+        # For overlapping regions, update only affected genes/promoters
+        # rest of the data is the same
+        if (chrom, pos) in ann_positions:
+            continue
+
+        # Annotation may be missing (var.CSQ returns an error)
+        # Annotation entry kept empty
+        print_anns = list()
+        if query["dataset"] == "":
+            try:
+                csq = var.CSQ
+            except Exception:
+                pass
             else:
-                dup_cnt = 0
-                prev_pos = pos
+                for ann in csq:
+                    if ann["Annotation_Impact"] not in query["impact"]:
+                        continue
 
-            # For overlapping regions, update only affected genes/promoters
-            # rest of the data is the same
-            if (chrom, pos) in ann_positions:
-                continue
-
-            # Annotation may be missing (var.CSQ returns an error)
-            # Annotation entry kept empty
-            print_anns = list()
-            if query["dataset"] == "":
-                try:
-                    csq = var.CSQ
-                except AttributeError:
-                    pass
-                else:
-                    for ann in csq:
-                        if ann["Annotation_Impact"] not in query["impact"]:
+                    if query["csqs"]:
+                        if not [
+                            c
+                            for c in ann["Annotation"].split("&")
+                            if c in query["csqs"]
+                        ]:
                             continue
 
-                        if query["csqs"]:
-                            if not [
-                                c
-                                for c in ann["Annotation"].split("&")
-                                if c in query["csqs"]
-                            ]:
-                                continue
+                    ann_list.append(ann)
 
-                        ann_list.append(ann)
+                if ann_list:
+                    # Iterate again to have at least one annotation
+                    # for each alternative variant
+                    alts = {ann["Allele"] for ann in ann_list}
+                    if len(alts) < len(var.ALT):
+                        for ann in csq:
+                            if ann["Allele"] not in alts:
+                                ann_list.append(ann)
+                                alts.add(ann["Allele"])
 
-                    if ann_list:
-                        # Iterate again to have at least one annotation
-                        # for each alternative variant
-                        alts = {ann["Allele"] for ann in ann_list}
-                        if len(alts) < len(var.ALT):
-                            for ann in csq:
-                                if ann["Allele"] not in alts:
-                                    ann_list.append(ann)
-                                    alts.add(ann["Allele"])
-
-                        # Sort based on the order in var.INFO field
-                        ann_list.sort(key=var.CSQ.index)
-                    else:
-                        continue
+                    # Sort based on the order in var.INFO field
+                    ann_list.sort(key=var.CSQ.index)
+                else:
+                    continue
 
 ###############################################################################
 ### Shorten long sequences in annotations (for html visualisation)
 ###############################################################################
 
-                    for ann in ann_list:
-                        print_ann = list()
-                        var_line = list()
-                        # Add variant index
-                        try:
-                            var_num = var.ALLELES.index(ann["Allele"])
-                            var_line.append(typ + str(var_num))
-                        except Exception:
-                            # Sometimes given allele is not found in var.ALT
-                            var_line.append("Unknown")
+                for ann in ann_list:
+                    print_ann = list()
+                    var_line = list()
+                    # Add variant index
+                    try:
+                        var_num = var.ALLELES.index(ann["Allele"])
+                        var_line.append(typ + str(var_num))
+                    except Exception:
+                        # Sometimes given allele is not found in var.ALT
+                        var_line.append("Unknown")
 
-                        # Shorten ALT allele
-                        alt = ann["Allele"]
-                        if len(alt) > 5:
-                            alt = compress_sv(alt)
-                        var_line.append(alt)
-                        var_line.append(ann["Annotation_Impact"])
+                    # Shorten ALT allele
+                    alt = ann["Allele"]
+                    if len(alt) > 5:
+                        alt = compress_sv(alt)
+                    var_line.append(alt)
+                    var_line.append(ann["Annotation_Impact"])
 
-                        var_line = " | ".join(var_line)
-                        csq_line = list()
+                    var_line = " | ".join(var_line)
+                    csq_line = list()
 
-                        # Split consequence names
-                        print_csq = [
-                            csq_dict[c] if c in csq_dict.keys() else c
-                            for c in ann["Annotation"].split("&")
-                        ]
-                        csq_line.append(", ".join(print_csq))
+                    # Split consequence names
+                    print_csq = [
+                        csq_dict[c] if c in csq_dict.keys() else c
+                        for c in ann["Annotation"].split("&")
+                    ]
+                    csq_line.append(", ".join(print_csq))
 
-                        # Shorten AA change
-                        if ann["HGVS.p"]:
-                            aa = ann["HGVS.p"]
-                            if len(ref) > 5 or len(alt) > 5:
-                                aa = re.sub(
-                                    "(([A-Z][a-z]{2})+)",
-                                    lambda x: (
-                                        compress_sv(x.group())
-                                        if len(x.group()) > 12
-                                        else x.group()
-                                    ),
-                                    aa,
-                                )
-                            aa = re.sub(r"^p\.", "", aa)
-                            csq_line.append(aa)
+                    # Shorten AA change
+                    if ann["HGVS.p"]:
+                        aa = ann["HGVS.p"]
+                        if len(ref) > 5 or len(alt) > 5:
+                            aa = re.sub(
+                                "(([A-Z][a-z]{2})+)",
+                                lambda x: (
+                                    compress_sv(x.group())
+                                    if len(x.group()) > 12
+                                    else x.group()
+                                ),
+                                aa,
+                            )
+                        aa = re.sub(r"^p\.", "", aa)
+                        csq_line.append(aa)
 
-                        # Format warnings
-                        if ann["ERRORS / WARNINGS / INFO"]:
-                            warnings = ann["ERRORS / WARNINGS / INFO"]
-                            csq_line.append(", ".join(warnings.split("&")))
+                    # Format warnings
+                    if ann["ERRORS / WARNINGS / INFO"]:
+                        warnings = ann["ERRORS / WARNINGS / INFO"]
+                        csq_line.append(", ".join(warnings.split("&")))
 
-                        csq_line = " | ".join(csq_line)
-                        if [var_line, csq_line] not in print_anns:
-                            print_anns.append([var_line, csq_line])
+                    csq_line = " | ".join(csq_line)
+                    if [var_line, csq_line] not in print_anns:
+                        print_anns.append([var_line, csq_line])
 
 ###############################################################################
 ### Get and process severity score (if available)
 ###############################################################################
 
-                    if not print_anns:
-                        continue
-                    print_anns = [line for ann in print_anns for line in ann]
+                if not print_anns:
+                    continue
+                print_anns = [line for ann in print_anns for line in ann]
 
-            sevs = list()
-            if sev_reader and query["dataset"] == "":
-                sev_reader.set_region(var.CHROM, var.POS - 1, var.POS)
-                for sev in sev_reader:
-                    if sev.CHROM != var.CHROM or sev.POS != var.POS:
-                        continue
-                    for sev_ann in sev.parsed_info_fields().get("SEV", ""):
-                        data = sev_ann.split("|")
-                        try:
-                            var_num = var.ALLELES.index(data[0])
-                            str_var = typ + str(var_num)
-                        except Exception:
-                            str_var = "Unknown"
-                        score = str(round(float(data[7]), 2))
-                        var_line = " | ".join((str_var, data[0], score))
-                        ann_line = data[10]
-                        if [var_line, ann_line] not in sevs:
-                            sevs.append([var_line, ann_line])
-                sevs = [line for sev in sevs for line in sev]
+        sevs = list()
+        if sev_reader and query["dataset"] == "":
+            sev_reader.set_region(var.CHROM, var.POS - 1, var.POS)
+            for sev in sev_reader:
+                if sev.CHROM != var.CHROM or sev.POS != var.POS:
+                    continue
+                for sev_ann in sev.parsed_info_fields().get("SEV", ""):
+                    data = sev_ann.split("|")
+                    try:
+                        var_num = var.ALLELES.index(data[0])
+                        str_var = typ + str(var_num)
+                    except Exception:
+                        str_var = "Unknown"
+                    score = str(round(float(data[7]), 2))
+                    var_line = " | ".join((str_var, data[0], score))
+                    ann_line = data[10]
+                    if [var_line, ann_line] not in sevs:
+                        sevs.append([var_line, ann_line])
+            sevs = [line for sev in sevs for line in sev]
 
 ###############################################################################
 ### Save variant entry
 ###############################################################################
 
-            # Save annotation entry
-            if query["dataset"] == "":
-                if len(ref) > 5:
-                    ref = compress_sv(ref)
-            else:
-                if is_hap:
-                    ref = f"({len(ref)} bp)"
+        # Save annotation entry
+        if query["dataset"] == "":
+            if len(ref) > 5:
+                ref = compress_sv(ref)
+        else:
+            if is_hap:
+                ref = f"({len(ref)} bp)"
 
-            anns.append(
-                [
-                    chrom,
-                    pos,
-                    sorted({ann["Gene_ID"] for ann in ann_list}),
-                    ref,
-                    print_anns,
-                    sevs,
-                ]
-            )
-            ann_positions.add((chrom, pos))
+        anns.append(
+            [
+                chrom,
+                pos,
+                sorted({ann["Gene_ID"] for ann in ann_list}),
+                ref,
+                print_anns,
+                sevs,
+            ]
+        )
+        ann_positions.add((chrom, pos))
 
-            # if is_hap:
-            #    anns[-1][1] = (anns[-1][1]
+        # if is_hap:
+        #    anns[-1][1] = (anns[-1][1]
 
 ###############################################################################
 ### Get genotype data
 ###############################################################################
 
-            mis_c = 0
-            het_c = 0
+        mis_c = 0
+        het_c = 0
 
-            gt_data = [var.get_sample_call(sample) for sample in samples]
-            allele_data = list()
-            for samp_idx, data in enumerate(gt_data):
-                gt = data["GT"]
+        gt_data = [var.get_sample_call(sample) for sample in samples]
+        allele_data = list()
+        for samp_idx, data in enumerate(gt_data):
+            gt = data["GT"]
 
-                for delim in ("/", "|", "\\"):
-                    if delim in gt:
-                        a, b = gt.split(delim)
-                        if a == "." or b == ".":
-                            mis_c += 1
-                        elif a != b:
-                            het_c += 1
-                        allele_data += [a, b]
-                        a = "⸺" if a == "0" else "·" if a == "." else "⟩" if var.ALLELES[int(a)] == "*" else typ + a
-                        b = "⸺" if b == "0" else "·" if b == "." else "⟩" if var.ALLELES[int(b)] == "*" else typ + b
-                        if a != b:
-                            a = a.replace("⸺", "—")
-                            b = b.replace("⸺", "—")
-                        genotype = delim.join((a, b)) if a != b else a
-                        break
-                else:
-                    genotype = "⸺" if gt == "0" else "·" if gt == "." else gt
-                    allele_data += [gt, gt]
-                    if gt == ".":
+            for delim in ("/", "|", "\\"):
+                if delim in gt:
+                    a, b = gt.split(delim)
+                    if a == "." or b == ".":
                         mis_c += 1
+                    elif a != b:
+                        het_c += 1
+                    allele_data += [a, b]
+                    a = "⸺" if a == "0" else "·" if a == "." else "⟩" if var.ALLELES[int(a)] == "*" else typ + a
+                    b = "⸺" if b == "0" else "·" if b == "." else "⟩" if var.ALLELES[int(b)] == "*" else typ + b
+                    if a != b:
+                        a = a.replace("⸺", "—")
+                        b = b.replace("⸺", "—")
+                    genotype = delim.join((a, b)) if a != b else a
+                    break
+            else:
+                genotype = "⸺" if gt == "0" else "·" if gt == "." else gt
+                allele_data += [gt, gt]
+                if gt == ".":
+                    mis_c += 1
 
 ###############################################################################
 ### Get allelic depths and qualities for a call
 ###############################################################################
 
-                if query["dataset"] == "":
-                    quals = list()
-                    qual = ""
-                    if "GQ" in data.keys():
+            if query["dataset"] == "":
+                quals = list()
+                qual = ""
+                if "GQ" in data.keys():
+                    try:
+                        qual = int(data["GQ"])
+                    except ValueError:
+                        pass
+
+                if qual == "" and "PL" in data.keys():
+                    for q in data["PL"].split(","):
                         try:
-                            qual = int(data["GQ"])
+                            quals.append(int(q))
                         except ValueError:
                             pass
+                    qual = sorted(quals)[1] if quals else ""
 
-                    if qual == "" and "PL" in data.keys():
-                        for q in data["PL"].split(","):
-                            try:
-                                quals.append(int(q))
-                            except ValueError:
-                                pass
-                        qual = sorted(quals)[1] if quals else ""
-
-                    if qual == "" and "GL" in data.keys():
-                        # Genotype likelihoods converted to Phred-scale
-                        for q in data["GL"].split(","):
-                            try:
-                                quals.append(float(q))
-                            except ValueError:
-                                pass
-                        qual = sorted(quals)[1] * -10 if quals else ""
-                    # if qual == "" and "DP" in data.keys():
-                    #    try:
-                    #        qual = int(data["DP"])*2
-                    #    except ValueError:
-                    #        pass
-                else:
-                    qual = ""
-
-                gts[samp_idx].append([genotype, qual])
-
-            if len(samples) == 0:
-                anns[-1] += ["—", "—", "—"]
-                continue
-            gen_c = (len(samples) - mis_c) * 2
-            mis = mis_c / len(samples)
-            if gen_c > 0:
-                het = het_c / (gen_c / 2)
-                maj_c = Counter([a for a in allele_data if a != "."]).most_common()[0][
-                    1
-                ]
-                maf = min(maj_c / gen_c, 1 - maj_c / gen_c)
-            if (gen_c == 0 and query["mis"]) or (
-                (query["mis"] is not None and mis > query["mis"])
-                or (query["het"] is not None and het > query["het"])
-                or (query["maf"] is not None and maf < query["maf"])
-            ):
-                _ = anns.pop()
-                gts = [gt[:-1] for gt in gts]
+                if qual == "" and "GL" in data.keys():
+                    # Genotype likelihoods converted to Phred-scale
+                    for q in data["GL"].split(","):
+                        try:
+                            quals.append(float(q))
+                        except ValueError:
+                            pass
+                    qual = sorted(quals)[1] * -10 if quals else ""
+                # if qual == "" and "DP" in data.keys():
+                #    try:
+                #        qual = int(data["DP"])*2
+                #    except ValueError:
+                #        pass
             else:
-                if gen_c == 0:
-                    anns[-1] += [np.round(mis, 3), "—", "—"]
-                else:
-                    anns[-1] += [np.round(mis, 3), np.round(het, 3), np.round(maf, 3)]
+                qual = ""
+
+            gts[samp_idx].append([genotype, qual])
+
+        if len(samples) == 0:
+            anns[-1] += ["—", "—", "—"]
+            continue
+        gen_c = (len(samples) - mis_c) * 2
+        mis = mis_c / len(samples)
+        if gen_c > 0:
+            het = het_c / (gen_c / 2)
+            maj_c = Counter([a for a in allele_data if a != "."]).most_common()[0][
+                1
+            ]
+            maf = min(maj_c / gen_c, 1 - maj_c / gen_c)
+        if (gen_c == 0 and query["mis"]) or (
+            (query["mis"] is not None and mis > query["mis"])
+            or (query["het"] is not None and het > query["het"])
+            or (query["maf"] is not None and maf < query["maf"])
+        ):
+            _ = anns.pop()
+            gts = [gt[:-1] for gt in gts]
+        else:
+            if gen_c == 0:
+                anns[-1] += [np.round(mis, 3), "—", "—"]
+            else:
+                anns[-1] += [np.round(mis, 3), np.round(het, 3), np.round(maf, 3)]
 
 ###############################################################################
 ### Filter out positions without variation

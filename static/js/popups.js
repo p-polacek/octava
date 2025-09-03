@@ -50,26 +50,48 @@ function filterDropdown(dropdownData) {
   // Filter checkboxes in dropdown menu
   if (dropdownData != null) {
     var dropdown = dropdownData[0];
-    var term = dropdown.querySelector("input[type='text']").value
-    term = term.toUpperCase();
-    var term = term.split(" ").map(i => {
-      return i.trim();
-    }).filter(i => {
-      return i !== "";
-    });
-    var options = dropdown.querySelectorAll(".checkbox-row");
-    if (term.length === 0) {
-      for (let i = 0; i < options.length; i++) {
-        options[i].classList.remove("collapsed");
-      } 
+    var term = dropdown.querySelector("input[type='text']").value;
+    if (term[0] === "\\") {
+      term = term.slice(1);
+      var options = dropdown.querySelectorAll(".checkbox-row");
+
+      if (term.length === 0) {
+        for (let i = 0; i < options.length; i++) {
+          options[i].classList.remove("collapsed");
+        }
+      } else {
+        try {
+          re = new RegExp(term);
+        }  catch (e) {
+          return;
+        }
+
+        for (let i = 0; i < options.length; i++) {
+          var label = options[i].textContent || options[i].innerText;
+          options[i].classList.toggle("collapsed", !re.test(label));
+        }
+      }
     } else {
-      for (let i = 0; i < options.length; i++) {
-        var label = options[i].textContent || options[i].innerText;
-        options[i].classList.add("collapsed");
-        for (let j = 0; j < term.length; j++) {
-          if (label.toUpperCase().indexOf(term[j]) > -1) {
-            options[i].classList.remove("collapsed");
-            break;
+      term = term.toUpperCase();
+      var term = term.split(" ").map(i => {
+        return i.trim();
+      }).filter(i => {
+        return i !== "";
+      });
+      var options = dropdown.querySelectorAll(".checkbox-row");  
+      if (term.length === 0) {
+        for (let i = 0; i < options.length; i++) {
+          options[i].classList.remove("collapsed");
+        } 
+      } else {
+        for (let i = 0; i < options.length; i++) {
+          var label = options[i].textContent || options[i].innerText;
+          options[i].classList.add("collapsed");
+          for (let j = 0; j < term.length; j++) {
+            if (label.toUpperCase().indexOf(term[j]) > -1) {
+              options[i].classList.remove("collapsed");
+              break;
+            }
           }
         }
       }

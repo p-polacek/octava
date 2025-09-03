@@ -66,7 +66,7 @@ COPY .id /root/.ssh/.id
 
 RUN chmod 600 /root/.ssh/.id &&\
     apt-get update && apt-get install -y \
-    git openssh-client python3.10 python3-pip gemma cd-hit &&\
+    git openssh-client python3.10 --no-install-recommends python3-pip gemma cd-hit &&\
     ssh-keyscan -H github.com >> /root/.ssh/known_hosts &&\
     echo "Host github.com\n  IdentityFile /root/.ssh/.id\n  StrictHostKeyChecking yes" > /root/.ssh/config &&\
     chmod +x start.sh modules/tools/provean &&\

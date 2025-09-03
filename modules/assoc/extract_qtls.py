@@ -155,9 +155,9 @@ def extract_qtls(genome, params, task_id):
                         "--chr",
                         ch,
                         "--from-bp",
-                        str(start - window * 500),
+                        str(start - window * 1000),
                         "--to-bp",
-                        str(end + window * 500),
+                        str(end + window * 1000),
                         "--r2-unphased",
                         "cols=id,pos",
                         "--ld-snp",
@@ -187,67 +187,67 @@ def extract_qtls(genome, params, task_id):
                 # ld = ld.sort_index()
 
                 # QTL span calculation
-                ld = ld[ld["UNPHASED_R2"] >= r2]
-                if ld.empty:
+                ld_r2 = ld[ld["UNPHASED_R2"] >= r2]
+                if ld_r2.empty:
                     span_r2 = peak_pos
                 else:
                     if is_hap:
                         span_r2 = (
                             ch
                             + ":"
-                            + f"{ld.iloc[0]['POS_B']:,}"
+                            + f"{ld_r2.iloc[0]['POS_B']:,}"
                             + "-"
-                            + f"{int(ld.iloc[-1]['ID_B'].split('-')[1].split('_')[0]):,}"
+                            + f"{int(ld_r2.iloc[-1]['ID_B'].split('-')[1].split('_')[0]):,}"
                         )
                     else:
                         span_r2 = (
                             ch
                             + ":"
-                            + f"{ld.iloc[0]['POS_B']:,}"
+                            + f"{ld_r2.iloc[0]['POS_B']:,}"
                             + "-"
-                            + f"{ld.iloc[-1]['POS_B']:,}"
+                            + f"{ld_r2.iloc[-1]['POS_B']:,}"
                         )
 
-                ld = ld[ld["UNPHASED_R2"] >= 0.4]
-                if ld.empty:
+                ld_r4 = ld[ld["UNPHASED_R2"] >= 0.4]
+                if ld_r4.empty:
                     span_r4 = peak_pos
                 else:
                     if is_hap:
                         span_r4 = (
                             ch
                             + ":"
-                            + f"{ld.iloc[0]['POS_B']:,}"
+                            + f"{ld_r4.iloc[0]['POS_B']:,}"
                             + "-"
-                            + f"{int(ld.iloc[-1]['ID_B'].split('-')[1].split('_')[0]):,}"
+                            + f"{int(ld_r4.iloc[-1]['ID_B'].split('-')[1].split('_')[0]):,}"
                         )
                     else:
                         span_r4 = (
                             ch
                             + ":"
-                            + f"{ld.iloc[0]['POS_B']:,}"
+                            + f"{ld_r4.iloc[0]['POS_B']:,}"
                             + "-"
-                            + f"{ld.iloc[-1]['POS_B']:,}"
+                            + f"{ld_r4.iloc[-1]['POS_B']:,}"
                         )
 
-                ld = ld[ld["UNPHASED_R2"] >= 0.8]
-                if ld.empty:
+                ld_r8 = ld[ld["UNPHASED_R2"] >= 0.8]
+                if ld_r8.empty:
                     span_r8 = peak_pos
                 else:
                     if is_hap:
                         span_r8 = (
                             ch
                             + ":"
-                            + f"{ld.iloc[0]['POS_B']:,}"
+                            + f"{ld_r8.iloc[0]['POS_B']:,}"
                             + "-"
-                            + f"{int(ld.iloc[-1]['ID_B'].split('-')[1].split('_')[0]):,}"
+                            + f"{int(ld_r8.iloc[-1]['ID_B'].split('-')[1].split('_')[0]):,}"
                         )
                     else:
                         span_r8 = (
                             ch
                             + ":"
-                            + f"{ld.iloc[0]['POS_B']:,}"
+                            + f"{ld_r8.iloc[0]['POS_B']:,}"
                             + "-"
-                            + f"{ld.iloc[-1]['POS_B']:,}"
+                            + f"{ld_r8.iloc[-1]['POS_B']:,}"
                         )
 
                 # MAF calculation
@@ -314,7 +314,7 @@ def extract_qtls(genome, params, task_id):
                     ]
                 )
 
-                data = data[~data["id"].isin(ld["ID_B"])]
+                data = data[~data["id"].isin(ld_r2["ID_B"])]
                 pd.DataFrame([qtls[-1]], columns=qtls[0]).to_csv(
                     "QTL_data.txt", sep="\t", mode="a", header=False, index=False
                 )
