@@ -1718,7 +1718,7 @@
 
     function genesToIGV(toAll) {
       var genesLoc = "";
-      var roiConfig =  [];
+      var roiConfig = [];
       if (!toAll) {
         var geneROIs = { color: "rgba(217,144,88,0.1)", features: [] };
         var genesTable = document.getElementById("genes-table");
@@ -1782,7 +1782,17 @@
           var end   = document.getElementById("end-field").value;
           genesLoc = chrom + ":" + start.toString() + "-" + end.toString();
         } else if (fmt === "coord") {
-          genesLoc = document.getElementById("coord-field").value;
+          genesLoc = [];
+          const coord = document.getElementById("coord-field").value.trim();
+          if (coord != "") {
+            genesLoc.push(coord);
+          }
+          document.querySelectorAll(".coord_group-checkbox").forEach( c => {
+            if (c.checked) {
+              genesLoc = genesLoc.concat(JSON.parse(c.value));
+            }
+          });
+          genesLoc = genesLoc.join(" ");
         } else {
           genesLoc = "all";
         }

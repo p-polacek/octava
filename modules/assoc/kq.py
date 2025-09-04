@@ -82,16 +82,19 @@ def kq_correct(genome, raw_phe, samples, k, q_num, kq_from, cov):
     corr_samples = raw_phe.dropna().index
     if not q_matr.empty:
         corr_samples = corr_samples.intersection(q_matr.index)
+    if not k_matr.empty:
+        corr_samples = corr_samples.intersection(k_matr.index)
+
+    if not q_matr.empty:
         phe_q = sm.add_constant(q_matr.loc[corr_samples])
     else:
         phe_q = pd.DataFrame(1, index=corr_samples, columns=["I"])
 
     if not k_matr.empty:
-        corr_samples = corr_samples.intersection(k_matr.index)
+        phe_k = k_matr.loc[corr_samples, corr_samples]
 
     raw_phe = raw_phe.loc[corr_samples]
     if k:
-        phe_k = k_matr.loc[corr_samples, corr_samples]
         QS = economic_qs_linear(phe_k)
         lmm = LMM(raw_phe, phe_q, QS=QS)
         lmm.fit(verbose=False)
