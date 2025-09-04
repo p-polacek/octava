@@ -1731,7 +1731,7 @@
               var [id, chrom, start, end] = cellData.map(cell => {
                 return cell.innerText;
               });
-              start = parseInt(start);
+              start = parseInt(start) - 1;
               end = parseInt(end);
               var offset = 0; //Math.floor((end - start) / 10);
               genesLoc += chrom + ":"

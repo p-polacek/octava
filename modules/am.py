@@ -317,6 +317,19 @@ def am_pipeline(genome, form):
                         regions.append(
                             [rec.chrom, max(region[1], start), min(region[2], end)]
                         )
+                        genes.append(
+                            [
+                                rec.id,
+                                t.id,
+                                rec.chrom,
+                                start,
+                                end,
+                                abs(start - end) + 1,
+                                rec.strand,
+                                0 if query["impact"] != ["geneonly"] else "-",
+                                *[t.attributes.get(attr, [""])[0] for attr in gene_attrs],
+                            ]
+                        )
                 elif target == "cds":
                     # Clip region if partly outside query
                     regions.append(
