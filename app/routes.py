@@ -839,6 +839,10 @@ def fa_res(genome):
         "Strand",
         "Variants",
     ] + gene_attrs
+    if form["target"].data == "prom":
+        gene_attrs[3] = "Promoter start"
+        gene_attrs[4] = "Promoter end"
+        gene_attrs[5] = "Promoter length"
     genes = [gene_attrs] + genes
 
     if config["exp"]:

@@ -19,7 +19,7 @@ from flask_app import (
 from .csq import var_csq
 from .vcf_reader import VcfReader
 
-from .load_input import load_config
+from .load_input import load_config, load_gdata
 
 from app.dirs import data_dir
 
@@ -77,6 +77,7 @@ def am_pipeline(genome, form):
 ###############################################################################
 
     gconfig = load_config(genome)
+    gdata = load_gdata(genome)
     query = form.data
 
     try:
@@ -211,6 +212,19 @@ def am_pipeline(genome, form):
                         start = t.end + 1
                         end = t.end + prom_size
                     regions.append([rec.chrom, start, end])
+                    genes.append(
+                        [
+                            rec.id,
+                            t.id,
+                            rec.chrom,
+                            start,
+                            end,
+                            abs(start - end) + 1,
+                            rec.strand,
+                            0 if query["impact"] != ["geneonly"] else "-",
+                            *[t.attributes.get(attr, [""])[0] for attr in gene_attrs],
+                        ]
+                    )
             else:
                 regions.append([rec.chrom, rec.start, rec.end])
 
@@ -370,6 +384,8 @@ def am_pipeline(genome, form):
         regions = spans + merged_spans
 
     vars_list = list()
+    chrs = gdata["chr_names"]
+    regions = sorted(regions, key=lambda x: (chrs.index(x[0]), x[1], x[2]))
     for region_idx, region in enumerate(regions):
         chrom = region[0]
         # VcfReader is 0-based
@@ -517,13 +533,59 @@ def am_pipeline(genome, form):
                         if [var_line, csq_line] not in print_anns:
                             print_anns.append([var_line, csq_line])
 
+                    if not print_anns:
+                        continue
+                    print_anns = [line for ann in print_anns for line in ann]
+
 ###############################################################################
 ### Get and process severity score (if available)
 ###############################################################################
 
-                    if not print_anns:
+            sevs = list()
+            if sev_reader and query["dataset"] == "":
+                sev_reader.set_region(var.CHROM, var.POS - 1, var.POS)
+                for sev in sev_reader:
+                    if sev.CHROM != var.CHROM or sev.POS != var.POS:
                         continue
-                    print_anns = [line for ann in print_anns for line in ann]
+                    for sev_ann in sev.parsed_info_fields().get("SEV", ""):
+                        data = sev_ann.split("|")
+                        try:
+                            var_num = var.ALLELES.index(data[0])
+                            str_var = typ + str(var_num)
+                        except Exception:
+                            str_var = "Unknown"
+                        score = str(round(float(data[7]), 2))
+                        var_line = " | ".join((str_var, data[0], score))
+                        ann_line = data[10]
+                        if [var_line, ann_line] not in sevs:
+                            sevs.append([var_line, ann_line])
+                sevs = [line for sev in sevs for line in sev]
+
+###############################################################################
+### Save annotation entry
+###############################################################################
+
+            if query["dataset"] == "":
+                if len(ref) > 5:
+                    ref = compress_sv(ref)
+            else:
+                if is_hap:
+                    ref = f"({len(ref)} bp)"
+
+            anns.append(
+                [
+                    chrom,
+                    pos,
+                    sorted({ann["Gene_ID"] for ann in ann_list}),
+                    ref,
+                    print_anns,
+                    sevs,
+                ]
+            )
+            ann_positions.add((chrom, pos))
+
+            # if is_hap:
+            #    anns[-1][1] = (anns[-1][1]
 
             vars_list.append(var)
 
@@ -538,58 +600,12 @@ def am_pipeline(genome, form):
     for sample in samples:
         gts.append([])
 
-    for var in vars_list:
+    pos_rmv = []
+    for var_idx, var in enumerate(vars_list):
         chrom = var.CHROM
         pos = var.POS
         ref = var.REF
         typ = var.VAR_TYPE.upper()
-
-        sevs = list()
-        if sev_reader and query["dataset"] == "":
-            sev_reader.set_region(var.CHROM, var.POS - 1, var.POS)
-            for sev in sev_reader:
-                if sev.CHROM != var.CHROM or sev.POS != var.POS:
-                    continue
-                for sev_ann in sev.parsed_info_fields().get("SEV", ""):
-                    data = sev_ann.split("|")
-                    try:
-                        var_num = var.ALLELES.index(data[0])
-                        str_var = typ + str(var_num)
-                    except Exception:
-                        str_var = "Unknown"
-                    score = str(round(float(data[7]), 2))
-                    var_line = " | ".join((str_var, data[0], score))
-                    ann_line = data[10]
-                    if [var_line, ann_line] not in sevs:
-                        sevs.append([var_line, ann_line])
-            sevs = [line for sev in sevs for line in sev]
-
-###############################################################################
-### Save variant entry
-###############################################################################
-
-        # Save annotation entry
-        if query["dataset"] == "":
-            if len(ref) > 5:
-                ref = compress_sv(ref)
-        else:
-            if is_hap:
-                ref = f"({len(ref)} bp)"
-
-        anns.append(
-            [
-                chrom,
-                pos,
-                sorted({ann["Gene_ID"] for ann in ann_list}),
-                ref,
-                print_anns,
-                sevs,
-            ]
-        )
-        ann_positions.add((chrom, pos))
-
-        # if is_hap:
-        #    anns[-1][1] = (anns[-1][1]
 
 ###############################################################################
 ### Get genotype data
@@ -664,7 +680,7 @@ def am_pipeline(genome, form):
             gts[samp_idx].append([genotype, qual])
 
         if len(samples) == 0:
-            anns[-1] += ["—", "—", "—"]
+            anns[var_idx] += ["—", "—", "—"]
             continue
         gen_c = (len(samples) - mis_c) * 2
         mis = mis_c / len(samples)
@@ -679,19 +695,19 @@ def am_pipeline(genome, form):
             or (query["het"] is not None and het > query["het"])
             or (query["maf"] is not None and maf < query["maf"])
         ):
-            _ = anns.pop()
-            gts = [gt[:-1] for gt in gts]
+            pos_rmv.append(var_idx)
+            #gts = [gt[:-1] for gt in gts]
         else:
             if gen_c == 0:
-                anns[-1] += [np.round(mis, 3), "—", "—"]
+                anns[var_idx] += [np.round(mis, 3), "—", "—"]
             else:
-                anns[-1] += [np.round(mis, 3), np.round(het, 3), np.round(maf, 3)]
+                anns[var_idx] += [np.round(mis, 3), np.round(het, 3), np.round(maf, 3)]
 
 ###############################################################################
 ### Filter out positions without variation
 ###############################################################################
 
-    pos_rmv = list()
+    #pos_rmv = list()
     if gts:
         for pos in range(len(gts[0])):
             # Check if pos has gts other than those to be filtered out (".", "—")
@@ -757,6 +773,7 @@ def am_pipeline(genome, form):
     if samp_dict:
         samples = [[samp, samp_dict.get(samp, samp)] for samp in samples]
 
+    """
     # Sort positions
     order = sorted(
         range(len(anns)),
@@ -764,6 +781,8 @@ def am_pipeline(genome, form):
     )
 
     anns = [anns[idx] for idx in order]
+    gts = [[samp_data[idx] for idx in order] for samp_data in gts]
+`   """
     for i in range(len(anns)):
         if "." in str(anns[i][1]):
             idx = str(anns[i][1]).split(".", 1)[1]
@@ -773,9 +792,7 @@ def am_pipeline(genome, form):
         if idx:
             anns[i][1] += "." + idx
 
-    gts = [[samp_data[idx] for idx in order] for samp_data in gts]
-    groups = [([k[idx] for idx in order], v) for k, v in groups.items()]
-
+    groups = [(k, v) for k, v in groups.items()]
     # Add sample names to gts
     gts = [[sample] + gt for sample, gt in zip(samples, gts)]
 
