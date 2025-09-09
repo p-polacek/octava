@@ -455,6 +455,8 @@ def calc_chr_ld(genome, markers=None, load_ext=False, mem=0):
             with gzip.open(r2_path, "wt") as r2_out:
                 r2_out.write(json.dumps([[], []]))
             continue
+        #bp_space = max(1, span // 1000)
+        bp_space = span // 1000
 
         subprocess.run(
             [
@@ -467,7 +469,7 @@ def calc_chr_ld(genome, markers=None, load_ext=False, mem=0):
                 "--chr",
                 str(ch),
                 "--bp-space",
-                str(span // 1000),
+                str(bp_space),
                 "--r2-unphased",
                 "square0",
                 "--out",

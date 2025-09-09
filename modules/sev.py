@@ -308,7 +308,7 @@ def annotate_sev(genome, markers, task_id):
 
         # Save variants
         vars_path = os.path.join(prot_dir, "vars.txt")
-        anns["Var"].to_csv(vars_path, header=False, index=False)
+        anns["Var"].drop_duplicates().to_csv(vars_path, header=False, index=False)
 
         old_wd = os.getcwd()
         os.chdir(prot_dir)
@@ -353,15 +353,15 @@ def annotate_sev(genome, markers, task_id):
         scores = provean_out.rsplit("#", 1)[1].strip()
         scores_df = pd.read_csv(io.StringIO(scores), sep="\s+", index_col=0)
 
-
         pos_groups = anns.groupby(["Chrom", "Pos"])
         for marker, pos in pos_groups:
             sev_anns = list()
             for var in pos.to_dict(orient="records"):
 
                 if var["Var"] not in scores_df.index:
-                    continue
-                sev_score = scores_df.loc[var["Var"]]["SCORE"]
+                    sev_score = "-"
+                else:
+                    sev_score = scores_df.at[var["Var"], "SCORE"]
                 sev_anns.append(
                     "|".join(
                         map(
@@ -410,6 +410,9 @@ def annotate_sev(genome, markers, task_id):
                 )
 
         os.chdir(old_wd)
+        with open("prov.txt", "w") as qqq:
+            for l in sev_lines:
+                _ = qqq.write("\t".join(list(map(str, l))) + "\n")
 
     new_sev = pd.DataFrame(sev_lines)
     if not sev_info.empty:

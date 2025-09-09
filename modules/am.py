@@ -602,7 +602,7 @@ def am_pipeline(genome, form):
 
             vars_list.append(var)
 
-    if len(samples) * len(vars_list) > 5000000:
+    if len(samples) * len(vars_list) > 500000:
         samples = []
         errors.append(
           "Too many variants and samples to render; " +\
