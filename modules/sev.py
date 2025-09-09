@@ -410,9 +410,6 @@ def annotate_sev(genome, markers, task_id):
                 )
 
         os.chdir(old_wd)
-        with open("prov.txt", "w") as qqq:
-            for l in sev_lines:
-                _ = qqq.write("\t".join(list(map(str, l))) + "\n")
 
     new_sev = pd.DataFrame(sev_lines)
     if not sev_info.empty:
