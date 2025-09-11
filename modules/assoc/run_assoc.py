@@ -313,7 +313,7 @@ def run_assoc(genome, params, task_id, mem=0):
         # GCTB requires space-separated .fam and cofactor/kinship files
         for ext in ("bed", "bim"):
             if not os.path.exists(f"{in_root}.gctb.{ext}"):
-                os.link(f"{in_root}.{ext}", f"{in_root}.gctb.{ext}")
+                os.symlink(os.path.abspath(f"{in_root}.{ext}"), f"{in_root}.gctb.{ext}")
 
         (
             fam_df.assign(IID=samples.tolist())
@@ -473,7 +473,7 @@ def run_assoc(genome, params, task_id, mem=0):
             if concat:
                 shutil.copy(f"{in_root}.bed", f"{in_root}.regenie.bed")
             else:
-                os.link(f"{in_root}.bed", f"{in_root}.regenie.bed")
+                os.symlink(os.path.abspath(f"{in_root}.bed"), f"{in_root}.regenie.bed")
         # add FID to fam
         if not os.path.exists(f"{in_root}.regenie.fam"):
             fam = pd.read_csv(
@@ -552,7 +552,7 @@ def run_assoc(genome, params, task_id, mem=0):
                 subprocess.run(cmd, check=True)
 
             else:
-                os.link(f"{in_root}.bim", f"{in_root}.regenie.bim")
+                os.symlink(os.path.abspath(f"{in_root}.bim"), f"{in_root}.regenie.bim")
 
         ## thin down markers to 500,000
         if params["k"]:

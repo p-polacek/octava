@@ -68,36 +68,36 @@ def genome_setup(genome, params, task_id):
             for ext in ("", ".fai", ".gzi"):
                 if os.path.exists(os.path.join(data_dir, genome, config_from[key]+ext)):
                     continue
-                os.link(
-                    os.path.join(data_dir, genome_from, config_from[key]+ext),
+                os.symlink(
+                    os.path.abspath(os.path.join(data_dir, genome_from, config_from[key]+ext)),
                     os.path.join(data_dir, genome, config_from[key]+ext)
                 )
         for key in ("ann", "exp"):
             for ext in ("", ".tbi"):
                 if os.path.exists(os.path.join(data_dir, genome, config_from[key]+ext)):
                     continue
-                os.link(
-                    os.path.join(data_dir, genome_from, config_from[key]+ext),
+                os.symlink(
+                    os.path.abspath(os.path.join(data_dir, genome_from, config_from[key]+ext)),
                     os.path.join(data_dir, genome, config_from[key]+ext)
                 )
         for bam in json.loads(config_from["bam"]):
             for ext in ("", ".bai"):
                 if os.path.exists(os.path.join(data_dir, genome, config_from[key]+ext)):
                     continue
-                os.link(
-                    os.path.join(data_dir, genome_from, config_from[key]+ext),
+                os.symlink(
+                    os.path.abspath(os.path.join(data_dir, genome_from, config_from[key]+ext)),
                     os.path.join(data_dir, genome, config_from[key]+ext)
                 )
         for key in ("run", "info"):
             if os.path.exists(os.path.join(data_dir, genome, config_from[key])):
                 continue
-            os.link(
-                os.path.join(data_dir, genome_from, config_from[key]),
+            os.symlink(
+                os.path.abspath(os.path.join(data_dir, genome_from, config_from[key])),
                 os.path.join(data_dir, genome, config_from[key])
             )
         if not os.path.exists(os.path.join(data_dir, genome, "stats", "gff.db")):
-            os.link(
-                os.path.join(data_dir, genome_from, "stats", "gff.db"),
+            os.symlink(
+                os.path.abspath(os.path.join(data_dir, genome_from, "stats", "gff.db")),
                 os.path.join(data_dir, genome, "stats", "gff.db")
             )
 
@@ -109,8 +109,8 @@ def genome_setup(genome, params, task_id):
             for ext in ("gz", "gz.tbi"):
                 file = f"blastp_out.txt.{ext}"
                 try:
-                    os.link(
-                        os.path.join(data_dir, genome_from, "prot_db", file),
+                    os.symlink(
+                        os.path.abspath(os.path.join(data_dir, genome_from, "prot_db", file)),
                         os.path.join(data_dir, genome, "prot_db", file)
                     )
                 except FileExistsError:

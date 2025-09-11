@@ -308,6 +308,8 @@ def annotate_sev(genome, markers, task_id):
 
         # Save variants
         vars_path = os.path.join(prot_dir, "vars.txt")
+        if anns["Var"].drop_duplicates().empty:
+            continue
         anns["Var"].drop_duplicates().to_csv(vars_path, header=False, index=False)
 
         old_wd = os.getcwd()
@@ -359,9 +361,9 @@ def annotate_sev(genome, markers, task_id):
             for var in pos.to_dict(orient="records"):
 
                 if var["Var"] not in scores_df.index:
-                    sev_score = "-"
-                else:
-                    sev_score = scores_df.at[var["Var"], "SCORE"]
+                    continue
+
+                sev_score = scores_df.at[var["Var"], "SCORE"]
                 sev_anns.append(
                     "|".join(
                         map(

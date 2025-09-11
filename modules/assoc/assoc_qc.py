@@ -36,8 +36,8 @@ def run_qc(genome, task_id, markers=None, load_ext=False, mem=0):
         ext_data_dir = data_dir
         fn_data_dir = tmp_dir
 
-        os.link(
-            os.path.join(ext_data_dir, genome, config["vcf"]),
+        os.symlink(
+            os.path.abspath(os.path.join(ext_data_dir, genome, config["vcf"])),
             os.path.join(fn_data_dir, genome, config["vcf"])
         )
     else:

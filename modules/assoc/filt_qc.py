@@ -336,7 +336,7 @@ def filt_qc(genome, data, task_id, mem=0):
         else:
             for ext in (".pgen", ".psam", ".pvar.zst"):
                 if not os.path.exists(plink_out + ext):
-                    os.link(imp_out + ext, plink_out + ext)
+                    os.rename(imp_out + ext, plink_out + ext)
 
     print("<b>Processing filtered data</b>")
     # Make necessary genotype format files
@@ -352,6 +352,7 @@ def filt_qc(genome, data, task_id, mem=0):
         "--out",
         plink_out,
     ]
+    print(" ".join(cmd))
     subprocess.run(cmd, check=True)
 
     if data["hap"]:

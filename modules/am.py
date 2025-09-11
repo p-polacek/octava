@@ -130,7 +130,7 @@ def am_pipeline(genome, form):
     if gconfig["info"]:
         info_path = os.path.join(data_dir, genome, gconfig["info"])
         with open(info_path, "r") as info_in:
-            gene_attrs = next(info_in).strip().split("\t")
+            gene_attrs = [a.strip() for a in next(info_in).split("\t")[1:]]
     else:
         gene_attrs = []
 
@@ -227,7 +227,6 @@ def am_pipeline(genome, form):
                     )
             else:
                 regions.append([rec.chrom, rec.start, rec.end])
-
             for t in transcripts:
                 genes.append(
                     [
@@ -567,8 +566,11 @@ def am_pipeline(genome, form):
                             str_var = typ + str(var_num)
                         except Exception:
                             str_var = "Unknown"
+                        alt = data[0]
+                        if len(alt) > 5:
+                            alt = compress_sv(alt)
                         score = str(round(float(data[7]), 2))
-                        var_line = " | ".join((str_var, data[0], score))
+                        var_line = " | ".join((str_var, alt, score))
                         ann_line = data[10]
                         if [var_line, ann_line] not in sevs:
                             sevs.append([var_line, ann_line])
