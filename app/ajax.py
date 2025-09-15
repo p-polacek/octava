@@ -449,8 +449,15 @@ def contextmenu():
             if record.POS != pos:
                 continue
             if field == "REF":
-                keys += [["REF"]]
-                data += [[record.REF]]
+                keys = [
+                    key for key in record.INFO_FIELDS
+                    if key not in ("ANN", "SEV", "EFF", "CSQ")]
+                data = [[record.INFO_FIELDS[key] for key in keys]]
+                keys = ["REF", "ALT", "QUAL", "FILTER"] + keys
+                data[0] = [getattr(record, attr) for attr in ("REF", "ALT", "QUAL", "FILTER")] + data[0]
+
+                #keys += [["REF"]]
+                #data += [[record.REF]]
             elif field == "CSQ":
                 csq = record.CSQ
                 keys = list(csq[0].keys())
