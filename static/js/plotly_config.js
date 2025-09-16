@@ -9,6 +9,8 @@ var customColors = {};
 // recolor      # Recolor visible traces
 // reshade      # Swap chromosome shading
 // opacity      # Change transparency of visible traces
+// m_size       # Change marker size of visible traces
+// log          # Switch to log y scale
 // reset_color  # Reset colors of visible traces
 // move_down    # Move visible traces down
 // group        # Combine visible traces
@@ -242,6 +244,17 @@ var buttonsToAdd = {
         );
       });
     },
+  },
+  log: {
+    name: "Toggle log-scale y-axis",
+    icon: {
+      "width": 100,
+      "path": "M 62 6 A 6 6 0 0 0 55 13 A 6 6 0 0 0 62 19 L 80 19 L 80 86 A 6 6 0 0 0 86 93 A 6 6 0 0 0 93 86 L 93 13 A 6 6 0 0 0 86 6 L 62 6 z M 51 35 C 44 35 40 37 36 41 C 32 45 31 51 31 58 L 31 70 C 31 77 32 83 36 87 C 40 91 44 93 51 93 C 57 93 62 91 65 87 C 69 83 71 77 71 70 L 71 58 C 71 51 69 45 65 41 C 62 37 57 35 51 35 z M 6 37 L 6 91 L 22 91 L 22 37 L 6 37 z M 51 50 C 53 50 55 51 55 55 L 55 73 C 55 77 53 78 51 78 C 48 78 47 77 47 73 L 47 55 C 47 51 48 50 51 50 z",
+      "height": 100,
+    },
+    click: function(gd) {
+      Plotly.relayout("genexp-plot", {"yaxis.type": gd.layout.yaxis.type === "linear" ? "log" : "linear"});
+    }
   },
   reset_color: {
     name: "Reset colors of visible traces",
