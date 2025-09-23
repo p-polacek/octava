@@ -213,10 +213,7 @@
                      'pos': '{{ ann[1] }}',
                      'field': 'CSQ'});">
                     <div class="fa-max">
-                      {% for ann_entry in ann[4] %}
-                        {{ ann_entry }}
-                        <br>
-                      {% endfor %}
+                      {{ ann[4]|join("<br>")|safe }}
                    </div>
                   </td>
                 {% else %}
@@ -238,10 +235,7 @@
                      'pos': '{{ ann[1] }}',
                      'field': 'SEV'});">
                     <div class="fa-max">
-                      {% for ann_entry in ann[5] %}
-                        {{ ann_entry }}
-                        <br>
-                      {% endfor %}
+                      {{ ann[5]|join("<br>")|safe }}
                     </div>
                   </td>
                 {% else %}

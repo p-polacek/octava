@@ -383,7 +383,7 @@ def annotate_sev(genome, markers, task_id):
                                     "-"
                                     if sev_score == "-"
                                     else (
-                                        "DELETEROUS_ALT"
+                                        "DELETERIOUS_ALT"
                                         if sev_score < -2.5
                                         else (
                                             "TOLERATED"

@@ -753,7 +753,7 @@ def am_pipeline(genome, form):
         for sample, sample_gts in zip(samples, gts):
             haplotype = tuple(sample_gts[pos][0] for pos in range(var_num))
 
-            name = samp_dict[sample] if samp_dict else sample
+            name = sample #samp_dict[sample] if samp_dict else sample
             groups.setdefault(haplotype, list()).append(name)
 
 ###############################################################################

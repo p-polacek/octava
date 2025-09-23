@@ -85,8 +85,8 @@ def snpeff_annotate(genome, vcf_file, gff_file, seq_file, cds_file, pep_file, ta
 #                os.path.join(in_root, vcf_file),
 #                os.path.join(snpeff_root, vcf_file)
 #            )
-        else:
-            raise
+#        else:
+#            raise
 
 ###############################################################################
 ### Create snpEff database
