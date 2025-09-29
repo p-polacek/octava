@@ -78,6 +78,7 @@ def run_assoc(genome, params, task_id, mem=0):
             False,
             int(params["q_num"]) if params["q"] else 0,
             params["cov"],
+            fn_data_dir,
         )
 
         if not q_matr.empty:
@@ -184,6 +185,7 @@ def run_assoc(genome, params, task_id, mem=0):
                 int(params["q_num"]) if params["q"] else 0,
                 params["kq_from"] or markers,
                 params["cov"],
+                fn_data_dir,
             )
 
             if 1:
@@ -333,6 +335,7 @@ def run_assoc(genome, params, task_id, mem=0):
             params["k"],
             int(params["q_num"]) if params["q"] else 0,
             params["cov"],
+            fn_data_dir,
         )
         if not q_matr.empty:
             (
@@ -456,6 +459,7 @@ def run_assoc(genome, params, task_id, mem=0):
             False,
             int(params["q_num"]) if params["q"] else 0,
             params["cov"],
+            fn_data_dir,
         )
         if not q_matr.empty:
             (
@@ -802,6 +806,7 @@ def run_assoc(genome, params, task_id, mem=0):
             model != "glm",
             int(params["q_num"]) if params["q"] else 0,
             params["cov"],
+            fn_data_dir,
         )
         if not q_matr.empty:
             (

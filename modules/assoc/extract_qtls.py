@@ -282,7 +282,7 @@ def extract_qtls(genome, params, task_id):
                 else:
                     # PVE and effect calculation
                     phe_corr = kq_correct(
-                        genome, phe, phe.index, False, int(q_num), markers, cov  # k,
+                        genome, phe, phe.index, False, int(q_num), markers, cov, data_dir  # k,
                     )
                     phe_fit = sm.OLS(
                         phe_corr, sm.add_constant(gts), missing="drop"

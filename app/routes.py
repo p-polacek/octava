@@ -622,6 +622,7 @@ def ts(genome):
                                 int(params["q_num"]) if params["q"] else 0,
                                 params["kq_from"],
                                 params["cov"],
+                                data_dir,
                             )
                             transform = pd.DataFrame(phe_corr)
 

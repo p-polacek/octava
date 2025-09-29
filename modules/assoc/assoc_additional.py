@@ -162,6 +162,7 @@ def template_for_additional(genome, params, task_id, mem=0):
         params["k"],
         int(params["q_num"]) if params["q"] else 0,
         params["cov"],
+        fn_data_dir,
     )
 
     # Run your association analysis model

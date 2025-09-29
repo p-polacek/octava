@@ -67,7 +67,7 @@ function filterDropdown(dropdownData) {
         }
 
         for (let i = 0; i < options.length; i++) {
-          var label = options[i].textContent || options[i].innerText;
+          var label = options[i].querySelector("label").textContent || options[i].innerText;
           options[i].classList.toggle("collapsed", !re.test(label));
         }
       }

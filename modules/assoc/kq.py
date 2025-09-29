@@ -7,11 +7,11 @@ import statsmodels.api as sm
 from glimix_core.lmm import LMM
 from numpy_sugar.linalg import economic_qs_linear
 
-from app.dirs import data_dir
+#from app.dirs import data_dir
 
 
-def kq_process(genome, kq_from, samples, k, q_num, cov):
-    kq_root = os.path.join(data_dir, genome, "assoc", kq_from, "gt", "gt")
+def kq_process(genome, kq_from, samples, k, q_num, cov, fn_data_dir):
+    kq_root = os.path.join(fn_data_dir, genome, "assoc", kq_from, "gt", "gt")
 
     q_matr = pd.DataFrame()
     k_matr = pd.DataFrame()
@@ -34,7 +34,7 @@ def kq_process(genome, kq_from, samples, k, q_num, cov):
     if cov:
         for cov_fn in cov:
             cov = pd.read_csv(
-                os.path.join(data_dir, genome, "covariates", cov_fn),
+                os.path.join(fn_data_dir, genome, "covariates", cov_fn),
                 sep="\t",
                 header=0,
                 index_col=0,
@@ -76,8 +76,8 @@ def kq_process(genome, kq_from, samples, k, q_num, cov):
     return q_matr, k_matr
 
 
-def kq_correct(genome, raw_phe, samples, k, q_num, kq_from, cov):
-    q_matr, k_matr = kq_process(genome, kq_from, samples, k, q_num, cov)
+def kq_correct(genome, raw_phe, samples, k, q_num, kq_from, cov, fn_data_dir):
+    q_matr, k_matr = kq_process(genome, kq_from, samples, k, q_num, cov, fn_data_dir)
 
     corr_samples = raw_phe.dropna().index
     if not q_matr.empty:

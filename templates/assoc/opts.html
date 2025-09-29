@@ -670,7 +670,8 @@
         }
       }
     }
-    function setAction() {      var form = document.querySelector("form");      form.target = "";      form.submit();    }
+    function setAction() {      var form = document.querySelector("form");
+      document.getElementById("k").disabled = "";      form.target = "";      form.submit();    }
 
     function nameGroups() {
       var traitGroups = document.querySelectorAll(".trait_group-checkbox:checked");
