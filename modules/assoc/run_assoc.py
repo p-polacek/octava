@@ -157,7 +157,8 @@ def run_assoc(genome, params, task_id, mem=0):
                 ch_col="chr",
                 pos_col="pos",
                 sig_col="p_value",
-                eff_col=None
+                eff_col=None,
+                load_ext=params["run_ext"],
             )
 
         if os.path.exists(os.path.join(out_dir, "BLINK.log")):
@@ -269,7 +270,7 @@ def run_assoc(genome, params, task_id, mem=0):
                 )
 
             mqplot_title = ", ".join((markers, models_dict[model], trait))
-            mqplot_fig = mqplot(
+            mqplot(
                 genome,
                 res,
                 mqplot_fn,
@@ -281,6 +282,7 @@ def run_assoc(genome, params, task_id, mem=0):
                 thresh=False,
                 qqplot=False,
                 end_col="end" if is_hap else None,
+                load_ext=params["run_ext"],
             )
 
             # Save parameters
@@ -437,6 +439,7 @@ def run_assoc(genome, params, task_id, mem=0):
                 sig_log=False,
                 eff_col="A1Effect",
                 sep="\s+",
+                load_ext=params["run_ext"],
             )
 
         for ext in ("covRes", "parRes", "randCovRes"):
@@ -781,6 +784,7 @@ def run_assoc(genome, params, task_id, mem=0):
                 qqplot=True,
                 thresh=True,
                 end_col="end" if is_hap else None,
+                load_ext=params["run_ext"],
             )
 
         os.remove(os.path.join(out_dir, f"regenie_{trait}.regenie"))
@@ -922,6 +926,7 @@ def run_assoc(genome, params, task_id, mem=0):
                 sig_col="p_wald",
                 eff_col="beta" if model in ("mlm", "glm") else [],
                 se_col="se" if model == "mlm" else None,
+                load_ext=params["run_ext"],
             )
 
             log_file = os.path.join(out_dir, f"{model}.{trait_name}.log.txt")

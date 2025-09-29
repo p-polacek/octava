@@ -29,9 +29,10 @@ def assoc_process(
     sig_log=True,
     se_col=None,
     delete=True,
+    load_ext=False,
 ):
-    gdata = load_gdata(genome)
-    config = load_config(genome)
+    gdata = load_gdata(genome, load_ext=load_ext)
+    config = load_config(genome, load_ext=load_ext)
     assoc_out = os.path.join(out_dir, assoc_fn)
     processed_out = os.path.join(out_dir, out_root)
     columns = [c for c in (ch_col, pos_col, sig_col, eff_col) if c]  # , se_col
@@ -122,6 +123,7 @@ def assoc_process(
         qqplot=sig_col != "PIP",
         thresh=sig_col != "PIP",
         end_col="end" if is_hap else None,
+        load_ext=load_ext,
     )
 
     if delete:

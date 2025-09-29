@@ -22,8 +22,9 @@ def mqplot(
     thresh=True,
     qqplot=True,
     end_col=None,
+    load_ext=False,
 ):
-    gdata = load_gdata(genome)
+    gdata = load_gdata(genome, load_ext=load_ext)
     chroms = gdata["chr_names"]
     sizes = {ch: size for ch, size in zip(chroms, gdata["chr_sizes"])}
     offsets = {ch: off for ch, off in zip(chroms, gdata["chr_offsets"])}

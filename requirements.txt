@@ -14,7 +14,7 @@ portalocker
 psutil
 pysam
 pytabix
-scikit-learn
+scikit-learn==1.6.1
 skranger
 tables
 WTForms

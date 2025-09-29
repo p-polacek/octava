@@ -235,6 +235,7 @@ def template_for_additional(genome, params, task_id, mem=0):
             qqplot=qqplot,
             thresh=thresh,
             end_col="end" if is_hap else None,
+            load_ext=params["run_ext"],
         )
 
         form = ParametersForm()
