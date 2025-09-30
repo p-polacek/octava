@@ -126,5 +126,5 @@ def assoc_process(
         load_ext=load_ext,
     )
 
-    if delete:
+    if delete and os.path.exists(assoc_out):
         os.remove(assoc_out)

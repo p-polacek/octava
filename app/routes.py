@@ -208,7 +208,9 @@ def load_ext():
             errors.append(f"Problem loading {tar_file}")
         else:
             os.remove(tar_path)
-            os.remove(tar_path.replace(".out.", ".in."))
+            in_path = tar_path.replace(".out.", ".in.")
+            if os.path.exists(in_path):
+                os.remove(in_path)
 
         if ext_samp_fn:
             ext_samp_fn = ext_samp_fn[0]
@@ -610,13 +612,13 @@ def ts(genome):
                                 )
                             )
                         elif params["transform"] == "bc":
-                            transform[params["trait_sgl"]] = boxcox(
-                                transform[params["trait_sgl"]]
-                            )[0]
+                            transform = pd.DataFrame(
+                                boxcox(raw_phe[trait])[0],
+                                index=raw_phe.index)
                         elif params["transform"] == "corr":
                             phe_corr = kq_correct(
                                 genome,
-                                raw_phe[params["trait_sgl"]],
+                                raw_phe,
                                 None,
                                 params["k"],
                                 int(params["q_num"]) if params["q"] else 0,
@@ -1280,7 +1282,7 @@ def assoc_run(genome):
             os.path.join(genome, "covariates", cov_fn)
             for cov_fn in data["cov"]]
         hap_path = os.path.join(assoc_dir, "stats", "is_hap")
-        if os.path.exists(hap_path):
+        if os.path.exists(os.path.join(data_dir, hap_path)):
             files_ext += [
                 hap_path,
                 os.path.join(assoc_dir, "gt", "gt.blockmap"),
@@ -1416,7 +1418,9 @@ def assoc_run(genome):
     else:
         if data["trait"]:
             pass
-            # errors = ["To use multi-trait MLM, traits must be grouped."]
+            errors = ["To use multi-trait MLM, traits must be grouped."]
+            flash(errors)
+            return redirect(url_for("assoc_res", genome=genome))
         else:
             data["trait_group"] = [json.loads(g) for g in data["trait_group"]]
             existing_groups = list()

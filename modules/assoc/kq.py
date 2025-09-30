@@ -93,7 +93,7 @@ def kq_correct(genome, raw_phe, samples, k, q_num, kq_from, cov, fn_data_dir):
     if not k_matr.empty:
         phe_k = k_matr.loc[corr_samples, corr_samples]
 
-    raw_phe = raw_phe.loc[corr_samples]
+    raw_phe = raw_phe.loc[corr_samples][raw_phe.columns[0]]
     if k:
         QS = economic_qs_linear(phe_k)
         lmm = LMM(raw_phe, phe_q, QS=QS)

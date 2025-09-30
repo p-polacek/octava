@@ -306,6 +306,10 @@ def block_genotype(
         np.histogram(afs[k], bins=[i / 100 for i in range(0, 101, 1)])
         for k in sorted(afs.keys())
     ]
+
+    with open(os.path.join(stats_dir, "cnts"), "w") as cnts_out:
+        json.dump([sample_cnt, len(ids)], cnts_out)
+
     bins = afs[0][1].tolist()
     afs = [i[0].tolist() for i in afs]
     with open(os.path.join(stats_dir, "baf"), "w") as hist_out:

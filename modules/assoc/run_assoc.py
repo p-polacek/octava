@@ -327,6 +327,7 @@ def run_assoc(genome, params, task_id, mem=0):
         (
             phe_df.assign(IID=phe_df.index.tolist())
             .loc[:, ["IID"] + params["trait"]]
+            .fillna("NA")
             .to_csv(f"{in_root}.txt", header=False, sep=" ")
         )
 
@@ -836,7 +837,7 @@ def run_assoc(genome, params, task_id, mem=0):
         else:
             traits = [([t], t) for t in params["trait"]]
 
-        num_traits = len(params["trait"])
+        num_traits = len(traits)
         for trait_idx, (trait, trait_name) in enumerate(traits, start=1):
             print(f"{trait_name} ({trait_idx}/{num_traits})")
 

@@ -18,7 +18,7 @@ def create_tar(files, task_id):
             if os.path.exists(abs_path):
                 tar.add(abs_path, arcname=rel_path)
             else:
-                raise OSError(f"Missing file: {rel_path}")
+                raise OSError(f"Missing file: {abs_path}")
         in_params = f"{task_id}.cmd"
         tar.add(os.path.join(tmp_dir, in_params), arcname=in_params)
     print(f"<b>Your files are ready at {tar_path}</b>")
