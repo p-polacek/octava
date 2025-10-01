@@ -12,10 +12,13 @@ import subprocess
 #import bed_reader
 import numpy as np
 import pandas as pd
+from Bio import SeqIO
+from Bio.Seq import Seq
 #from collections import Counter
 #from scipy.stats import hypergeom
+from Bio.SeqRecord import SeqRecord
 
-from flask import jsonify, request
+from flask import jsonify, request, send_file
 
 import app.path
 from flask_app import app, get_lock, master_lock
@@ -669,6 +672,28 @@ def rm_markers():
         shutil.rmtree(markers_dir)
 
     return "", 204
+
+# Get visible sequences from igv.js
+@app.route("/seq")
+def fetch_seq():
+    regions = request.args.getlist("r")  # ["a.txt", "b.txt", "c.txt"]
+    genome = request.args.get("genome")
+    seq_fn = load_config(genome)["seq"]
+    seq_in = pysam.FastaFile(os.path.join(data_dir, genome, seq_fn))
+
+    seqs = list()
+    for region in regions:
+        chrom, span = region.replace(",", "").split(":")
+        start, end = map(int, span.split("-"))
+        seq = seq_in.fetch(chrom, start - 1, end)
+        record = SeqRecord(Seq(seq), id=region, description="")
+        seqs.append(record)
+    seq_in.close()
+
+    out_fn = os.path.join(tmp_dir, "regions.fasta")
+    with open(out_fn, "w") as seq_out:
+        SeqIO.write(seqs, seq_out, "fasta")
+    return send_file(out_fn, as_attachment=True, download_name="regions.fasta")
 
 
 ###############################################################################

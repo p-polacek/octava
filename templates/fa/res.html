@@ -1822,6 +1822,17 @@
               var navBar = document.querySelector(".igv-navbar-toggle-button-container");
               navBar.insertBefore(btn, navBar.firstChild);
             }
+            if (document.getElementById("fetch-seq-btn") == null) {
+              var btn = document.createElement("div");
+              btn.id = "fetch-seq-btn";
+              btn.classList.add("igv-navbar-button");
+              btn.style.sisplay = "block";
+              btn.innerText = "fetch SEQ";
+              btn.addEventListener("click", function() {fetchSeq(); });
+
+              var navBar = document.querySelector(".igv-navbar-toggle-button-container");
+              navBar.insertBefore(btn, navBar.firstChild);
+            }
           });
         }
       }
@@ -1843,6 +1854,12 @@
         newROI["features"].push(roi);
       }
       browser.loadROI([newROI]);
+    }
+
+    function fetchSeq() {
+      var loci = browser.$searchInput[0].value.split(" ");
+      const url = "/seq?" + "genome=" + genome + "&" + loci.map(v => "r=" + encodeURIComponent(v)).join("&");
+      window.open(url, "_blank");
     }
 {# ====================================================== Annotate severity #}
     function annotateSev() {

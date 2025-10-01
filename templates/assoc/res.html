@@ -1163,10 +1163,10 @@
             addLocus(marker.data.text[marker.pointIndex]);
           }
         } else {
-          if (marker.data.Id == null) {
-            return;
-          }
-          var markers = marker.data.Id[0];
+          //if (marker.data.Id == null) {
+          //  return;
+          //}
+          //var markers = marker.data.Id[0];
           if (data.event.button === 2) {
             if (document.getElementById("fmt-field").value === "gene") {
               replaceLocus = true;
