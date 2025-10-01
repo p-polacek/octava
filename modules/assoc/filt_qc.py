@@ -336,7 +336,10 @@ def filt_qc(genome, data, task_id, mem=0):
         else:
             for ext in (".pgen", ".psam", ".pvar.zst"):
                 if not os.path.exists(plink_out + ext):
-                    os.rename(imp_out + ext, plink_out + ext)
+                    if imp_out == plink_in:
+                        shutil.copy(imp_out + ext, plink_out + ext)
+                    else:
+                        os.rename(imp_out + ext, plink_out + ext)
 
     print("<b>Processing filtered data</b>")
     # Make necessary genotype format files

@@ -618,7 +618,7 @@ def ts(genome):
                         elif params["transform"] == "corr":
                             phe_corr = kq_correct(
                                 genome,
-                                raw_phe,
+                                raw_phe[trait],
                                 None,
                                 params["k"],
                                 int(params["q_num"]) if params["q"] else 0,
