@@ -2,7 +2,9 @@
 
 import os
 import re
+import gzip
 import json
+import pysam
 import gffutils
 import numpy as np
 import pandas as pd
@@ -166,12 +168,74 @@ def am_pipeline(genome, form):
         query["gene_group"] = []
 
 ###############################################################################
+### Get list of genes by correlation
+###############################################################################
+
+    elif query["fmt"] == "corr":
+        def parse_exp_line(line, runs_mask):
+            parts = line.strip().split("\t")
+            gene_id = parts[0]
+            expr = np.array(parts[2:], dtype=float)
+            if runs_mask:
+                expr = expr[runs_mask]
+            expr = (expr - expr.mean()) / expr.std()
+            return gene_id, expr
+
+        exp_path = os.path.join(data_dir, genome, gconfig["exp"])
+        tb = pysam.TabixFile(exp_path)
+        target_genes = query["corr_gene"].strip().split()
+        threshold = query["corr_r2"]
+
+        if query["exprun_group"]:
+            runs = [
+                run for group in query["exprun_group"]
+                for run in json.loads(group)]
+            with gzip.open(exp_path, "rt") as exp_in:
+                exp_hdr = next(exp_in).rstrip().split("\t")[2:]
+            runs_mask = [run in runs for run in exp_hdr]
+        else:
+            runs_mask = None
+
+        target_recs = list()
+        for g_id in target_genes:
+            for tr in db.children(g_id, featuretype="mRNA"):
+                try:
+                    target_recs.append(next(tb.fetch(tr.id)))
+                except ValueError:
+                    pass
+
+        target_expr = [parse_exp_line(rec, runs_mask) for rec in target_recs]
+        corr_ts = []
+
+        for rec in tb.fetch():
+            gene_id, expr = parse_exp_line(rec, runs_mask)
+            for (t_id, t_vec) in target_expr:
+                corr = np.dot(expr, t_vec) / len(expr)
+                if corr >= threshold:
+                    corr_ts.append(gene_id)
+                    break
+
+            #corr = np.corrcoef(target_expr, expr)[0,1]
+                
+        tb.close()
+
+        gene_ids = list()
+        for t_id in corr_ts:
+            g_id = next(db.parents(t_id)).id
+            if g_id not in gene_ids:
+                gene_ids.append(g_id)
+
+        query["gene"] = " ".join(gene_ids)
+        query["fmt"] = "gene"
+        query["gene_group"] = []
+
+###############################################################################
 ### Get list of genes and regions to search through - gene input
 ###############################################################################
 
     if query["fmt"] == "gene":
         if query["gene"]:
-            query["gene"] = [gene.strip() for gene in query["gene"].split(" ")]
+            query["gene"] = query["gene"].strip().split()
         else:
             query["gene"] = []
 

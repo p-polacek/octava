@@ -740,12 +740,17 @@ def fa_opts(genome):
     form.coord_group.choices = [
         (json.dumps(group[0]), group[1]) for group in gdata["group"].get("coord", [])
     ]
+    form.exprun_group.choices = [
+        [json.dumps(group[0]), group[1]] for group in gdata["group"].get("exprun", [])
+    ]
 
     if config["info"]:
         form.fmt.choices.append(("attr", "Gene attribute"))
         info_fn = os.path.join(data_dir, genome, config["info"])
         info_header = pd.read_csv(info_fn, sep="\t", index_col=0, nrows=0)
         form.gene_attr.choices = list(enumerate(info_header.columns.tolist(), start=1))
+    if config["exp"]:
+        form.fmt.choices.append(("corr", "Gene correlation"))
 
     for key, value in request.args.items():
         form[key].data = value
@@ -850,6 +855,7 @@ def fa_res(genome):
 
     if config["exp"]:
         exp_path = os.path.join(data_dir, genome, config["exp"])
+        form.fmt.choices.append(("corr", "Gene correlation"))
 
         runs_path = os.path.join(data_dir, genome, config["run"])
         with open(runs_path, "r") as runs_in:
@@ -883,6 +889,7 @@ def fa_res(genome):
                 except tabix.TabixError:
                     # Gene not found, ignore
                     pass
+
     else:
         exp_data = None
         runs_info = ""

@@ -220,7 +220,7 @@
             </span>
 {# ======================================================== Gene attribute #}
             <span id="attr-div" class="small-padded-bottom collapsed">
-              <div class="row-div padded-top">
+              <div class="row-div small-padded-top">
                 <button
                  type="button"
                  class="dropdown-button"
@@ -256,7 +256,7 @@
                   {% endfor %}
                 </div>
               </div>
-              <div class="row-div padded-top">
+              <div class="row-div small-padded-top">
                 <div class="row-input-div">
                   <div class="row-div justified flex">
                       {{ form.attr_str.label(class="default-label bold") }}
@@ -264,6 +264,62 @@
                        class="default-input",
                        id="attr-str-field") }}
                   </div>
+                </div>
+              </div>
+            </span>
+{# ======================================================= Gene correlation #}
+            <span id="corr-div" class="small-padded-bottom collapsed">
+              <div class="row-div small-padded-top">
+                <div class="row-input-div">
+                  <div class="row-div justified flex">
+                      {{ form.corr_gene.label(class="default-label bold") }}
+                      {{ form.corr_gene(
+                       class="default-input",
+                       id="corr_gene-field") }}
+                  </div>
+                </div>
+              </div>
+              <div
+               class="row-input-div justified small-padded-top">
+                {{ form.corr_r2.label(class="default-label bold")|safe }}
+                <div class="row-div promsize-div">
+                  {{ form.corr_r2(class="default-input promsize-input") }}
+                </div>
+              </div>
+              <div class="row-div small-padded-top">
+                <button
+                 type="button"
+                 class="dropdown-button"
+                 onclick="showDropdown(event, this);">
+                  {{ form.exprun_group.label(
+                   class="default-label bold") }}
+                  <span
+                   class="default-label counter">
+                  </span>
+                </button>
+                <div class="dropdown-menu collapsed">
+                  <div class="sticky non-transparent small-padding">
+                    <input
+                     type="text"
+                     class="search-bar"
+                     placeholder="Search..."
+                     onkeyup="filterDropdown(visibleDropdown);">
+                    <button
+                     type="button"
+                     onclick="toggleAll(visibleDropdown);">
+                      Select all
+                    </button>
+                  </div>
+                  {% for choice in form.exprun_group %}
+                    <div
+                     class="checkbox-row">
+                      {{ choice(
+                       onchange="
+                        updateCount(this.parentElement.parentElement);")}}
+                      {{ choice.label(
+                       class="checkbox-label") }}
+                    </div>
+                  {% endfor %}
                 </div>
               </div>
             </span>

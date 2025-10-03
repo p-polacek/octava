@@ -6,7 +6,7 @@
     var visibleDropdown = null;
     function toggleFormat() {
       var fmt = document.getElementById("fmt-field").value;
-      ["gene", "region", "coord", "attr", "gid", "gcopy", "vcopy"].forEach( function(sel) {
+      ["gene", "region", "coord", "corr", "attr", "gid", "gcopy", "vcopy"].forEach( function(sel) {
         var selDiv = document.getElementById(sel + "-div");
         if (selDiv != null) {
           selDiv.classList.add("collapsed");

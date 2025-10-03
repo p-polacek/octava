@@ -89,7 +89,8 @@ class EditForm(FlaskForm):
 class RegionForm(FlaskForm):
     fmt = SelectField(
         "Format:",
-        choices=[("region", "Region"), ("gene", "Gene ID"), ("coord", "Coordinates")],
+        choices=[
+            ("region", "Region"), ("gene", "Gene ID"), ("coord", "Coordinates")],
     )
     chrom = SelectField("Chrom:", choices=[])
     start = IntegerField("Start:")
@@ -110,6 +111,9 @@ class FuncAnalysisForm(RegionForm):
     )
     gene_attr = RadioField("Attribute:", choices=[])
     attr_str = StringField("Query:")
+
+    corr_gene = StringField("Gene:")
+    corr_r2 = FloatField(Markup("Minimum r<sup>2</sup>:"))
 
     gene_group = MultiCheckboxField("Gene group:", choices=[])
     coord_group = MultiCheckboxField("Region group:", choices=[])

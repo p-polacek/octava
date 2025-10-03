@@ -93,6 +93,7 @@ def block_genotype(
     out_bed = f"{gt_root}.bed"
     out_gt_allhaps = list()
     out_bed_allhaps = f"{gt_root}.allhaps.bed"
+    chrs_all, ps_all, ids_all = list(), list(), list()
     # Marker to index map
     marker_map = {
         marker: idx
@@ -189,6 +190,11 @@ def block_genotype(
             hap_gt = np.sum(hap_chromatids.reshape(-1, 2), axis=1)
             out_gt_allhaps.append(hap_gt)
 
+            chrs_all.append(ch)
+            ps_all.append(first_pos)
+            _id = f"{m1}-{last_pos}_{idx+1}"
+            ids_all.append(_id)
+
         # write VCF entry
         _ = vcf_out.write(
             (
@@ -247,10 +253,10 @@ def block_genotype(
         np.stack(out_gt_allhaps, axis=0).transpose(),
         properties={
             "iid": samples,
-            #        "chromosome": chrs,
-            #        "sid": ids,
-            #        "bp_position": ps,
-            #        "pheno": [-9]*sample_cnt
+            "chromosome": chrs_all,
+            "sid": ids_all,
+            "bp_position": ps_all,
+            "pheno": [-9]*sample_cnt
         },
     )
     pd.read_csv(f"{gt_root}.fam", sep=" ", header=None, index_col=None).to_csv(
