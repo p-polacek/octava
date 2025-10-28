@@ -590,7 +590,7 @@
                          checkedArr[2][k]]);
               }
               allKeys.push(subgroup);
-              groupNames.push(`${checkedArr[0][i]}, ${checkedArr[1][j]}, Selected traits`);
+              groupNames.push([checkedArr[0][i], checkedArr[1][j], "Selected traits"]);
             }
           }
           selOnly = true;
@@ -606,7 +606,7 @@
 
               for (let j = 0; j < checkedArr[1].length; j++) {
                 model = checkedArr[1][j];
-                groupNames.push([markers, modelsDict[model], groupName].join(", "));
+                groupNames.push([markers, model, groupName]);
                 var groupKey = [];
                 traits.forEach( function(trait) {
                   groupKey.push([markers, model, trait]);
@@ -636,9 +636,13 @@
               if (traceData !== []) {
                 var yVals = traceData.map(i => i[1]);
                 yMax = Math.max(yMax, ...yVals);
+                var name = [...groupNames[i]];
+                name[1] = modelsDict[name[1]];
+                name = name.join(", ");
 
                 const trace = {
-                  name: groupNames[i],
+                  name: name,
+                  Id: groupNames[i],
                   mode: "markers",
                   type: "scattergl",
                   traceType: "mp_bbl",
@@ -648,13 +652,15 @@
                   positions: traceData.map(i => i[2]),
                   yaxis: "y2",
                   marker: {
-                    size: traceData.map(i => i[3].length * 4 + 2),
+                    size: traceData.map(i => i[3].length * 40),
+                    sizeref: 1,
+                    sizemode: "area",
                   },
                   text: traceData.map(i => {
-                   return `${i[2]}<br><br>${i[3].join("<br>")}`;
+                   return `${i[2]}<br><br>${i[3].length > 40 ? i[3].length + " runs" : i[3].join("<br>")}`;
                   }),
                   hoverinfo: "y+text",
-                  hovertemplate: "Average peak log10(p): %{y}<br>%{text}",
+                  hovertemplate: "Maximum significance: %{y}<br>%{text}",
                     hoverlabel: {
                       namelength: 0,
                       bgcolor: "white",
@@ -668,6 +674,7 @@
         });
 
         requests.push(request);
+
 {# ============================================================= Individual #}
       } else {
         checkedBoxes(".trait_group-option").forEach( function(group) {
@@ -917,7 +924,8 @@
         }
 
         var y2Title;
-        var modelTypes = [...new Set(dataKeys.map(v => v[1]))];
+        //var modelTypes = [...new Set(dataKeys.map(v => v[1]))];
+        var modelTypes = [...new Set(traces.filter(t => ["mp_sgl", "mp_bbl"].includes(t.traceType)).map(t => t.Id[1]))];
         if (plotEff) {
           y2Title = "Absolute effect size";
         } else if (modelTypes.every(m => ["B", "C"].includes(m))) {
@@ -1040,7 +1048,7 @@
       var config = {
         editable: false,
         modeBarButtons: [
-          ["toImage"],
+          ["toImage", buttonsToAdd["save_html"]],
           ["zoom2d", "pan2d", "select2d", "lasso2d", buttonsToAdd["clear_sel"]],
           ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
           ["hoverClosestCartesian", "hoverCompareCartesian"],
@@ -1179,6 +1187,8 @@
             var selMarkers = document.querySelector("input[name='markers_sgl']:checked");
             if (selMarkers != null) {
               markers = selMarkers.value;
+            } else {
+              markers = data.points[0].data.Id[0];
             }
             var request = $.ajax({
               url: "{{ url_for('fetch_ld') }}",

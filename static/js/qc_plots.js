@@ -624,20 +624,22 @@ function showPlot() {
 
   var config = {
     editable: false,
-    modeBarButtonsToAdd: 
-      ["edit", "recolor", "opacity", "legend"]
-      .map(key => buttonsToAdd[key]),
+    modeBarButtons: [
+      ["toImage", buttonsToAdd["save_html"]],
+      ["zoom2d", "pan2d", "select2d", "lasso2d", buttonsToAdd["clear_sel"]],
+      ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
+      ["edit", "recolor", "opacity", "legend"].map(key => buttonsToAdd[key])],
     modeBarButtonsToRemove: [],
   };
   if (plotChoice === "pca") {
-    config.modeBarButtonsToAdd.push(buttonsToAdd["pve"]);
-    config.modeBarButtonsToAdd.push(buttonsToAdd["m_size"]);
-    config.modeBarButtonsToAdd.push(buttonsToAdd["move_down"]);
+    config.modeBarButtons[3].push(buttonsToAdd["pve"]);
+    config.modeBarButtons[3].push(buttonsToAdd["m_size"]);
+    config.modeBarButtons[3].push(buttonsToAdd["move_down"]);
   }
   if (plotChoice === "baf") {
-    config.modeBarButtonsToAdd.push(buttonsToAdd["group"]);
-    config.modeBarButtonsToAdd.push(buttonsToAdd["move_down"]);
-    config.modeBarButtonsToAdd.push(buttonsToAdd["_delete"]);
+    config.modeBarButtons[3].push(buttonsToAdd["group"]);
+    config.modeBarButtons[3].push(buttonsToAdd["move_down"]);
+    config.modeBarButtons[3].push(buttonsToAdd["_delete"]);
   }
 
   document.getElementById("plot-div").innerHTML = "";

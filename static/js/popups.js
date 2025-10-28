@@ -73,7 +73,7 @@ function filterDropdown(dropdownData) {
       }
     } else {
       term = term.toUpperCase();
-      var term = term.split(" ").map(i => {
+      var term = term.split(/\s+/).map(i => {
         return i.trim();
       }).filter(i => {
         return i !== "";

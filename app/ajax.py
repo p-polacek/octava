@@ -294,7 +294,7 @@ def fetch_mplot():
 def fetch_bblplot():
     form = request.form
     genome = form["genome"]
-    window = int(form["window"]) // 2
+    window = int(form["window"])
     thresh = float(form["thresh"])
     effect = json.loads(form["eff"])
     groups = json.loads(form["keys"])
@@ -350,19 +350,19 @@ def fetch_bblplot():
             data = data.sort_index()
 
             spans = data.index.map(lambda x: (x // window) * window).unique()
-            spans = spans.union((spans + window)).unique()
+            #spans = spans.union((spans + window // 2)).unique()
 
             for i in spans:
                 chunk = data[data.index.slice_indexer(i, i + window)]
                 if not chunk.empty:
                     chunk = chunk.dropna(axis=1, how="all")
                     if chunk.shape[1] >= min_size:
-                        coord = f"{ch}:{i-window:,}-{i+window:,}"
+                        coord = f"{ch}:{i:,}-{i+window:,}"
                         agg_chunk = chunk.max()
                         win_group.append(
                             [
-                                i + offsets[ch],
-                                agg_chunk.mean(),
+                                i + (window // 2) + offsets[ch],
+                                agg_chunk.max(),
                                 coord,
                                 chunk.columns.tolist(),
                             ]

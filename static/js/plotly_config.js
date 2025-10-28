@@ -19,6 +19,48 @@ var customColors = {};
 
 
 var buttonsToAdd = {
+  save_html: {
+    name: "Save plot as interactive HTML",
+    //icon: Plotly.Icons.disk,
+    icon: {
+      "width": 100,
+      "height": 100,
+      "path": "M 12.433594,93.725087 C 8.9142385,93.704507 6.1017715,90.226466 6.3242125,86.80868 c 0.0099,-24.882663 -0.02896,-49.766614 0.02761,-74.648469 0.219507,-3.3953736 3.541788,-6.1949366 6.9243505,-5.8726396 17.186411,0.0086 34.374176,-0.02664 51.559734,0.02678 3.187934,0.277819 6.218174,1.68241 8.719094,3.635051 2.173919,1.9561836 4.124919,4.1422636 6.225551,6.1771306 3.549089,3.596333 7.16511,7.132583 10.649291,10.78931 2.128662,2.745219 3.335993,6.231174 3.241736,9.712617 -0.002,17.08326 0.03261,34.168292 -0.02425,51.25092 -0.165738,3.261728 -3.229243,6.103009 -6.519591,5.855509 -24.89805,0.0059 -49.796092,0.0025 -74.69414,-0.0098 z m 8.113281,-9.265625 c 0.01851,-7.611364 -0.05529,-15.226672 0.05108,-22.835529 0.373893,-3.312998 3.660096,-5.965796 6.980947,-5.609801 15.366891,0.01012 30.735142,-0.0293 46.101179,0.02803 3.307451,0.207826 6.12703,3.405215 5.77304,6.730579 V 84.45946 h 5.044922 c 0.0036,-16.255861 7.45e-4,-32.51172 -0.0078,-48.767578 C 84.134416,33.947846 83.199578,32.33186 81.835834,31.185122 76.920296,26.322837 72.049319,21.4076 67.093839,16.5906 c -0.575698,-0.375954 -1.203316,-0.677099 -1.863361,-0.871375 -0.01978,7.568882 0.058,15.142345 -0.0533,22.708321 -0.309243,3.191628 -3.368741,5.856528 -6.592796,5.580838 -10.790367,-0.0112 -18.936619,0.03839 -29.725897,-0.03426 -3.418694,-0.28557 -5.945543,-3.773512 -5.66577,-7.099435 V 15.564923 H 15.50196 v 68.894532 h 5.044922 z m 49.728516,0 V 65.293446 H 29.724609 V 84.459462 Z M 52.835938,34.730946 c 0.968528,-0.06855 1.984996,0.109173 2.923828,-0.115234 0.59064,-0.41344 0.165835,-1.220309 0.292092,-1.814453 -0.01775,-5.604403 0.04424,-11.212327 -0.03819,-16.814454 -0.411442,-0.745365 -1.433828,-0.310945 -2.114453,-0.42218 -3.173344,0.02409 -6.358066,-0.0582 -9.524219,0.05499 -0.751035,0.286511 -0.31726,1.188301 -0.426945,1.776953 0.02698,5.646878 -0.06218,11.302309 0.05195,16.94375 0.410712,0.693252 1.363864,0.275961 2.014844,0.391094 2.273698,9.35e-4 4.547395,0.0023 6.821094,-4.69e-4 z",
+    },
+    click: function(gd) {
+      async function exportPlotlyHTML(gd) {
+        const fig = { data: gd.data, layout: gd.layout };
+
+        const html = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <script
+             src="https://cdn.plot.ly/plotly-2.35.2.min.js">
+            </script>
+          </head>
+          <body>
+            <div id="plot"></div>
+            <script>
+              const fig = ${JSON.stringify(fig)};
+              Plotly.newPlot('plot', fig.data, fig.layout);
+            </script>
+          </body>
+          </html>
+        `;
+
+        const blob = new Blob([html], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'octava_plot.html';
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+      exportPlotlyHTML(gd);
+    } 
+  }, 
   clear_sel: {
     name: "Clear selection",
     icon: Plotly.Icons.eraseshape,
@@ -60,11 +102,20 @@ var buttonsToAdd = {
     name: "Edit plot",
     icon: Plotly.Icons.pencil,
     click: function(gd) {
+      var editable = !gd._context.editable;
+      // Enable rescaling axes
+      var axes = Object.keys(gd.layout).filter(k => k.startsWith("xaxis") || k.startsWith("yaxis"));
+      for (var ax of axes) {
+        ax = gd.layout[ax];
+        ax.minallowed = editable ? false : ax.range[0];
+        ax.maxallowed = editable ? false : ax.range[1];
+      }
       Plotly.newPlot(
         gd.id,
         gd.data,
         gd.layout,
-        { ...gd._context, editable: !gd._context.editable, edits: {shapePosition: false} });
+        { ...gd._context, editable: editable, edits: {shapePosition: false} });
+
       if (typeof setPlotEventListeners === "function") {
         setPlotEventListeners();
       }

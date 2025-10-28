@@ -182,9 +182,9 @@ def extract_qtls(genome, params, task_id):
                     usecols=[2, 3, 4],
                 )
 
-                # ld.loc[-1] = [peak["ps"], peak["id"], 1]
-                # ld.index = ld.index + 1
-                # ld = ld.sort_index()
+                ld.loc[-1] = [peak[pos_col], peak["id"], 1]
+                #ld.index = ld.index + 1
+                ld = ld.sort_values(by="POS_B").reset_index()
 
                 # QTL span calculation
                 ld_r2 = ld[ld["UNPHASED_R2"] >= r2]

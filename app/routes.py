@@ -22,6 +22,7 @@ import tabix
 import shutil
 import signal
 import tarfile
+import itertools
 import portalocker
 import numpy as np
 import pandas as pd
@@ -836,6 +837,7 @@ def fa_res(genome):
     else:
         gene_attrs = []
 
+    genes = [g for g, _ in itertools.groupby(genes)]
     genes.sort(key=lambda g: (gdata["chr_names"].index(g[2]), g[3], g[4]))
     gene_attrs = [
         "Gene ID",

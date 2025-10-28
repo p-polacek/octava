@@ -761,9 +761,13 @@
 
       var config = {
         editable: false,
-        modeBarButtonsToAdd: 
+        modeBarButtons: [
+          ["toImage", buttonsToAdd["save_html"]],
+          ["zoom2d", "pan2d", "select2d", "lasso2d", buttonsToAdd["clear_sel"]],
+          ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
+          ["hoverClosestCartesian", "hoverCompareCartesian"],
           ["edit", "recolor", "opacity", "move_down"]
-          .map(key => buttonsToAdd[key]),
+          .map(key => buttonsToAdd[key])],
         modeBarButtonsToRemove: [],
       };
 
@@ -991,9 +995,12 @@
             }
             var config = {
               editable: false,
-              modeBarButtonsToAdd: 
-                ["edit", "legend"]
-                .map(key => buttonsToAdd[key]),
+            modeBarButtons: [
+              ["toImage", buttonsToAdd["save_html"]],
+              ["zoom2d", "pan2d", "select2d", "lasso2d", buttonsToAdd["clear_sel"]],
+              ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
+              ["hoverClosestCartesian", "hoverCompareCartesian"],
+              ["edit", "legend"].map(key => buttonsToAdd[key])],
               modeBarButtonsToRemove: [],
             };
             Plotly.newPlot("plot-div", [trace], layout, config);
@@ -1176,9 +1183,13 @@
   
           var config = {
             editable: false,
-            modeBarButtonsToAdd: 
+            modeBarButtons: [
+              ["toImage", buttonsToAdd["save_html"]],
+              ["zoom2d", "pan2d", "select2d", "lasso2d", buttonsToAdd["clear_sel"]],
+              ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
+              ["hoverClosestCartesian", "hoverCompareCartesian"],
               ["legend", "edit", "recolor", "opacity", "m_size", "move_down", "_delete"]
-              .map(key => buttonsToAdd[key]),
+              .map(key => buttonsToAdd[key])],
             modeBarButtonsToRemove: [],
           };
   
@@ -1338,9 +1349,13 @@
 
           var config = {
             editable: false,
-            modeBarButtonsToAdd: 
+            modeBarButtons: [
+              ["toImage", buttonsToAdd["save_html"]],
+              ["zoom2d", "pan2d", "select2d", "lasso2d", buttonsToAdd["clear_sel"]],
+              ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
+              ["hoverClosestCartesian", "hoverCompareCartesian"],
               ["legend", "edit", "recolor", "opacity", "move_down", "_delete"]
-              .map(key => buttonsToAdd[key]),
+              .map(key => buttonsToAdd[key])],
             modeBarButtonsToRemove: [],
           };
   
@@ -1558,9 +1573,13 @@
       layout["margin"] = plotMargins;
       var config = {
         editable: false,
-        modeBarButtonsToAdd: 
+        modeBarButtons: [
+          ["toImage", buttonsToAdd["save_html"]],
+          ["zoom2d", "pan2d", "select2d", "lasso2d", buttonsToAdd["clear_sel"]],
+          ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
+          ["hoverClosestCartesian", "hoverCompareCartesian"],
           ["edit", "recolor"]
-          .map(key => buttonsToAdd[key]),
+          .map(key => buttonsToAdd[key])],
         modeBarButtonsToRemove: [],
       };
       Plotly.newPlot("plot-div", [trace], layout, config);
@@ -1838,9 +1857,13 @@
 
       var config = {
         editable: false,
-        modeBarButtonsToAdd: 
+        modeBarButtons: [
+          ["toImage", buttonsToAdd["save_html"]],
+          ["zoom2d", "pan2d", "select2d", "lasso2d", buttonsToAdd["clear_sel"]],
+          ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
+          ["hoverClosestCartesian", "hoverCompareCartesian"],
           ["legend", "edit", "recolor", "opacity", "move_down", "_delete"]
-          .map(key => buttonsToAdd[key]),
+          .map(key => buttonsToAdd[key])],
         modeBarButtonsToRemove: [],
       };
 

@@ -1270,9 +1270,12 @@
       var config = {
         editable: false,
         showTips: true,
-        modeBarButtonsToAdd: [
-          "legend", "edit", "recolor", "m_size", "move_down", "group", "_delete"]
-          .map(key => buttonsToAdd[key]),
+        modeBarButtons: [
+          ["toImage", buttonsToAdd["save_html"]],
+          ["zoom2d", "pan2d"],
+          ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
+          ["legend", "edit", "recolor", "m_size", "move_down", "group", "_delete"]
+          .map(key => buttonsToAdd[key])],
         modeBarButtonsToRemove: [],
       };
 
@@ -1523,9 +1526,12 @@
 
       var config = {
         editable: false,
-        modeBarButtonsToAdd: 
+        modeBarButtons: [
+          ["toImage", buttonsToAdd["save_html"]],
+          ["zoom2d", "pan2d"],
+          ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
           ["legend", "edit", "recolor", "m_size", "log", "move_down", "group", "_delete"] //"reset_color", 
-          .map(key => buttonsToAdd[key]),
+          .map(key => buttonsToAdd[key])],
         modeBarButtonsToRemove: [],
       };
 
@@ -1690,9 +1696,11 @@
 
           var config = {
             editable: false,
-            modeBarButtonsToAdd: 
-              ["edit"]
-              .map(key => buttonsToAdd[key]),
+            modeBarButtons: [
+              ["toImage", buttonsToAdd["save_html"]],
+              ["zoom2d", "pan2d"],
+              ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
+              ["edit"].map(key => buttonsToAdd[key])],
             modeBarButtonsToRemove: [],
           };
 
