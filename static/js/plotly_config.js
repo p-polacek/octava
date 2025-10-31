@@ -39,12 +39,28 @@ var buttonsToAdd = {
             <script
              src="https://cdn.plot.ly/plotly-2.35.2.min.js">
             </script>
+            <style>
+              html, body {
+                margin: 0;
+                padding: 0;
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+              }
+              #plot {
+                width: 100%;
+                height: 100%;
+              }
+            </style>
           </head>
           <body>
             <div id="plot"></div>
             <script>
-              const fig = ${JSON.stringify(fig)};
+              const fig = ${JSON.stringify(fig, null, 2)};
               Plotly.newPlot('plot', fig.data, fig.layout);
+              window.addEventListener('resize', () => {
+                Plotly.Plots.resize('plot');
+              });
             </script>
           </body>
           </html>
@@ -153,39 +169,46 @@ var buttonsToAdd = {
       } else if (gd.data[traceIdxs[0]].line != null && gd.data[traceIdxs[0]].line.color != null) {
         currColor = gd.data[traceIdxs[0]].line.color;
       } else {
-        currColor = "#ff0000";
+        currColor = "#1f77b4ff";
       }
-      // If hex value includes alpha
-      var isAlpha = false;
-      if (currColor.length === 9) {
-        isAlpha = true;
-        currColor = currColor.slice(0, 7);
-      }
-      showHelp(clickEvent, null, `<input type="color" id="colorPicker" value="${currColor}" />`);
 
-      document.getElementById("colorPicker").click();
-      document.getElementById("help-popup").classList.add("collapsed");
-      document.getElementById("colorPicker").addEventListener("input", function() {
-        var colorChoice = this.value;
+      showHelp(clickEvent, null, `<div id="colorPickerContainer"></div>`);
+      const popup = document.getElementById("help-popup");
+      const rect = popup.getBoundingClientRect();
+      popup.style.left = Math.max(window.innerWidth, rect.left) - 280 + "px";
 
-        for (let i = 0; i < traceIdxs.length; i++) {
-          var recolor = {
-            "marker.color": [colorChoice],
-            "line.color": [colorChoice],
-          }
-          if (gd.data[traceIdxs[i]].type !== "box") {
-            recolor["fillcolor"] = [colorChoice];
-          }
-          if (isAlpha) {
-            recolor["marker.color"] = [colorChoice + "80"];
-            recolor["marker.line.color"] = [colorChoice];
-          }
+      const picker = new Picker({
+        parent: document.getElementById("colorPickerContainer"),
+        color: currColor,
+        popup: false,
+        editor: true,
+        alpha: true,
+        onChange: (color) => {
+          const colorChoice = color.hex;
 
-          Plotly.restyle(
-            gd,
-            recolor,
-            [traceIdxs[i]]);
-        }
+          for (let i = 0; i < traceIdxs.length; i++) {
+            var recolor = {
+              "marker.color": [colorChoice],
+              "line.color": [colorChoice],
+            }
+            if (gd.data[traceIdxs[i]].type !== "box") {
+              recolor["fillcolor"] = [colorChoice];
+            }
+            //if (isAlpha) {
+            //  recolor["marker.color"] = [colorChoice + "80"];
+            //  recolor["marker.line.color"] = [colorChoice];
+            //}
+
+            Plotly.restyle(
+              gd,
+              recolor,
+              [traceIdxs[i]]);
+          }
+        },
+        onDone: (color) => {
+          picker.destroy();
+          document.getElementById("help-popup").classList.add("collapsed");
+        },
       });
     },
   },
@@ -206,41 +229,41 @@ var buttonsToAdd = {
       Plotly.relayout("live-plot", {shapes: shapes});
     }
   },
-  opacity: {
-    name: "Change transparency of visible traces",
-    icon: {
-      "width": 100,
-      "height": 100,
-      "path": "M 50 6 C 26 6 6 26 6 50 C 6 73 26 93 50 93 C 73 93 93 73 93 50 C 93 26 73 6 50 6 z M 50 19 C 66 19 80 33 80 50 C 80 66 66 80 50 80 C 33 80 19 66 19 50 C 19 33 33 19 50 19 z M 60 28 A 5 5 0 0 0 56 30 L 30 56 A 5 5 0 0 0 30 64 A 5 5 0 0 0 38 64 L 64 37 A 5 5 0 0 0 64 30 A 5 5 0 0 0 60 28 z M 66 49 A 5 5 0 0 0 62 51 L 51 63 A 5 5 0 0 0 51 70 A 5 5 0 0 0 59 70 L 70 59 A 5 5 0 0 0 70 51 A 5 5 0 0 0 66 49 z",
-    },
-    click: function(gd) {
-      var clickEvent = event;
-      var traceOpacities = [];
-      var traceIdxs = [];
-      var traceIds = [];
-      gd.data.forEach(function(trace, idx) {
-        if (trace.visible === true) {
-          traceIdxs.push(idx);
-          traceIds.push(trace.Id || "");
-          traceOpacities.push(trace.opacity || 1);
-        }
-      });
-      var opacityValue = 1;
-      if ([...new Set(traceOpacities)].length === 1) {
-        opacityValue = traceOpacities[0];
-      }
-
-      showHelp(clickEvent, null, `<input type="range" id="opacitySlider" min="0" max="1" step="0.01" value="${opacityValue}" />`);
-      document.getElementById("opacitySlider").addEventListener("input", function() {
-        var opacityChoice = this.value;
-        Plotly.restyle(
-          gd,
-          {opacity: opacityChoice,
-          },
-          traceIdxs);
-      });
-    },
-  },
+//  opacity: {
+//    name: "Change transparency of visible traces",
+//    icon: {
+//      "width": 100,
+//      "height": 100,
+//      "path": "M 50 6 C 26 6 6 26 6 50 C 6 73 26 93 50 93 C 73 93 93 73 93 50 C 93 26 73 6 50 6 z M 50 19 C 66 19 80 33 80 50 C 80 66 66 80 50 80 C 33 80 19 66 19 50 C 19 33 33 19 50 19 z M 60 28 A 5 5 0 0 0 56 30 L 30 56 A 5 5 0 0 0 30 64 A 5 5 0 0 0 38 64 L 64 37 A 5 5 0 0 0 64 30 A 5 5 0 0 0 60 28 z M 66 49 A 5 5 0 0 0 62 51 L 51 63 A 5 5 0 0 0 51 70 A 5 5 0 0 0 59 70 L 70 59 A 5 5 0 0 0 70 51 A 5 5 0 0 0 66 49 z",
+//    },
+//    click: function(gd) {
+//      var clickEvent = event;
+//      var traceOpacities = [];
+//      var traceIdxs = [];
+//      var traceIds = [];
+//      gd.data.forEach(function(trace, idx) {
+//        if (trace.visible === true) {
+//          traceIdxs.push(idx);
+//          traceIds.push(trace.Id || "");
+//          traceOpacities.push(trace.opacity || 1);
+//        }
+//      });
+//      var opacityValue = 1;
+//      if ([...new Set(traceOpacities)].length === 1) {
+//        opacityValue = traceOpacities[0];
+//      }
+//
+//      showHelp(clickEvent, null, `<input type="range" id="opacitySlider" min="0" max="1" step="0.01" value="${opacityValue}" />`);
+//      document.getElementById("opacitySlider").addEventListener("input", function() {
+//        var opacityChoice = this.value;
+//        Plotly.restyle(
+//          gd,
+//          {opacity: opacityChoice,
+//          },
+//          traceIdxs);
+//      });
+//    },
+//  },
   m_size: {
     name: "Change marker size of visible traces",
     icon: {

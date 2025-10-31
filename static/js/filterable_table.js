@@ -12,7 +12,7 @@ function parseTSV(tsvStream, sep) {
   }
   return lines;
 }
-function createTable(tableData, table) {
+function createTable(tableData, table, undraggable) {
   // Creates a filterable table given a data object and a table element
   parentElem = table.parentElement;
   parentElem.removeChild(table);
@@ -24,7 +24,10 @@ function createTable(tableData, table) {
   var tr = document.createElement("tr");
   for (var i = 0; i < cols.length; i++) {
     var th = document.createElement("th");
-    th.classList.add("header-top");
+    th.classList.add("header-top");
+    if (!undraggable.includes(i)) {
+      th.classList.add("draggable");
+    }
     var tdDiv = document.createElement("div");
     tdDiv.classList.add("disp-flex");
     var textDiv = document.createElement("div");
@@ -98,11 +101,16 @@ function createTable(tableData, table) {
 }
 var dropdowns = {}; // Array to store dropdown menus for each column
 function dropDown(event, clickedElem) {
-  var colIndex = clickedElem.id.split(/[_]+/).pop();
   var table = findParentTable(clickedElem);
   var tableId = table.id
+
+  var colIdNum = clickedElem.id.split(/[_]+/).pop();
+  var colIndex = [...table.querySelector("thead").querySelectorAll("th")]
+    .map(h => h.querySelector("div").querySelector("div"))
+    .indexOf(clickedElem);
+
   if (dropdowns[tableId]) {
-    var dropdown = dropdowns[tableId][colIndex];
+    var dropdown = dropdowns[tableId][colIdNum];
   } else {
     dropdowns[tableId] = {};
   }
@@ -110,7 +118,7 @@ function dropDown(event, clickedElem) {
   // Check if dropdown already exists
   if (!dropdown) {
     var uniqueValues = getUniqueValues(table, colIndex).sort();
-    var dropdown = makeDropdown(tableId, colIndex, uniqueValues);
+    var dropdown = makeDropdown(tableId, colIdNum, uniqueValues);
 
     // Remove starting rows from "Filter samples" dropdown
     if (tableId === "vars-table" && colIndex == 0) {
@@ -204,10 +212,10 @@ function findParentTable(elem) {
     }
     return par;
 }
-function makeDropdown(tableId, colIndex, uniqueValues) {
+function makeDropdown(tableId, colIdNum, uniqueValues) {
   // Create new dropdown if it doesn't exist
   dropdown = document.createElement("div");
-  dropdown.id = tableId + "dropdown_" + colIndex;
+  dropdown.id = tableId + "dropdown_" + colIdNum;
   dropdown.classList.add("dropdown-menu");
   dropdown.classList.add("collapsed");
   // Create search bar
@@ -245,7 +253,7 @@ function makeDropdown(tableId, colIndex, uniqueValues) {
     checkboxRow.classList.add("checkbox-row");
     var checkbox = document.createElement("input");
     checkbox.type = "checkbox";
-    checkbox.id = tableId + colIndex + value;
+    checkbox.id = tableId + colIdNum + value;
     checkbox.value = value;
     checkbox.checked = true;
     (function(dropdown, val) {
@@ -270,15 +278,21 @@ function makeDropdown(tableId, colIndex, uniqueValues) {
   // Prevent hiding the popup when clicked within
   popupClickedRetain(dropdown);
   document.getElementById(tableId).appendChild(dropdown);
-  dropdowns[tableId][colIndex] = dropdown;
+  dropdowns[tableId][colIdNum] = dropdown;
   return dropdown;
 }
 function applyFilters(dropdownData, checkedVals, checked) {
   var dropdown = dropdownData[0];
   var tableId = dropdownData[1];
-  var colIndex = dropdown.id.split(/[_]+/).pop();
   var table = document.getElementById(tableId);
   var rows = table.getElementsByTagName("tbody")[0].getElementsByTagName("tr");
+  //console.log(dropdownData);
+  var colIdNum = dropdown.id.split(/[_]+/).pop();
+  var colId = tableId + "_" + colIdNum;
+  var colIndex = [...table.querySelector("thead").querySelectorAll("th")]
+    .map(h => h.querySelector("div").querySelector("div"))
+    .indexOf(document.getElementById(colId));
+
   // Show rows for checked checkbox
   // Not applicable if the changed checkbox was unchecked
   if (checked) {
@@ -287,12 +301,12 @@ function applyFilters(dropdownData, checkedVals, checked) {
       var cells = rows[i].children;
       var showRow = false;
       // If row is to be filtered back in
-      if (checkedVals.includes(cells[colIndex].textContent)) {
+      if (checkedVals.includes(cells[colIdNum].textContent)) {
         showRow = true;
         // Re-apply remaining filters to the row
         // Loop through each filter checkbox for each dropdown menu
         for (const [index, dropdown] of Object.entries(dropdowns[tableId])) {
-          if (index === colIndex) { continue }
+          if (index === colIdNum) { continue }
           var checkboxes = dropdown.querySelectorAll('input[type="checkbox"]');
           for (checkbox of checkboxes) {
             if (
@@ -336,8 +350,13 @@ function applyFilters(dropdownData, checkedVals, checked) {
     //  }
     //}
     // Loop through each filter checkbox for each dropdown menu
-    Object.keys(dropdowns[tableId]).forEach(function(colIndex) {
-      var colDropdown = dropdowns[tableId][colIndex];
+    Object.keys(dropdowns[tableId]).forEach(function(colIdNum) {
+      var colId = tableId + "_" + colIdNum;
+      var colIndex = [...table.querySelector("thead").querySelectorAll("th")]
+        .map(h => h.querySelector("div").querySelector("div"))
+        .indexOf(document.getElementById(colId));
+
+      var colDropdown = dropdowns[tableId][colIdNum];
       var colBoxes = colDropdown.querySelectorAll('input[type="checkbox"]');
       colBoxes.forEach(function(checkbox) {
         if (
@@ -356,9 +375,14 @@ function applyFilters(dropdownData, checkedVals, checked) {
   }
   // Highlight columns with filters applied
   var header = table.getElementsByTagName("th");
-  Object.keys(dropdowns[tableId]).forEach(function(colIndex) {
+  Object.keys(dropdowns[tableId]).forEach(function(colIdNum) {
+    var colId = tableId + "_" + colIdNum;
+    var colIndex = [...table.querySelector("thead").querySelectorAll("th")]
+      .map(h => h.querySelector("div").querySelector("div"))
+      .indexOf(document.getElementById(colId));
+
     var toHighlight = false;
-    var colDropdown = dropdowns[tableId][colIndex];
+    var colDropdown = dropdowns[tableId][colIdNum];
     colBoxes = colDropdown.querySelectorAll('input[type="checkbox"]')
     for (let i = 0; i < colBoxes.length; i++) {
       var checkbox = colBoxes[i];
@@ -389,3 +413,42 @@ function sortGray(dropdown) {
     dropdown.appendChild(checkboxRow);
   });
 }
+function moveColumn(table, from, to) {
+  for (const row of table.rows) {
+    const cells = Array.from(row.cells);
+    const moved = cells.splice(from, 1)[0];
+    cells.splice(to, 0, moved);
+    row.innerHTML = "";
+    for (const cell of cells) row.appendChild(cell);
+  }
+}
+
+
+function makeDraggable(table) {
+  const header = table.tHead?.rows[0];
+  if (!header) return; // skip tables without header
+  let draggingIndex = null;
+
+  for (const th of header.cells) {
+    if (th.classList.contains("draggable")) {
+      th.draggable = true;
+      th.addEventListener("dragstart", e => {
+        draggingIndex = th.cellIndex;
+        th.classList.add("dragging");
+        e.dataTransfer.effectAllowed = "move";
+        });
+
+      th.addEventListener("dragend", () => {
+        th.classList.remove("dragging");
+      });
+
+      th.addEventListener("dragover", e => e.preventDefault());
+
+      th.addEventListener("drop", e => {
+        e.preventDefault();
+        const targetIndex = th.cellIndex;
+        moveColumn(table, draggingIndex, targetIndex);
+      });
+    }
+  }
+}

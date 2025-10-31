@@ -628,7 +628,7 @@ function showPlot() {
       ["toImage", buttonsToAdd["save_html"]],
       ["zoom2d", "pan2d", "select2d", "lasso2d", buttonsToAdd["clear_sel"]],
       ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
-      ["edit", "recolor", "opacity", "legend"].map(key => buttonsToAdd[key])],
+      ["edit", "recolor", "legend"].map(key => buttonsToAdd[key])],
     modeBarButtonsToRemove: [],
   };
   if (plotChoice === "pca") {

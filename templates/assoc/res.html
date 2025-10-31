@@ -652,12 +652,13 @@
                   positions: traceData.map(i => i[2]),
                   yaxis: "y2",
                   marker: {
+                    color: colorCycle[i % 10],
                     size: traceData.map(i => i[3].length * 40),
                     sizeref: 1,
                     sizemode: "area",
                   },
                   text: traceData.map(i => {
-                   return `${i[2]}<br><br>${i[3].length > 40 ? i[3].length + " runs" : i[3].join("<br>")}`;
+                   return `${i[2]}<br><br>${i[3].join("<br>")}`;
                   }),
                   hoverinfo: "y+text",
                   hovertemplate: "Maximum significance: %{y}<br>%{text}",
@@ -1044,7 +1045,7 @@
           },
         });
 
-      var customButtons = ["legend", "edit", "recolor", "reshade", "opacity", "m_size", "group_mp", "move_down", "_delete"];
+      var customButtons = ["edit", "recolor", "legend", "reshade", "m_size", "group_mp", "move_down", "_delete"];
       var config = {
         editable: false,
         modeBarButtons: [

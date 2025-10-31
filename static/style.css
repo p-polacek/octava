@@ -638,6 +638,14 @@ table td {
 	background-color: #fff;
 }
 
+.draggable {
+    cursor: move;
+}
+
+.dragging {
+    opacity: 0.5;
+}
+
 .default-col {
     max-width: 200px;
 	white-space: nowrap;

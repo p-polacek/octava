@@ -836,6 +836,7 @@
    src="https://code.jquery.com/jquery-3.6.4.min.js">
   </script>
 
+
   <script type="text/javascript">
 {# ============================================================= Render IGV #}
     const igvConfig = {{ igv_conf|tojson|safe }};
@@ -1274,7 +1275,7 @@
           ["toImage", buttonsToAdd["save_html"]],
           ["zoom2d", "pan2d"],
           ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
-          ["legend", "edit", "recolor", "m_size", "move_down", "group", "_delete"]
+          ["edit", "recolor", "legend", "m_size", "move_down", "group", "_delete"]
           .map(key => buttonsToAdd[key])],
         modeBarButtonsToRemove: [],
       };
@@ -1530,7 +1531,7 @@
           ["toImage", buttonsToAdd["save_html"]],
           ["zoom2d", "pan2d"],
           ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
-          ["legend", "edit", "recolor", "m_size", "log", "move_down", "group", "_delete"] //"reset_color", 
+          ["edit", "recolor", "legend", "m_size", "log", "move_down", "group", "_delete"] //"reset_color", 
           .map(key => buttonsToAdd[key])],
         modeBarButtonsToRemove: [],
       };
@@ -1894,7 +1895,7 @@
           groupsData.push([groupVars, samples.join(" ")]);
         }
         groupsData.unshift(groupCols);
-        createTable(groupsData, table, );
+        createTable(groupsData, table,);
       }
     }
 
@@ -1948,7 +1949,8 @@
       var table = document.getElementById(tableId);
       if (table != null) {
         var genes = JSON.parse('{{ genes|tojson|safe }}');
-        createTable(genes, table);
+        createTable(genes, table, [0, 1]);
+        makeDraggable(table);
         var tableData = table.querySelector("tbody");
         tableData.querySelectorAll("tr").forEach( row => {
           var geneCell = row.querySelector("td");
@@ -1981,7 +1983,8 @@
       var tableId = "runs-table";
       var table = document.getElementById(tableId);
       if (table != null) {
-        createTable(runData, table);
+        createTable(runData, table, [0]);
+        makeDraggable(table);
         table.classList.add("collapsed");
         updateTableCount(tableId);
       }

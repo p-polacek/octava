@@ -766,7 +766,7 @@
           ["zoom2d", "pan2d", "select2d", "lasso2d", buttonsToAdd["clear_sel"]],
           ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
           ["hoverClosestCartesian", "hoverCompareCartesian"],
-          ["edit", "recolor", "opacity", "move_down"]
+          ["edit", "recolor", "move_down"]
           .map(key => buttonsToAdd[key])],
         modeBarButtonsToRemove: [],
       };
@@ -1188,7 +1188,7 @@
               ["zoom2d", "pan2d", "select2d", "lasso2d", buttonsToAdd["clear_sel"]],
               ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
               ["hoverClosestCartesian", "hoverCompareCartesian"],
-              ["legend", "edit", "recolor", "opacity", "m_size", "move_down", "_delete"]
+              ["edit", "recolor", "legend", "m_size", "move_down", "_delete"]
               .map(key => buttonsToAdd[key])],
             modeBarButtonsToRemove: [],
           };
@@ -1354,7 +1354,7 @@
               ["zoom2d", "pan2d", "select2d", "lasso2d", buttonsToAdd["clear_sel"]],
               ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
               ["hoverClosestCartesian", "hoverCompareCartesian"],
-              ["legend", "edit", "recolor", "opacity", "move_down", "_delete"]
+              ["edit", "recolor", "legend", "move_down", "_delete"]
               .map(key => buttonsToAdd[key])],
             modeBarButtonsToRemove: [],
           };
@@ -1862,7 +1862,7 @@
           ["zoom2d", "pan2d", "select2d", "lasso2d", buttonsToAdd["clear_sel"]],
           ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
           ["hoverClosestCartesian", "hoverCompareCartesian"],
-          ["legend", "edit", "recolor", "opacity", "move_down", "_delete"]
+          ["edit", "recolor", "legend", "move_down", "_delete"]
           .map(key => buttonsToAdd[key])],
         modeBarButtonsToRemove: [],
       };
@@ -1954,7 +1954,8 @@
       for (let i = 1; i < sampleInfo.length; i++) {
         sampleInfo[i].push("")
       }
-      createTable(sampleInfo, table);
+      createTable(sampleInfo, table, [0]);
+      makeDraggable(table);
       table.classList.add("collapsed");
       updateTableCount("samples-table");
       filterSamplesTable();
