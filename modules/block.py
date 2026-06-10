@@ -202,7 +202,7 @@ def block_genotype(
                     (
                         ch,
                         first_pos,
-                        _id,
+                        f"{m1}-{last_pos}",
                         "A" * span,
                         ",".join(["T" * span] * len(filt_haps)),
                         ".",

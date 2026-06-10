@@ -34,6 +34,7 @@ def genome_setup(genome, params, task_id):
     if params["setup_from"]:
         genome_from = params["setup_from"]
         config_from = load_config(genome_from)
+        config_from["bam"] = json.loads(config_from["bam"])
 
         # Process VCF file
         file_path = os.path.join(data_dir, genome, params["vcf"])
@@ -80,7 +81,7 @@ def genome_setup(genome, params, task_id):
                     os.path.abspath(os.path.join(data_dir, genome_from, config_from[key]+ext)),
                     os.path.join(data_dir, genome, config_from[key]+ext)
                 )
-        for bam in json.loads(config_from["bam"]):
+        for bam in config_from["bam"]:
             for ext in ("", ".bai"):
                 if os.path.exists(os.path.join(data_dir, genome, config_from[key]+ext)):
                     continue
@@ -274,10 +275,9 @@ def genome_setup(genome, params, task_id):
     gdata["chr_offsets"] = offsets
 
     # Get first gene ID in the file
-    #for rec in db.region(region=str(chroms[0]), featuretype="gene"):
-    #    gdata["id_fmt"] = rec.id
-    #    break
-    gdata["id_fmt"] = "PGSC0003DMG400015133"
+    for rec in db.region(region=str(chroms[0]), featuretype="gene"):
+        gdata["id_fmt"] = rec.id
+        break
 
     # Check that samples match between VCF and SEQ files
     chroms = idx_df.iloc[:, 0].astype(str).tolist()

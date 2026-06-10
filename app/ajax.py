@@ -17,6 +17,8 @@ from Bio.Seq import Seq
 #from collections import Counter
 #from scipy.stats import hypergeom
 from Bio.SeqRecord import SeqRecord
+import scipy.cluster.hierarchy as hierarchy
+from scipy.spatial.distance import squareform
 
 from flask import jsonify, request, send_file
 
@@ -24,9 +26,14 @@ import app.path
 from flask_app import app, get_lock, master_lock
 from app.dirs import tmp_dir, data_dir, plink2_path
 
+from modules.kmed import kmed
 from modules.mem import get_mem
 from modules.vcf_reader import VcfReader
 from modules.load_input import load_gdata, load_config
+
+from modules.models import models as models_dict
+
+models_dict = dict(models_dict)
 
 ###############################################################################
 ### Setting up a new genome
@@ -194,6 +201,7 @@ def fetch_correl():
     form = request.form
     genome = form["genome"]
     traits = json.loads(form["traits"])
+    cluster = json.loads(form["cluster"])
     corrwith = json.loads(form["corrwith"])
     config = load_config(genome)
 
@@ -213,19 +221,44 @@ def fetch_correl():
         return jsonify([(corr_df.values.tolist()), corr_df.index.tolist()])
 
     elif len(traits) >= 10:
-        return jsonify(
-            [
-                (
-                    phe_df[traits]
-                    .corr()
-                    .mask(np.triu(np.ones((len(traits), len(traits)), dtype=bool), k=1))
-                    .replace(np.nan, "")
-                    .values.tolist()
-                ),
-                traits,
-            ]
-        )
+        if cluster:
+            corr_matr = phe_df[traits].corr()
+            d_matr = 1 - np.abs(corr_matr)
 
+            z_matr = hierarchy.linkage(
+              squareform(d_matr, checks=False),
+              method="average")
+
+            order = hierarchy.leaves_list(z_matr)
+
+            corr_sorted = corr_matr.iloc[order, order]
+            labels_sorted = np.array(traits)[order]
+
+            return jsonify(
+              [
+                (
+                  corr_sorted
+                   .mask(np.triu(np.ones((len(traits), len(traits)), dtype=bool), k=1))
+                   .replace(np.nan, "")
+                   .values.tolist()
+                ),
+                labels_sorted.tolist()
+              ]
+            )
+
+        else:
+            return jsonify(
+                [
+                    (
+                        phe_df[traits]
+                        .corr()
+                        .mask(np.triu(np.ones((len(traits), len(traits)), dtype=bool), k=1))
+                        .replace(np.nan, "")
+                        .values.tolist()
+                    ),
+                    traits,
+                ]
+            )
 
 # Filter histograms per marker set
 @app.route("/hist", methods=["POST"])
@@ -311,7 +344,6 @@ def fetch_bblplot():
 
         for key in group:
             markers, model, trait = key
-            string_key = ", ".join(key)
             if effect:
                 assoc_fn = f"{model}.{trait}.eff.feather"
             else:
@@ -324,6 +356,9 @@ def fetch_bblplot():
             is_hap = os.path.exists(hap_fn)
             #            if is_hap:
             #                continue
+
+            model = models_dict.get(model, model)
+            string_key = ", ".join((markers, model, trait))
 
             df = pd.read_feather(assoc_path)
             df = df.loc[:, df.columns[:3]]
@@ -358,13 +393,15 @@ def fetch_bblplot():
                     chunk = chunk.dropna(axis=1, how="all")
                     if chunk.shape[1] >= min_size:
                         coord = f"{ch}:{i:,}-{i+window:,}"
-                        agg_chunk = chunk.max()
+                        agg_chunk = chunk.max().sort_values(ascending=False)
                         win_group.append(
                             [
                                 i + (window // 2) + offsets[ch],
                                 agg_chunk.max(),
                                 coord,
-                                chunk.columns.tolist(),
+                                [f"({v}) {i}" for i, v in zip(
+                                  agg_chunk.index,
+                                  agg_chunk.round(2).values.tolist())]
                             ]
                         )
         win_data.append(win_group)
@@ -695,6 +732,17 @@ def fetch_seq():
         SeqIO.write(seqs, seq_out, "fasta")
     return send_file(out_fn, as_attachment=True, download_name="regions.fasta")
 
+# Make a core collection
+@app.route("/core", methods=["GET"])
+def make_core():
+    genome = request.args.get("genome")
+    markers = request.args.get("markers")
+    size = int(request.args.get("size"))
+    include = json.loads(request.args.get("include"))
+    exclude = json.loads(request.args.get("exclude"))
+
+    [core_set, errors] = kmed(genome, markers, size, include, exclude)
+    return [core_set, errors]
 
 ###############################################################################
 ### Unused

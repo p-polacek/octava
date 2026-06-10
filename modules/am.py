@@ -155,11 +155,19 @@ def am_pipeline(genome, form):
         info_fn = os.path.join(data_dir, genome, gconfig["info"])
         info_df = pd.read_csv(info_fn, sep="\t", header=None, skiprows=1, index_col=0)
         col = int(query["gene_attr"])
-        transcript_ids = info_df[info_df[col].str.contains(query["attr_str"], case=False, na=False)].index.tolist()
+        if query["attr_str"].startswith("\\"):
+            regex = True
+            query["attr_str"] = query["attr_str"][1:]
+        else:
+            regex = False
+        transcript_ids = info_df[info_df[col].str.contains(query["attr_str"], case=False, na=False, regex=regex)].index.tolist()
 
         gene_ids = list()
         for t_id in transcript_ids:
-            g_id = next(db.parents(t_id)).id
+            try:
+                g_id = next(db.parents(t_id)).id
+            except StopIteration:
+                continue
             if g_id not in gene_ids:
                 gene_ids.append(g_id)
 
@@ -465,7 +473,7 @@ def am_pipeline(genome, form):
     for region_idx, region in enumerate(regions):
         chrom = region[0]
         # VcfReader is 0-based
-        vcf_reader.set_region(chrom, region[1] - 1, region[2])
+        vcf_reader.set_region(chrom, max(0, region[1] - 1), region[2])
 
         # Last variant position kept to catch duplicate variant entries
         prev_pos = 0

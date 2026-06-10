@@ -512,6 +512,29 @@ def edit(genome):
                     new_samp.to_csv(samp_path, sep="\t")
                     errors = 0
 
+                    # Update phenotype file to contain all samples
+                    samples = new_samp.index
+                    phe_path = os.path.join(data_dir, genome, config["phe"])
+                    with master_lock:
+                        lock2 = get_lock(phe_path)
+                    with lock2:
+                        phe_df = pd.read_csv(phe_path, sep="\t", header=0, index_col=0)
+
+                        miss_samples = [
+                            s for s in samples if s not in phe_df.index
+                        ]
+                        miss_df = pd.DataFrame(
+                            miss_samples,
+                            index=miss_samples,
+                            columns=[phe_df.columns[0]],
+                        )
+                        (
+                            pd.concat([phe_df, miss_df])
+                            .rename_axis("Acc")
+                            .to_csv(phe_path, sep="\t")
+                        )
+                        errors = 0
+
         cof_file = request.files["cof"]
         if cof_file:
             cof_path = os.path.join(data_dir, genome, "covariates", cof_file.filename)
@@ -588,7 +611,7 @@ def ts(genome):
                         elif params["transform"] == "bin":
                             transform = (raw_phe >= float(params["binthr"])).astype(int)
                         elif params["transform"] == "zs":
-                            transform = pd.DataFrame(zscore(raw_phe))
+                            transform = pd.DataFrame(zscore(raw_phe), index=raw_phe.index)
                         elif params["transform"] == "outl":
                             transform = raw_phe.mask(
                                 np.abs(zscore(raw_phe)) > float(params["num_sd"])
@@ -674,7 +697,7 @@ def ts(genome):
     samp_info = [["ID"] + samp_df.columns.tolist()] + samp_df.to_records().tolist()
     samples = samp_df[[samp_df.columns[0]]].to_records().tolist()
     form.sample.choices = samples
-    form.sample_group.choices = [
+    form.sample_group.choices = form.core_include.choices = form.core_exclude.choices = [
         (json.dumps(group[0]), group[1]) for group in gdata["group"].get("sample", [])
     ]
     form.trait_group.choices = [
@@ -686,6 +709,7 @@ def ts(genome):
         init_path = os.path.join(markers_root, m, "stats", "init")
         if os.path.exists(init_path):
             form.kq_from.choices.append(m)
+            form.core_k.choices.append(m)
     form.cov.choices = [
         fn for fn in os.listdir(os.path.join(data_dir, genome, "covariates"))
     ]

@@ -13,7 +13,8 @@ from app.dirs import tmp_dir, data_dir
 def process_ext(mem):
     ext_files = [
         f for f in os.listdir(data_dir)
-        if f.endswith(".in.tar.gz")]
+        if f.endswith(".in.tar.gz")
+        and not os.path.exists(os.path.join(data_dir, f.replace("in.tar.gz", "out.tar.gz")))]
 
     for tar_file in ext_files:
         print(f"Extracting {tar_file}")

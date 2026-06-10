@@ -27,19 +27,20 @@ from modules.load_input import load_gdata, load_config
 mdbin = 1000000
 
 
-def run_qc(genome, task_id, markers=None, load_ext=False, mem=0):
+def run_qc(genome, task_id, markers=None, coord=None, load_ext=False, mem=0):
     config = load_config(genome, load_ext=load_ext)
     gdata = load_gdata(genome, load_ext=load_ext)
     mem = int(mem) or get_mem()
 
-    if not markers and load_ext:
+    if load_ext:
         ext_data_dir = data_dir
         fn_data_dir = tmp_dir
 
-        os.symlink(
-            os.path.abspath(os.path.join(ext_data_dir, genome, config["vcf"])),
-            os.path.join(fn_data_dir, genome, config["vcf"])
-        )
+        if not markers:
+            os.symlink(
+                os.path.abspath(os.path.join(ext_data_dir, genome, config["vcf"])),
+                os.path.join(fn_data_dir, genome, config["vcf"])
+            )
     else:
         fn_data_dir = data_dir
 
@@ -361,7 +362,7 @@ def run_qc(genome, task_id, markers=None, load_ext=False, mem=0):
 
     # LD matrices per chromosome
     print("<b>Calculating linkage disequilibrium</b>")
-    calc_chr_ld(genome, markers=markers, load_ext=load_ext, mem=mem)
+    calc_chr_ld(genome, markers=markers, coord=coord, load_ext=load_ext, mem=mem)
 
     if not markers:
         var_only_root = os.path.join(stats_dir, "var_only")
@@ -410,7 +411,7 @@ def run_qc(genome, task_id, markers=None, load_ext=False, mem=0):
             )
         print(f"Your files are ready at {tar_path}")
 
-def calc_chr_ld(genome, markers=None, load_ext=False, mem=0):
+def calc_chr_ld(genome, markers=None, coord=None, load_ext=False, mem=0):
     config = load_config(genome, load_ext=load_ext)
     gdata = load_gdata(genome, load_ext=load_ext)
     mem = int(mem) or get_mem()
@@ -447,6 +448,7 @@ def calc_chr_ld(genome, markers=None, load_ext=False, mem=0):
 
     concat = json.loads(config["concat"])
     for ch, span in zip(gdata["chr_names"], gdata["chr_sizes"]):
+        span = coord.get(ch, span)
 
         r2_path = os.path.join(stats_dir, f"{ch}.r2.gz")
         if ch in concat:
@@ -497,4 +499,4 @@ def calc_chr_ld(genome, markers=None, load_ext=False, mem=0):
 if __name__ == "__main__":
     genome, task_id = sys.argv[1:3]
     mem = sys.argv[3] if len(sys.argv) == 4 else 0
-    run_qc(genome, task_id, markers=None, load_ext=True, mem=mem)
+    run_qc(genome, task_id, markers=None, coord=None, load_ext=True, mem=mem)

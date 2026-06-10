@@ -2,6 +2,8 @@ var customOrder = [];
 var customColors = {};
 
 // Buttons:
+// save_svg     # Save SVG
+// save_html    # Save HTML
 // clear_sel    # Clear selection
 // legend       # Toggle legend
 // pve          # Toggle PVE
@@ -10,16 +12,31 @@ var customColors = {};
 // reshade      # Swap chromosome shading
 // opacity      # Change transparency of visible traces
 // m_size       # Change marker size of visible traces
+// m_symbol     # Change marker symbol of visible traces
 // log          # Switch to log y scale
 // reset_color  # Reset colors of visible traces
 // move_down    # Move visible traces down
+// move_down_polar # Move visible traces down
 // group        # Combine visible traces
 // group_mp     # Combine visible traces
+// group_polar  # Combine visible traces
 // _delete      # Delete visible traces
+// reset_polar  # 
 
+var colorscales = ["Blackbody","Bluered","Blues","Earth","Electric","Greens","Greys","Hot","Jet","Picnic","Portland","Rainbow","RdBu","Reds","Viridis","YlGnBu","YlOrRd"]
 
 var buttonsToAdd = {
-  save_html: {
+  save_svg: {
+    name: "Save plot as editable SVG",
+    icon: {
+      "width": 100,
+      "height": 100,
+      "path": "M 12.837976 7.8377645 A 5.0005 5.0005 0 0 0 7.8377645 12.837976 L 7.8377645 87.162122 A 5.0005 5.0005 0 0 0 12.837976 92.162333 L 87.162122 92.162333 A 5.0005 5.0005 0 0 0 92.162333 87.162122 L 92.160266 12.837976 A 5.0005 5.0005 0 0 0 87.160055 7.8377645 L 12.837976 7.8377645 z M 17.837671 17.837671 L 82.16036 17.837671 L 82.16191 82.16191 L 17.837671 82.16191 L 17.837671 17.837671 z M 43.500187 37.44526 L 43.500187 43.945121 L 43.500187 69.330135 L 43.500187 75.829997 L 56.49991 75.829997 L 56.49991 69.330135 L 56.49991 43.945121 L 56.49991 37.44526 L 43.500187 37.44526 z M 24.170101 48.02911 L 24.170101 54.529488 L 24.170101 69.330135 L 24.170101 75.829997 L 37.169824 75.829997 L 37.169824 69.330135 L 37.169824 54.529488 L 37.169824 48.02911 L 24.170101 48.02911 z M 62.830273 48.02911 L 62.830273 54.529488 L 62.830273 69.330135 L 62.830273 75.829997 L 75.829997 75.829997 L 75.829997 69.330135 L 75.829997 54.529488 L 75.829997 48.02911 L 62.830273 48.02911 z",
+    },
+    click: function(gd) {
+      Plotly.downloadImage(gd, {format: "svg", filename: "octava_plot"});
+    }
+  },   save_html: {
     name: "Save plot as interactive HTML",
     //icon: Plotly.Icons.disk,
     icon: {
@@ -171,45 +188,57 @@ var buttonsToAdd = {
       } else {
         currColor = "#1f77b4ff";
       }
-
-      showHelp(clickEvent, null, `<div id="colorPickerContainer"></div>`);
-      const popup = document.getElementById("help-popup");
-      const rect = popup.getBoundingClientRect();
-      popup.style.left = Math.max(window.innerWidth, rect.left) - 280 + "px";
-
-      const picker = new Picker({
-        parent: document.getElementById("colorPickerContainer"),
-        color: currColor,
-        popup: false,
-        editor: true,
-        alpha: true,
-        onChange: (color) => {
-          const colorChoice = color.hex;
-
-          for (let i = 0; i < traceIdxs.length; i++) {
-            var recolor = {
-              "marker.color": [colorChoice],
-              "line.color": [colorChoice],
+      if (currColor.constructor === Array) {
+        showHelp(clickEvent, null, `<input type="range" id="colorscaleSlider" min="0" max="16" step="1" value="0" />`);
+        document.getElementById("colorscaleSlider").addEventListener("input", function() {
+          var scaleChoice = this.value;
+          Plotly.restyle(
+            gd,
+            {
+             "marker.colorscale": colorscales[scaleChoice],
+            },
+            traceIdxs);
+        });
+      } else {
+        showHelp(clickEvent, null, `<div id="colorPickerContainer"></div>`);
+        const popup = document.getElementById("help-popup");
+        const rect = popup.getBoundingClientRect();
+        popup.style.left = Math.max(window.innerWidth, rect.left) - 280 + "px";
+  
+        const picker = new Picker({
+          parent: document.getElementById("colorPickerContainer"),
+          color: currColor,
+          popup: false,
+          editor: true,
+          alpha: true,
+          onChange: (color) => {
+            const colorChoice = color.hex;
+  
+            for (let i = 0; i < traceIdxs.length; i++) {
+              var recolor = {
+                "marker.color": [colorChoice],
+                "line.color": [colorChoice],
+              }
+              if (gd.data[traceIdxs[i]].type !== "box") {
+                recolor["fillcolor"] = [colorChoice];
+              }
+              //if (isAlpha) {
+              //  recolor["marker.color"] = [colorChoice + "80"];
+              //  recolor["marker.line.color"] = [colorChoice];
+              //}
+  
+              Plotly.restyle(
+                gd,
+                recolor,
+                [traceIdxs[i]]);
             }
-            if (gd.data[traceIdxs[i]].type !== "box") {
-              recolor["fillcolor"] = [colorChoice];
-            }
-            //if (isAlpha) {
-            //  recolor["marker.color"] = [colorChoice + "80"];
-            //  recolor["marker.line.color"] = [colorChoice];
-            //}
-
-            Plotly.restyle(
-              gd,
-              recolor,
-              [traceIdxs[i]]);
-          }
-        },
-        onDone: (color) => {
-          picker.destroy();
-          document.getElementById("help-popup").classList.add("collapsed");
-        },
-      });
+          },
+          onDone: (color) => {
+            picker.destroy();
+            document.getElementById("help-popup").classList.add("collapsed");
+          },
+        });
+      }
     },
   },
   reshade: {
@@ -229,41 +258,41 @@ var buttonsToAdd = {
       Plotly.relayout("live-plot", {shapes: shapes});
     }
   },
-//  opacity: {
-//    name: "Change transparency of visible traces",
-//    icon: {
-//      "width": 100,
-//      "height": 100,
-//      "path": "M 50 6 C 26 6 6 26 6 50 C 6 73 26 93 50 93 C 73 93 93 73 93 50 C 93 26 73 6 50 6 z M 50 19 C 66 19 80 33 80 50 C 80 66 66 80 50 80 C 33 80 19 66 19 50 C 19 33 33 19 50 19 z M 60 28 A 5 5 0 0 0 56 30 L 30 56 A 5 5 0 0 0 30 64 A 5 5 0 0 0 38 64 L 64 37 A 5 5 0 0 0 64 30 A 5 5 0 0 0 60 28 z M 66 49 A 5 5 0 0 0 62 51 L 51 63 A 5 5 0 0 0 51 70 A 5 5 0 0 0 59 70 L 70 59 A 5 5 0 0 0 70 51 A 5 5 0 0 0 66 49 z",
-//    },
-//    click: function(gd) {
-//      var clickEvent = event;
-//      var traceOpacities = [];
-//      var traceIdxs = [];
-//      var traceIds = [];
-//      gd.data.forEach(function(trace, idx) {
-//        if (trace.visible === true) {
-//          traceIdxs.push(idx);
-//          traceIds.push(trace.Id || "");
-//          traceOpacities.push(trace.opacity || 1);
-//        }
-//      });
-//      var opacityValue = 1;
-//      if ([...new Set(traceOpacities)].length === 1) {
-//        opacityValue = traceOpacities[0];
-//      }
-//
-//      showHelp(clickEvent, null, `<input type="range" id="opacitySlider" min="0" max="1" step="0.01" value="${opacityValue}" />`);
-//      document.getElementById("opacitySlider").addEventListener("input", function() {
-//        var opacityChoice = this.value;
-//        Plotly.restyle(
-//          gd,
-//          {opacity: opacityChoice,
-//          },
-//          traceIdxs);
-//      });
-//    },
-//  },
+  opacity: {
+    name: "Change transparency of visible traces",
+    icon: {
+      "width": 100,
+      "height": 100,
+      "path": "M 50 6 C 26 6 6 26 6 50 C 6 73 26 93 50 93 C 73 93 93 73 93 50 C 93 26 73 6 50 6 z M 50 19 C 66 19 80 33 80 50 C 80 66 66 80 50 80 C 33 80 19 66 19 50 C 19 33 33 19 50 19 z M 60 28 A 5 5 0 0 0 56 30 L 30 56 A 5 5 0 0 0 30 64 A 5 5 0 0 0 38 64 L 64 37 A 5 5 0 0 0 64 30 A 5 5 0 0 0 60 28 z M 66 49 A 5 5 0 0 0 62 51 L 51 63 A 5 5 0 0 0 51 70 A 5 5 0 0 0 59 70 L 70 59 A 5 5 0 0 0 70 51 A 5 5 0 0 0 66 49 z",
+    },
+    click: function(gd) {
+      var clickEvent = event;
+      var traceOpacities = [];
+      var traceIdxs = [];
+      var traceIds = [];
+      gd.data.forEach(function(trace, idx) {
+        if (trace.visible === true) {
+          traceIdxs.push(idx);
+          traceIds.push(trace.Id || "");
+          traceOpacities.push(trace.opacity || 1);
+        }
+      });
+      var opacityValue = 1;
+      if ([...new Set(traceOpacities)].length === 1) {
+        opacityValue = traceOpacities[0];
+      }
+
+      showHelp(clickEvent, null, `<input type="range" id="opacitySlider" min="0" max="1" step="0.01" value="${opacityValue}" />`);
+      document.getElementById("opacitySlider").addEventListener("input", function() {
+        var opacityChoice = this.value;
+        Plotly.restyle(
+          gd,
+          {opacity: opacityChoice,
+          },
+          traceIdxs);
+      });
+    },
+  },
   m_size: {
     name: "Change marker size of visible traces",
     icon: {
@@ -278,7 +307,7 @@ var buttonsToAdd = {
       var traceColors = [];
       var editLine = false;
       gd.data.forEach(function(trace, idx) {
-        if (trace.visible === true && (trace.traceType == null || ["mp_sgl", "hapline"].includes(trace.traceType))) {
+        if (trace.visible === true && (trace.traceType == null || ["mp_sgl", "hapline", "PCA"].includes(trace.traceType))) {
           if (trace.type.includes("scatter") || trace.type === "box") {
             if (trace.traceType != null) {
                 editLine = true;
@@ -311,6 +340,44 @@ var buttonsToAdd = {
             updateDict["line.color"] = traceColors;
         }
 
+        Plotly.restyle(
+          gd,
+          updateDict,
+          traceIdxs
+        );
+      });
+    },
+  },
+  m_symbol: {
+    name: "Change marker symbol of visible traces",
+    icon: {
+      "width": 100,
+      "height": 100,
+      "path": "M 28 4 L 19 21 L 9 38 L 28 38 L 48 38 L 38 21 L 28 4 z M 72 36 L 66 49 L 51 51 L 62 61 L 59 76 L 72 69 L 85 75 L 82 61 L 93 51 L 78 49 L 72 36 z M 8 59 C 7 59 6 59 6 60 L 6 91 C 6 92 7 92 8 92 L 39 92 C 39 92 40 92 40 91 L 40 60 C 40 59 39 59 39 59 L 8 59 z",
+    },
+    click: function(gd) {
+      var clickEvent = event;
+      var traceSymbols = [];
+      var traceIdxs = [];
+      gd.data.forEach(function(trace, idx) {
+        if (trace.visible === true && (trace.traceType === "mp_sgl" || trace.traceType === "PCA")) {
+          traceIdxs.push(idx);
+          if (trace.marker != null) {
+            traceSymbols.push(trace.marker.symbol || 0);
+          }
+        }
+      });
+      var symbolValue = 0;
+      if ([...new Set(traceSymbols)].length === 1) {
+        symbolValue = traceSymbols[0];
+      }
+
+      showHelp(clickEvent, null, `<input type="range" id="symbolSlider" min="0" max="54" step="1" value="${symbolValue}" />`);
+      document.getElementById("symbolSlider").addEventListener("input", function() {
+        var symbolChoice = this.value;
+        var updateDict = {
+            "marker.symbol": Array(traceIdxs.length).fill(symbolChoice),
+        }
         Plotly.restyle(
           gd,
           updateDict,
@@ -378,6 +445,57 @@ var buttonsToAdd = {
       customOrder = traceIds.concat(customOrder.filter( i => !traceIds.includes(i) ));
     },
   },
+  move_down_polar: {
+    name: "Move visible traces down",
+    icon: {
+      "width": 100,
+      "height": 100,
+      "path": "m 48,12 c -2,10e-7 -5,2 -5,5 V 61 L 33,50 c -1,-1 -5,-1 -7,0 l -1,1 c -1,1 -1,5 -10e-7,7 L 44,80 c 0,0 2,1 3,1 0,0 0,-0 0,-0 0,0 0,0 0,0 H 47 13 c -2,0 -5,2 -5,5 l 0,2 c -7e-7,2 2,5 5,5 l 72,2e-6 c 2,10e-7 5,-2 5,-5 l -1e-6,-2 c 0,-2 -2,-5 -5,-5 l -34,2e-6 -0,-1e-6 c 0,1e-6 0,-0 0,-0 0,0 0,0 0,0 1,0 2,-0 3,-1 L 75,59 c 1,-1 1,-5 10e-7,-7 l -1,-1 c -1,-1 -5,-1 -7,10e-7 l -10,10 0,-43 c -10e-7,-2 -2,-5 -5,-5 z",
+    },
+    click: function(gd) {
+      var visibleIdxs = [];
+      var hiddenIdxs = [];
+      var thrIdxs = [];
+      gd.data.forEach( function(trace, idx) {
+        if (trace.traceType === "mp_sgl") {
+          if (trace.visible === true) {
+            visibleIdxs.push(idx);
+          } else {
+            hiddenIdxs.push(idx);
+          }
+        } else if (trace.traceType === "thr_polar") {
+          thrIdxs.push(idx);
+        }
+      });
+
+      // Recalculate r
+      var traceOrder = [...hiddenIdxs, ...visibleIdxs];
+      const nTracks = traceOrder.length;
+      var trackBases = Array.from({ length: nTracks }, (_, i) => INNER_RADIUS + i * (TRACK_HEIGHT + TRACK_PAD));
+      const MAX_R = trackBases[nTracks - 1] + TRACK_HEIGHT;
+
+      var newR = [
+        ...traceOrder.map((i, c) => gd.data[i].customdata.map(d => trackBases[c] + (d[0] / gd.data[i].maxLogP) * TRACK_HEIGHT / 1.05)),
+        ...traceOrder.map((i, c) => Array(91).fill(trackBases[c] + (gd.data[i].thr / gd.data[i].maxLogP) * TRACK_HEIGHT / 1.05)),
+      ];
+      trackBases = [
+        ...trackBases,
+        ...trackBases,
+      ];      
+
+      Plotly.restyle(
+        gd,
+        {r: newR, rBase: trackBases},
+        [...traceOrder, ...thrIdxs],
+      )
+
+      Plotly.moveTraces(gd, [...visibleIdxs, ...thrIdxs]);
+
+      // Save custom order
+      //var traceIds = gd.data.map( t => t.Id);
+      //customOrder = traceIds.concat(customOrder.filter( i => !traceIds.includes(i) ));
+    },
+  },
   group: {
     name: "Combine visible traces",
     icon: {
@@ -419,7 +537,9 @@ var buttonsToAdd = {
           if (cmb.type === "bar") {
             cmb.y = cmb.y.map((_,idx) => { return cmb.y[idx] + traces[i].y[idx] });
           } else {
-            cmb.y = cmb.y.concat(traces[i].y);
+            if (cmb.y != null) {
+              cmb.y = cmb.y.concat(traces[i].y);
+            }
           }
           if (cmb.hovertext != null) {
             cmb.hovertext = cmb.hovertext.concat(traces[i].hovertext);
@@ -514,7 +634,7 @@ var buttonsToAdd = {
               tr.runs[tr.x.indexOf(v)]])
             .map( arr => arr.filter(item => item != undefined).flat());
 
-          var cmbSize = cmbRuns.map(v => v.length * 4 + 2);
+          var cmbSize = cmbRuns.map(v => v.length * 40);
 
           var cmbY = [];
           for (v of cmbX) {
@@ -552,6 +672,89 @@ var buttonsToAdd = {
       }
     }
   },
+  group_polar: {
+    name: "Combine visible traces",
+    icon: {
+      "width": 100,
+      "height": 100,
+      "path": "M 8 9 A 6 6 0 0 0 1 15 L 1 84 A 6 6 0 0 0 8 90 L 28 90 A 6 6 0 0 0 35 84 A 6 6 0 0 0 28 78 L 14 78 L 14 21 L 28 21 A 6 6 0 0 0 35 15 A 6 6 0 0 0 28 9 L 8 9 z M 71 9 A 6 6 0 0 0 64 15 A 6 6 0 0 0 71 21 L 85 21 L 85 78 L 71 78 A 6 6 0 0 0 64 84 A 6 6 0 0 0 71 90 L 91 90 A 6 6 0 0 0 98 84 L 98 15 A 6 6 0 0 0 91 9 L 71 9 z M 50 27 A 6 6 0 0 0 43 33 L 43 43 L 33 43 A 6 6 0 0 0 27 50 A 6 6 0 0 0 33 56 L 43 56 L 43 66 A 6 6 0 0 0 50 72 A 6 6 0 0 0 56 66 L 56 56 L 66 56 A 6 6 0 0 0 72 50 A 6 6 0 0 0 66 43 L 56 43 L 56 33 A 6 6 0 0 0 50 27 z",
+    },
+    click: function(gd) {
+      var visibleIdxs = [];
+      var hiddenIdxs = [];
+      var traces = [];
+      var cmbIdx = null;
+      var thrIdxs = [];
+      var shadeIdxs = [];
+      var labelIdxs = [];
+
+      gd.data.forEach( function(trace, idx) {
+        if (trace.traceType === "mp_sgl") {
+          if (trace.visible === true) {
+            traces.push(trace);
+            if (cmbIdx === null) {
+              cmbIdx = idx;
+            } else {
+              visibleIdxs.push(idx);
+            }
+          } else {
+            hiddenIdxs.push(idx);
+          }
+        } else if (trace.traceType === "thr_polar") {
+          thrIdxs.push(idx);
+        } else if (trace.traceType === "shade_polar") {
+          shadeIdxs.push(idx);
+        } else if (trace.traceType === "label_polar") {
+          labelIdxs.push(idx);
+        }
+      });
+
+      if (traces.length >= 2) {
+        var cmb = traces[0];
+        for (let i = 1; i < traces.length; i++) {
+          cmb.theta = cmb.theta.concat(traces[i].theta);
+          cmb.customdata = cmb.customdata.concat(traces[i].customdata);
+          cmb.text = cmb.text.concat(traces[i].text);
+          cmb.maxLogP = Math.max(cmb.maxLogP, traces[i].maxLogP);
+        }
+        cmb.Id = null;
+        cmb.name = "Combined";
+        cmb.legendgroup = crypto.randomUUID();
+
+        // Recalculate r
+        var traceOrder = [...hiddenIdxs, cmbIdx];
+        const nTracks = traceOrder.length;
+        var trackBases = Array.from({ length: nTracks }, (_, i) => INNER_RADIUS + i * (TRACK_HEIGHT + TRACK_PAD));
+        const MAX_R = trackBases[nTracks - 1] + TRACK_HEIGHT;
+
+        var newR = [
+          ...traceOrder.map((i, c) => gd.data[i].customdata.map(d => trackBases[c] + (d[0] / gd.data[i].maxLogP) * TRACK_HEIGHT / 1.05)),
+          ...traceOrder.map((i, c) => Array(91).fill(trackBases[c] + (gd.data[i].thr / gd.data[i].maxLogP) * TRACK_HEIGHT / 1.05)),
+          ...labelIdxs.map(i => gd.data[i].r.map(_ => MAX_R * 1.05)),
+        ];
+
+        trackBases = [
+          ...trackBases,
+          ...trackBases,
+          ...labelIdxs.map(_ => null),
+        ];
+
+        Plotly.update(
+          gd,
+          {r: newR, rBase: trackBases},
+          {MAX_R: MAX_R * 1.15, "polar.radialaxis.range": [0, MAX_R * 1.15]},
+          [...traceOrder, ...thrIdxs.slice(0, nTracks), ...labelIdxs],
+        )
+        Plotly.deleteTraces(
+          gd, [
+            ...visibleIdxs,
+            ...[...thrIdxs, ...shadeIdxs].filter(s => gd.data[s].rBase > MAX_R)
+          ]
+        );
+        Plotly.moveTraces(gd, gd.data.map((_, i) => i).filter(i => ((gd.data[i].traceType === "mp_sgl") && (gd.data[i].visible === true))));
+      }
+    },
+  },
   _delete: {
     name: "Delete visible traces",
     icon: {
@@ -567,6 +770,15 @@ var buttonsToAdd = {
         }
       });
       Plotly.deleteTraces(gd, visibleIdxs);
+    }
+  },
+  reset_polar: {
+    name: "Reset axes",
+    icon: Plotly.Icons.home,
+    click: function(gd) {
+      Plotly.relayout(gd, {
+        "polar.radialaxis.range": [0, gd.layout.MAX_R]
+      });
     }
   },
 }

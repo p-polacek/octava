@@ -9,6 +9,8 @@ import portalocker
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
+from glimix_core.lmm import LMM
+from numpy_sugar.linalg import economic_qs_linear
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
@@ -16,7 +18,7 @@ from app.dirs import tmp_dir, data_dir, plink2_path
 
 from modules.load_input import load_config
 
-from modules.assoc.kq import kq_correct
+from modules.assoc.kq import kq_correct, kq_process
 
 from modules.models import models as models_dict
 
@@ -42,10 +44,8 @@ def extract_qtls(genome, params, task_id):
             "QTL span at r^2=0.4",
             f"QTL span at r^2={r2}",
             "Minor allele frequency",
-            "Corrected effect size",
-            "Corrected percentage of variance explained",
-            "Uncorrected effect size",
-            "Uncorrected percentage of variance explained",
+            "Effect size",
+            "Percentage of variance explained",
         ]
     ]
 
@@ -110,8 +110,6 @@ def extract_qtls(genome, params, task_id):
                     trait,
                     corr_string,
                     # heritability,
-                    "",
-                    "",
                     "",
                     "",
                     "",
@@ -281,18 +279,21 @@ def extract_qtls(genome, params, task_id):
                     pve = "-"
                 else:
                     # PVE and effect calculation
-                    phe_corr = kq_correct(
-                        genome, phe, phe.index, False, int(q_num), markers, cov, data_dir  # k,
-                    )
+                    q_matr, k_matr = kq_process(genome, markers, phe.index, k, int(q_num), cov, data_dir)
                     phe_fit = sm.OLS(
-                        phe_corr, sm.add_constant(gts), missing="drop"
+                        phe,
+                        sm.add_constant(pd.concat([pd.DataFrame(gts, columns=[trait], index=phe.index), q_matr], axis=1)),
+                        missing="drop"
                     ).fit()
-                    effect = round(phe_fit.params["x1"].astype(float), 2)
-                    pve = round(phe_fit.rsquared * 100, 2)
 
-                    phe_fit = sm.OLS(phe, sm.add_constant(gts), missing="drop").fit()
-                    effect_u = round(phe_fit.params["x1"].astype(float), 2)
-                    pve_u = round(phe_fit.rsquared * 100, 2)
+                    null_fit = sm.OLS(
+                        phe,
+                        sm.add_constant(q_matr),
+                        missing="drop"
+                    ).fit()
+
+                    effect = round(phe_fit.params[trait].astype(float), 2)
+                    pve = round((phe_fit.rsquared - null_fit.rsquared) * 100, 2)
 
                 qtls.append(
                     [
@@ -309,8 +310,6 @@ def extract_qtls(genome, params, task_id):
                         maf,
                         effect,
                         pve,
-                        effect_u,
-                        pve_u,
                     ]
                 )
 

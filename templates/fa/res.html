@@ -1272,7 +1272,7 @@
         editable: false,
         showTips: true,
         modeBarButtons: [
-          ["toImage", buttonsToAdd["save_html"]],
+          ["toImage", buttonsToAdd["save_svg"], buttonsToAdd["save_html"]],
           ["zoom2d", "pan2d"],
           ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
           ["edit", "recolor", "legend", "m_size", "move_down", "group", "_delete"]
@@ -1528,7 +1528,7 @@
       var config = {
         editable: false,
         modeBarButtons: [
-          ["toImage", buttonsToAdd["save_html"]],
+          ["toImage", buttonsToAdd["save_svg"], buttonsToAdd["save_html"]],
           ["zoom2d", "pan2d"],
           ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
           ["edit", "recolor", "legend", "m_size", "log", "move_down", "group", "_delete"] //"reset_color", 
@@ -1698,7 +1698,7 @@
           var config = {
             editable: false,
             modeBarButtons: [
-              ["toImage", buttonsToAdd["save_html"]],
+              ["toImage", buttonsToAdd["save_svg"], buttonsToAdd["save_html"]],
               ["zoom2d", "pan2d"],
               ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
               ["edit"].map(key => buttonsToAdd[key])],
@@ -1866,7 +1866,11 @@
     }
 
     function fetchSeq() {
-      var loci = browser.$searchInput[0].value.split(" ");
+      var loci = browser.$searchInput[0].value;
+      if (!loci.includes(":")) {
+        return;
+      }
+      loci = loci.split(" ");
       const url = "/seq?" + "genome=" + genome + "&" + loci.map(v => "r=" + encodeURIComponent(v)).join("&");
       window.open(url, "_blank");
     }
@@ -1895,7 +1899,7 @@
           groupsData.push([groupVars, samples.join(" ")]);
         }
         groupsData.unshift(groupCols);
-        createTable(groupsData, table,);
+        createTable(groupsData, table, [0,1]);
       }
     }
 

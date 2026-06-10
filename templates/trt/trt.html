@@ -141,11 +141,152 @@
                  type="checkbox"
                  id="gt">
               </div>
+{# =============================================================== Core set #}
+              <div class="row-div padded-top padded-bottom">
+                <h3 class="bold">
+                  Make a core set:
+                </h3>
+                <img
+                  class="aux-button clickable"
+                  src="{{ url_for('serve_button', button='help') }}"
+                  onclick="showHelp(event, 'core');" />
+              </div>
+              <div class="row-div">
+                <button
+                 type="button"
+                 class="dropdown-button"
+                 onclick="showDropdown(event, this);">
+                  {{ form.core_k.label(
+                   class="default-label bold") }}
+                  <span
+                   class="default-label tracker">
+                  </span>
+                </button>
+                <div class="dropdown-menu collapsed">
+                  <div class="sticky non-transparent small-padding">
+                    <input
+                     type="text"
+                     class="search-bar"
+                     placeholder="Search..."
+                     onkeyup="filterDropdown(visibleDropdown);">
+                    <button
+                     type="button"
+                     disabled">
+                      Select all
+                    </button>
+                  </div>
+                  {% for choice in form.core_k %}
+                    <div
+                     class="checkbox-row"
+                     oncontextmenu="contextMenu(
+                      event,
+                      {'action': 'markers',
+                       'markers': this.querySelector('label').textContent});">
+                      {{ choice(
+                       onchange="updateTracker(this.parentElement.parentElement);")}}
+                      {{ choice.label(
+                       class="checkbox-label") }}
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="row-div small-padded-top">
+                <button
+                 type="button"
+                 class="dropdown-button"
+                 onclick="showDropdown(event, this);">
+                  {{ form.core_include.label(class="default-label bold") }}
+                  <span
+                   class="default-label counter"
+                   id="core_include-count">
+                    0 selected
+                  </span>
+                </button>
+                <div
+                 id="sample_group-dropdown"
+                 class="dropdown-menu collapsed">
+                  <div class="sticky non-transparent small-padding">
+                    <input
+                     type="text"
+                     class="search-bar"
+                     placeholder="Search..."
+                     onkeyup="filterDropdown(visibleDropdown);">
+                    <button
+                     type="button"
+                     onclick="toggleAll(visibleDropdown);">
+                      Select all
+                    </button>
+                  </div>
+                  {% for choice in form.core_include %}
+                    <div class="checkbox-row group-option">
+                      {{ choice(
+                       class="core_include-checkbox",
+                       onchange="updateCount(this.parentElement.parentElement);") }}
+                      {{ choice.label(class="checkbox-label") }}
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="row-div small-padded-top">
+                <button
+                 type="button"
+                 class="dropdown-button"
+                 onclick="showDropdown(event, this);">
+                  {{ form.core_exclude.label(class="default-label bold") }}
+                  <span
+                   class="default-label counter"
+                   id="core_exclude-count">
+                    0 selected
+                  </span>
+                </button>
+                <div
+                 id="core_exclude-dropdown"
+                 class="dropdown-menu collapsed">
+                  <div class="sticky non-transparent small-padding">
+                    <input
+                     type="text"
+                     class="search-bar"
+                     placeholder="Search..."
+                     onkeyup="filterDropdown(visibleDropdown);">
+                    <button
+                     type="button"
+                     onclick="
+                      toggleAll(visibleDropdown);">
+                      Select all
+                    </button>
+                  </div>
+                  {% for choice in form.core_exclude %}
+                    <div class="checkbox-row group-option">
+                      {{ choice(
+                       class="core_exclude-checkbox",
+                       onchange="updateCount(this.parentElement.parentElement);") }}
+                      {{ choice.label(class="checkbox-label") }}
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="row-input-div justified small-padded-top">
+                {{ form.core_n.label(for="core-n", class="default-label bold") }}
+                {{ form.core_n(id="core-n", class="promsize-div", size=4) }}
+              </div>
+              <div class="
+               row-input-div
+               justified
+               padded-top
+               padded-bottom">
+                <button
+                 type="button"
+                 onclick="coreSet();">
+                  <label class="default-label bold">
+                   Make a core set
+                  </label>
+                </button>
+              </div>
 {# ============================================================ Correlation #}
               <div class="row-div padded-top padded-bottom">
                 <h3 class="bold">
                   Compare traits:
-                </h2>
+                </h3>
                 <img
                   class="aux-button clickable"
                   src="{{ url_for('serve_button', button='help') }}"
@@ -248,6 +389,16 @@
                  type="checkbox"
                  id="show-corr">
               </div>
+              <div class="row-input-div justified mini-padded-top">
+                <label
+                 for="cluster"
+                 class="default-label bold" >
+                  Cluster correlation matrix
+                </label>
+                <input
+                 type="checkbox"
+                 id="cluster">
+              </div>
 {# =================================================================== Plot #}
               <div class="
                row-input-div
@@ -273,8 +424,7 @@
                   onclick="showHelp(event, 'transform');" />
               </div>
               <div
-               class="row-div padded-top small-padded-bottom"
-               id="transform-tracker-parent">
+               class="row-div padded-top small-padded-bottom">
                 <button
                  type="button"
                  class="dropdown-button"
@@ -285,7 +435,9 @@
                    class="default-label tracker">
                   </span>
                 </button>
-                <div class="dropdown-menu collapsed">
+                <div
+                 class="dropdown-menu collapsed"
+                 id="transform-tracker-parent">
                   <div class="sticky non-transparent small-padding">
                     <input
                      type="text"
@@ -310,14 +462,17 @@
                   {% endfor %}
                 </div>
               </div>
-              <div
-               id="numpc-div"
-               class="row-input-div justified small-padded-bottom collapsed">
-                  {{ form.num_pc.label(class="default-label bold") }}
+              <div id="numpc-div" class="collapsed">
+                <div class="row-input-div justified small-padded-bottom">
+                  {{ form.num_pc.label(for="num-pc", class="default-label bold") }}
                   {{ form.num_pc(id="num-pc", class="promsize-div", size=4) }}
+                </div>
+                <div class="row-input-div justified small-padded-bottom">
+                  {{ form.loadings.label(for="show-loadings", class="default-label bold") }}
+                  {{ form.loadings(id="show-loadings") }}
+                </div>
               </div>
               <div id="kq-div" class="collapsed small-padded-bottom">
-
                 <div class="row-input-div justified">
                   {{ form.k.label(
                    class="default-label") }}
@@ -587,14 +742,18 @@
       document.getElementById("samples-table").classList.toggle("collapsed");
       document.getElementById("plot-div").classList.toggle("collapsed");
     }
-    function filterSamplesTable() {
+    function filterSamplesTable(selection) {
       var groups = [];
-      var checkboxes = document.querySelectorAll(".sample_group-checkbox");
-      // Get filters based on sample groups selection
-      for (let i = 0; i < checkboxes.length; i++) {
-        if (checkboxes[i].checked) {
-          groups = groups.concat(JSON.parse(checkboxes[i].value));
+      if (selection == null) {
+        var checkboxes = document.querySelectorAll(".sample_group-checkbox");
+        // Get filters based on sample groups selection
+        for (let i = 0; i < checkboxes.length; i++) {
+          if (checkboxes[i].checked) {
+            groups = groups.concat(JSON.parse(checkboxes[i].value));
+          }
         }
+      } else {
+        groups = selection;
       }
 
       var samplesTable = document.getElementById("samples-table");
@@ -762,11 +921,11 @@
       var config = {
         editable: false,
         modeBarButtons: [
-          ["toImage", buttonsToAdd["save_html"]],
+          ["toImage", buttonsToAdd["save_svg"], buttonsToAdd["save_html"]],
           ["zoom2d", "pan2d", "select2d", "lasso2d", buttonsToAdd["clear_sel"]],
           ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
           ["hoverClosestCartesian", "hoverCompareCartesian"],
-          ["edit", "recolor", "move_down"]
+          ["edit", "recolor", "opacity", "move_down"]
           .map(key => buttonsToAdd[key])],
         modeBarButtonsToRemove: [],
       };
@@ -798,6 +957,49 @@
         if (traitDropdown != null) {
           delete dropdowns["samples-table"][colIndex];
         }
+      }
+    }
+
+    function coreSet() {
+      const coreSize = parseInt(document.getElementById("core-n").value);
+      const coreMarkers = document.querySelector("input[name='core_k']:checked");
+
+      var include = [];
+      document.querySelectorAll(".core_include-checkbox:checked").forEach( function(cbox) {
+        include = [...include, ...JSON.parse(cbox.value)];
+      });
+      var exclude = [];
+      document.querySelectorAll(".core_exclude-checkbox:checked").forEach( function(cbox) {
+        exclude = [...exclude, ...JSON.parse(cbox.value)];
+      });
+
+      if (coreMarkers == null) {
+        alert("Choose a marker set to use for distance calculation.");
+      } else if (isNaN(coreSize)) {
+        alert("Enter a valid size of core set.");
+      } else {
+        var request = $.ajax({
+          url: "{{ url_for('make_core') }}",
+          method: "GET",
+          data: {
+            genome: genome,
+            markers: coreMarkers.value,
+            size: coreSize,
+            include: JSON.stringify(include),
+            exclude: JSON.stringify(exclude),
+          },
+          success: function(data) {
+            var [coreSet, errors] = data;
+            if (errors) {
+              alert(errors);
+            } else {
+              filterSamplesTable(coreSet);
+              if (document.getElementById("samples-table").classList.contains("collapsed")) {
+                toggleSamp();
+              }
+            }
+          }
+        });
       }
     }
 
@@ -938,6 +1140,7 @@
       document.getElementById("samples-table").classList.add("collapsed");
       document.getElementById("plot-div").classList.remove("collapsed");
       var showCorr = document.getElementById("show-corr").checked;
+      var cluster = document.getElementById("cluster").checked;
 
       var corrWith = getTraitChoice();
       if (traitChoice == null) {
@@ -957,13 +1160,14 @@
             genome: genome,
             traits: JSON.stringify(traitChoice),
             corrwith: JSON.stringify(corrWith),
+            cluster: JSON.stringify(cluster),
           },
           success: function(data) {
             var [correl, labels] = data;
             var trace = {
               type: "heatmap",
               z: correl.reverse(),
-              x: traitChoice,
+              x: heatmap ? traitChoice : labels,
               y: labels.slice().reverse(),
               showscale: true,
               colorscale: [
@@ -996,7 +1200,7 @@
             var config = {
               editable: false,
             modeBarButtons: [
-              ["toImage", buttonsToAdd["save_html"]],
+              ["toImage", buttonsToAdd["save_svg"], buttonsToAdd["save_html"]],
               ["zoom2d", "pan2d", "select2d", "lasso2d", buttonsToAdd["clear_sel"]],
               ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
               ["hoverClosestCartesian", "hoverCompareCartesian"],
@@ -1184,11 +1388,11 @@
           var config = {
             editable: false,
             modeBarButtons: [
-              ["toImage", buttonsToAdd["save_html"]],
+              ["toImage", buttonsToAdd["save_svg"], buttonsToAdd["save_html"]],
               ["zoom2d", "pan2d", "select2d", "lasso2d", buttonsToAdd["clear_sel"]],
               ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
               ["hoverClosestCartesian", "hoverCompareCartesian"],
-              ["edit", "recolor", "legend", "m_size", "move_down", "_delete"]
+              ["edit", "recolor", "opacity", "legend", "m_size", "move_down", "_delete"]
               .map(key => buttonsToAdd[key])],
             modeBarButtonsToRemove: [],
           };
@@ -1350,11 +1554,11 @@
           var config = {
             editable: false,
             modeBarButtons: [
-              ["toImage", buttonsToAdd["save_html"]],
+              ["toImage", buttonsToAdd["save_svg"], buttonsToAdd["save_html"]],
               ["zoom2d", "pan2d", "select2d", "lasso2d", buttonsToAdd["clear_sel"]],
               ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
               ["hoverClosestCartesian", "hoverCompareCartesian"],
-              ["edit", "recolor", "legend", "move_down", "_delete"]
+              ["edit", "recolor", "opacity", "legend", "move_down", "_delete"]
               .map(key => buttonsToAdd[key])],
             modeBarButtonsToRemove: [],
           };
@@ -1574,11 +1778,11 @@
       var config = {
         editable: false,
         modeBarButtons: [
-          ["toImage", buttonsToAdd["save_html"]],
+          ["toImage", buttonsToAdd["save_svg"], buttonsToAdd["save_html"]],
           ["zoom2d", "pan2d", "select2d", "lasso2d", buttonsToAdd["clear_sel"]],
           ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
           ["hoverClosestCartesian", "hoverCompareCartesian"],
-          ["edit", "recolor"]
+          ["edit", "recolor", "opacity"]
           .map(key => buttonsToAdd[key])],
         modeBarButtonsToRemove: [],
       };
@@ -1593,6 +1797,7 @@
       var traitChoice = getTraitChoice();
       var numPCs = parseInt(document.getElementById("num-pc").value);
       var numTraits = traitChoice.length;
+      var showLoadings = document.getElementById("show-loadings").checked;
 
       if (isNaN(numPCs)) {
         numPCs = Math.min(numTraits, 10);
@@ -1855,14 +2060,111 @@
 //      }
 //
 
+      // Calculate and add loadings
+      if (showLoadings) {
+        var loadingScale = Math.min(
+          Math.max(...PC1Vals.map(Math.abs)),
+          Math.max(...PC2Vals.map(Math.abs))
+        );
+        if (numPCs > 2) {
+          loadingScale = Math.min(
+            loadingScale,
+            Math.max(...PC3Vals.map(Math.abs))
+          );
+        }
+  
+        var loadingsPC1 = vectors[0].vector;
+        var loadingsPC2 = vectors[1].vector;
+        if (numPCs > 2) {
+          var loadingsPC3 = vectors[2].vector;
+        }
+
+        var maxLoading = Math.max(
+          Math.max(...loadingsPC1.map(Math.abs)),
+          Math.max(...loadingsPC2.map(Math.abs))
+        );
+        if (numPCs > 2) {
+          maxLoading = Math.max(
+            maxLoading,
+            Math.max(...loadingsPC3.map(Math.abs))
+          );
+        }
+
+        loadingScale = loadingScale * 0.9 / maxLoading;
+  
+        var loadingX = loadingsPC1.map(v => v * loadingScale);
+        var loadingY = loadingsPC2.map(v => v * loadingScale);
+  
+        if (numPCs > 2) {
+          var loadingZ = loadingsPC3.map(v => v * loadingScale);
+        }
+  
+        var loadingTraces = [];
+        for (let i = 0; i < traitChoice.length; i++) {
+          var loadingTrace = {
+            x: [0, loadingX[i]],
+            y: [0, loadingY[i]],
+            mode: "lines",
+            type: numPCs > 2 ? "scatter3d" : "scatter",
+            line: {
+              width: 2,
+              color: "red",
+            },
+            showlegend: false,
+            hoverinfo: "text",
+            text: traitChoice[i],
+          };
+          if (numPCs > 2) {
+            loadingTrace.z = [0, loadingZ[i]];
+          }
+          loadingTraces.push(loadingTrace);
+
+          if (numPCs <= 2) {
+            // Label at arrow tip
+            var labelTrace = {
+              x: [loadingX[i]],
+              y: [loadingY[i]],
+              mode: "text",
+              type: numPCs > 2 ? "scatter3d" : "scatter",
+              text: [traitChoice[i]],
+              textposition: "top center",
+              showlegend: false,
+              hoverinfo: "none",
+              textfont: { size: 10 },
+            };
+            if (numPCs > 2) {
+              labelTrace.z = [loadingZ[i]];
+            }
+            loadingTraces.push(labelTrace);
+          }
+        }
+        if (numPCs > 2) {
+          var loadingLabelTrace = {
+            x: loadingX,
+            y: loadingY,
+            z: loadingZ,
+            type: "scatter3d",
+            mode: "text",
+            text: traitChoice,
+            textposition: "top center",
+            showlegend: false,
+            hoverinfo: "none",
+            textfont: { size: 10 },
+          };
+          loadingTraces.push(loadingLabelTrace);
+        }
+
+        traces = [...traces, ...loadingTraces];
+      }
+
       var config = {
         editable: false,
         modeBarButtons: [
-          ["toImage", buttonsToAdd["save_html"]],
+          ["toImage", buttonsToAdd["save_svg"], buttonsToAdd["save_html"]],
           ["zoom2d", "pan2d", "select2d", "lasso2d", buttonsToAdd["clear_sel"]],
           ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
           ["hoverClosestCartesian", "hoverCompareCartesian"],
-          ["edit", "recolor", "legend", "move_down", "_delete"]
+          ["edit", "recolor", "opacity", "m_size", "legend", "move_down", "_delete"]
           .map(key => buttonsToAdd[key])],
         modeBarButtonsToRemove: [],
       };
@@ -1963,6 +2265,12 @@
       var kqFrom = document.getElementsByName("kq_from");
       if (kqFrom.length > 0) {
         var radioBtn = kqFrom[0];
+        updateTracker(radioBtn.parentElement.parentElement);
+      }
+
+      var coreK = document.getElementsByName("core_k");
+      if (coreK.length > 0) {
+        var radioBtn = coreK[0];
         updateTracker(radioBtn.parentElement.parentElement);
       }
 

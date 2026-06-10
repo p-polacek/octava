@@ -1,3 +1,24 @@
+function percentile(values, p, scaled=false) {
+    const sorted = [...values].sort((a, b) => a - b);
+
+    const pos = (p / 100) * (sorted.length - 1);
+    const lower = Math.floor(pos);
+    const upper = Math.ceil(pos);
+    var perc;
+
+    if (lower === upper) {
+        perc = sorted[lower];
+    } else {
+      const weight = pos - lower;
+      perc = sorted[lower] * (1 - weight) + sorted[upper] * weight;
+    }
+
+    if (scaled) {
+      return (perc - Math.min(...values)) / Math.max(...values)
+    }
+    return perc
+}
+
 function fetchChr() {
   var filtFrom = document.querySelector("input[name='filt_from']:checked");
   if (filtFrom) {
@@ -9,9 +30,11 @@ function fetchChr() {
     var plotChoice = document.getElementById("choice-field").value;
   }
   var chrDiv = document.getElementById("chr-div");
+  var pcaPcDiv = document.getElementById("pca-pc-div");
   var pcaSampDiv = document.getElementById("pca-sample-div");
   if (plotChoice === "ld") {
     chrDiv.classList.remove("collapsed");
+    pcaPcDiv.classList.add("collapsed");
     pcaSampDiv.classList.add("collapsed");
     var chr = document.getElementById("chr-field").value;
     if (markers == null) {
@@ -37,6 +60,7 @@ function fetchChr() {
     })
   } else if (plotChoice == "bdist") {
     chrDiv.classList.remove("collapsed");
+    pcaPcDiv.classList.add("collapsed");
     pcaSampDiv.classList.add("collapsed");
     var chr = document.getElementById("chr-field").value;
     var requests = [];
@@ -59,8 +83,12 @@ function fetchChr() {
     })
   } else {
     chrDiv.classList.add("collapsed");
+    pcaPcDiv.classList.add("collapsed");
     pcaSampDiv.classList.add("collapsed");
     if (plotChoice === "pca") {
+      pcaPcDiv.classList.remove("collapsed");
+      pcaSampDiv.classList.remove("collapsed");
+    } else if (plotChoice === "kin") {
       pcaSampDiv.classList.remove("collapsed");
     }
     showPlot();
@@ -187,6 +215,7 @@ function showPlot() {
   } else if (plotChoice === "pca") {
     var[plottedSamples, PCAdata, PVEs] = data;
     var sampleGroupChoice = [];
+    var showLabels = document.getElementById("show-labels").checked;
     var pcNumChoice = document.querySelectorAll("input[name='pc_nums']:checked");
     var pcNums = [...pcNumChoice].map(v => parseInt(v.value));
     document.querySelectorAll(".sample_group-checkbox").forEach( function(cbox) {
@@ -217,6 +246,7 @@ function showPlot() {
       y: PCAdata[pcNums[1]].filter((v, i) => sampleChoice.includes(plottedSamples[i])),
       name: "<i>All samples</i>",
       type: "scatter",
+      traceType: "PCA",
       mode: "markers",
       text: sampleChoice,
       opacity: opacity,
@@ -234,7 +264,7 @@ function showPlot() {
     }
 
     if (pcNums.length > 2) {
-      trace.z = PCAdata[pcNums[2]];
+      trace.z = PCAdata[pcNums[2]].filter((v, i) => sampleChoice.includes(plottedSamples[i]));
       trace.type = "scatter3d";
       trace.marker.size = 4;
     }
@@ -249,6 +279,7 @@ function showPlot() {
           y: PCAdata[pcNums[1]].filter((_, idx) => members.includes(plottedSamples[idx])),
           name: groupName,
           type: "scatter",
+          traceType: "PCA",
           mode: "markers",
           text: plottedSamples.filter(v => members.includes(v)),
           opacity: opacity,
@@ -271,6 +302,57 @@ function showPlot() {
           trace.marker.size = 4;
         }
         traces.push(trace);
+      }
+    }
+
+    if (showLabels) {
+      // Traces of labels
+      var trace = {
+        x: PCAdata[pcNums[0]].filter((v, i) => sampleChoice.includes(plottedSamples[i])),
+        y: PCAdata[pcNums[1]].filter((v, i) => sampleChoice.includes(plottedSamples[i])),
+        name: "<i>All samples</i>",
+        type: "scatter",
+        mode: "text",
+        text: sampleChoice,
+        showlegend: legend,
+        textposition: "top right",
+        textfont: {
+          size: 11
+        },
+        hoverinfo: "skip",
+        visible: true,
+      };
+      if (pcNums.length > 2) {
+        trace.z = PCAdata[pcNums[2]].filter((v, i) => sampleChoice.includes(plottedSamples[i]));
+        trace.type = "scatter3d";
+      }
+      traces.push(trace);
+
+      if (sampleGroupChoice.length > 0 && trait == null) {
+        for (var [idx, group] of sampleGroupChoice.entries()) {
+          var [members, groupName] = group;
+          var trace = {
+            x: PCAdata[pcNums[0]].filter((_, idx) => members.includes(plottedSamples[idx])),
+            y: PCAdata[pcNums[1]].filter((_, idx) => members.includes(plottedSamples[idx])),
+            name: groupName,
+            type: "scatter",
+            mode: "text",
+            text: plottedSamples.filter(v => members.includes(v)),
+            showlegend: legend,
+            textposition: "top right",
+            textfont: {
+              size: 11
+            },
+            hoverinfo: "skip",
+            visible: true,
+          }
+
+          if (pcNums.length > 2) {
+            trace.z = PCAdata[pcNums[2]].filter((_, idx) => members.includes(plottedSamples[idx]));
+            trace.type = "scatter3d";
+          }
+          traces.push(trace);
+        }
       }
     }
 
@@ -393,7 +475,12 @@ function showPlot() {
           [1, "rgb(238,62,10)"]
         ];
         trace.marker.colorbar = {
-          title: "Phenotype",
+          title: {
+            text: "Phenotype",
+            font: {
+              size: 12,
+            },
+          },
           x: 1.1,
           xref: "paper",
         };
@@ -402,29 +489,31 @@ function showPlot() {
     }
 
   } else if (plotChoice === "kin") {
-    //var filt = ['GPC000030', 'GPC006530', 'GPC005200', 'GPC003300', 'GPC008400', 'GPC003370', 'GPC000280', 'GPC000300', 'GPC022320', 'GPC022660', 'GPC022480', 'GPC001460', 'GPC035440', 'GPC045230', 'GPC003910', 'GPC005130', 'GPC008580', 'GPC029030', 'GPC003030', 'GPC010110', 'GPC003050', 'GPC017170', 'GPC007520', 'GPC007580', 'GPC073010', 'GPC093160', 'GPC010190', 'GPC017030', 'GPC017680', 'GPC017710', 'GPC060460', 'GPC007370', 'GPC117100', 'GPC003500', 'GPC027630', 'GPC000150', 'GPC017910', 'GPC019610', 'GPC020060', 'GPC007810', 'GPC008090', 'GPC007880', 'GPC007840', 'GPC015880', 'GPC027390'];
-    //const indices = data[1]
-    //  .map((l, i) => filt.includes(l) ? i : -1)
-    //  .filter(i => i !== -1);
-    //var newMatrix = indices.map(rowIdx =>
-    //  indices.map(colIdx => data[0][rowIdx][colIdx]));
-    //data = [
-    //  newMatrix,
-    //  data[1].filter(l => filt.includes(l))];
+    var zVals = data[0].flat();
+
+    var sampleGroupChoice = [];
+    document.querySelectorAll(".sample_group-checkbox").forEach( function(cbox) {
+      if (cbox.checked) {
+        var samplesList = JSON.parse(cbox.value);
+        sampleGroupChoice.push(
+          [
+            samplesList,
+            cbox.nextElementSibling.textContent]);
+      }
+    });
+    var groupNum = sampleGroupChoice.length;
+    var trait = document.querySelector("input[name='by_phe']:checked");
 
     var trace = {
       type: "heatmap",
       z: data[0],
       x: data[1],
       y: data[1],
-      //colorscale: [
-      //  [0, "#60cdcd"],
-      //  [0.5, "ffffff"],
-      //  [1, "#e27267"],
-      //],
+      zmin: percentile(zVals, 1),
+      zmax: percentile(zVals, 99),
       colorbar: {
         title: {
-          text: "Hamming<br>distance",
+          text: "Kinship",
           font: {
             size: 12,
           },
@@ -432,17 +521,113 @@ function showPlot() {
       },
     };
     traces.push(trace);
+
+    if (groupNum > 0) {
+      const groupSets = sampleGroupChoice.map(g => new Set(g[0]));
+
+      var groupMatrix = data[1].map(samp =>
+          groupSets.map(group => group.has(samp) ? 1 : 0)
+      );
+
+      var groupTrace = {
+        type: "heatmap",
+        z: groupMatrix,
+        x: sampleGroupChoice.map(g => g[1]),
+        y: data[1],
+        showscale: false,
+        zmin: 0,
+        zmax: 1,
+        colorscale: [
+          [0, "white"],
+          [0.5, "white"],
+          [0.5, "red"],
+          [1, "red"]
+        ],
+        xaxis: "x2",
+      };
+      traces.push(groupTrace);
+    }
+    if (trait != null) {
+
+      traitIndex = pheCols[trait.value];
+      if (traitIndex !== -1) {
+        var traceMatrix = data[1].map(s => [pheData[s][traitIndex]]);
+
+        var pheTrace = {
+          type: "heatmap",
+          z: traceMatrix,
+          x: ["Phenotype"],
+          y: data[1],
+          showscale: true,
+          colorscale: [
+            [0, "rgb(242,242,187)"],
+            [0.5, "rgb(245,184,78)"],
+            [1, "rgb(238,62,10)"]
+          ],
+          xaxis: "x3",
+          colorbar: {
+            title: {
+              text: "Phenotype",
+              font: {
+                size: 12,
+              },
+            },
+            x: 1.15 ,
+            xref: "paper",
+          },
+        };
+        traces.push(pheTrace);
+      }
+    }
+
     var layout = {
       xaxis: {
         tickangle: -45,
+        minallowed: -0.5,
+        maxallowed: data[1].length - 0.5,
       },
       yaxis: {
         tickangle: -45,
+        minallowed: -0.5,
+        maxallowed: data[1].length - 0.5,
       },
       margin: {
         t: 30,
         pad: 4
       },
+    }
+
+    var numCols = groupNum + (trait == null ? 0 : 1);
+    var offset = numCols / 50;
+    if (groupNum > 0) {
+      offset += 0.02;
+    }
+    if (trait != null) {
+      offset += 0.02;
+    }
+
+    if (offset) {
+      var xBound = Math.max(1 - offset, 0.5);
+      layout.xaxis.domain = [0, xBound];
+
+      if (groupNum > 0) {
+        var x2Bound = trait == null ? 1 : 0.98 - (0.96 - xBound) / numCols;
+        layout.xaxis2 = {
+          domain: [xBound + 0.02, x2Bound],
+          tickangle: -45,
+          type: "category",
+          tickmode: "array",
+          tickvals: sampleGroupChoice.map(g => g[1]),
+          ticktext: sampleGroupChoice.map(g => g[1]),
+        }
+      }
+      if (trait != null) {
+        var x3Bound = groupNum === 0 ? xBound : x2Bound;
+        layout.xaxis3 = {
+          domain: [x3Bound + 0.02, 1],
+          tickangle: -45,
+        }
+      }
     }
   } else if (plotChoice === "bdist") {
     var chr = document.getElementById("chr-field").value;
@@ -625,18 +810,31 @@ function showPlot() {
   var config = {
     editable: false,
     modeBarButtons: [
-      ["toImage", buttonsToAdd["save_html"]],
+      ["toImage", buttonsToAdd["save_svg"], buttonsToAdd["save_html"]],
       ["zoom2d", "pan2d", "select2d", "lasso2d", buttonsToAdd["clear_sel"]],
-      ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
-      ["edit", "recolor", "legend"].map(key => buttonsToAdd[key])],
+      ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"]],
     modeBarButtonsToRemove: [],
   };
-  if (plotChoice === "pca") {
+  if (plotChoice === "kin") {
+    config.modeBarButtons.push(
+      ["edit", "legend"].map(key => buttonsToAdd[key])
+    );
+  } else {
+    config.modeBarButtons.push(
+      ["edit", "recolor", "legend"].map(key => buttonsToAdd[key])
+    );
+  }
+  if (plotChoice === "dens") {
+    //config.modeBarButtons[3].push(buttonsToAdd["reshade"]);
+  } else if (plotChoice === "pca") {
+    config.modeBarButtons[3].push(buttonsToAdd["opacity"]);
     config.modeBarButtons[3].push(buttonsToAdd["pve"]);
     config.modeBarButtons[3].push(buttonsToAdd["m_size"]);
+    config.modeBarButtons[3].push(buttonsToAdd["m_symbol"]);
     config.modeBarButtons[3].push(buttonsToAdd["move_down"]);
-  }
-  if (plotChoice === "baf") {
+    config.modeBarButtons[3].push(buttonsToAdd["_delete"]);
+  } else if (plotChoice === "baf") {
+    config.modeBarButtons[3].push(buttonsToAdd["opacity"]);
     config.modeBarButtons[3].push(buttonsToAdd["group"]);
     config.modeBarButtons[3].push(buttonsToAdd["move_down"]);
     config.modeBarButtons[3].push(buttonsToAdd["_delete"]);

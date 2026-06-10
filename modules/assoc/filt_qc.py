@@ -10,13 +10,14 @@ import bed_reader
 import subprocess
 import numpy as np
 import pandas as pd
+import scipy.cluster.hierarchy as hierarchy
+from scipy.spatial.distance import squareform
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from app.dirs import data_dir, tmp_dir, tool_dir, plink1_path, plink2_path
 
 from modules.mem import get_mem
-from modules.wpgma import wpgma
 from modules.block import win_block, block_genotype
 from modules.load_input import load_gdata, load_config
 from modules.assoc.assoc_qc import run_qc, calc_chr_ld
@@ -462,37 +463,52 @@ def filt_qc(genome, data, task_id, mem=0):
         json.dump([samples, eigenvec, eigenval], pca_out)
 
     # Cluster kinship matrix
-    hamm_out = os.path.join(gt_stats_dir, "kin")
+    lab = pd.read_csv(f"{plink_out}.rel.id", sep="\t")["IID"].to_numpy()
+    k_matr = rel_matrix.to_numpy()
+    d_matr = np.max(k_matr) - k_matr
 
-    subprocess.run(
-        [
-            plink1_path,
-            "--memory",
-            f"{mem}",
-            "--bfile",
-            kin_in,
-            "--distance",
-            "square",
-            "--allow-extra-chr",
-            "--out",
-            hamm_out,
-        ],
-        check=True,
-    )
+    d_cond = squareform(d_matr, checks=False)
+    z_matr = hierarchy.linkage(d_cond, method="average")
 
-    hamm_matrix = np.loadtxt(f"{hamm_out}.dist", delimiter="\t")
-    hamm_labels = pd.read_csv(f"{hamm_out}.dist.id", sep="\t", header=None)[1].tolist()
-    kin_matrix = (
-        pd.DataFrame(hamm_matrix)
-        .set_axis(hamm_labels, axis=0)
-        .set_axis(hamm_labels, axis=1)
-    )
+    order = hierarchy.leaves_list(z_matr)
 
-    tree, label_order = wpgma(hamm_matrix, hamm_labels)
+    k_sorted = k_matr[order][:, order]
+    l_sorted = lab[order]
 
-    kin_matrix = kin_matrix.loc[label_order, label_order]
-    with open(f"{hamm_out}", "w") as matr_out:
-        json.dump([kin_matrix.values.tolist(), label_order], matr_out)
+    with open(os.path.join(gt_stats_dir, "kin"), "w") as matr_out:
+        json.dump([k_sorted.tolist(), l_sorted.tolist()], matr_out)
+
+    #hamm_out = os.path.join(gt_stats_dir, "kin")
+
+    #subprocess.run(
+    #    [
+    #        plink1_path,
+    #        "--memory",
+    #        f"{mem}",
+    #        "--bfile",
+    #        kin_in,
+    #        "--distance",
+    #        "square",
+    #        "--allow-extra-chr",
+    #        "--out",
+    #        hamm_out,
+    #    ],
+    #    check=True,
+    #)
+
+    #hamm_matrix = np.loadtxt(f"{hamm_out}.dist", delimiter="\t")
+    #hamm_labels = pd.read_csv(f"{hamm_out}.dist.id", sep="\t", header=None)[1].tolist()
+    #kin_matrix = (
+    #    pd.DataFrame(hamm_matrix)
+    #    .set_axis(hamm_labels, axis=0)
+    #    .set_axis(hamm_labels, axis=1)
+    #)
+
+    #tree, label_order = wpgma(hamm_matrix, hamm_labels)
+
+    #kin_matrix = kin_matrix.loc[label_order, label_order]
+    #with open(f"{hamm_out}", "w") as matr_out:
+    #    json.dump([kin_matrix.values.tolist(), label_order], matr_out)
 
     print("<b>Saving summary</b>")
     # Create file describing the filtering parameters
@@ -604,6 +620,16 @@ def filt_qc(genome, data, task_id, mem=0):
         if os.path.exists(fn_path):
             os.remove(fn_path)
 
+    coord = {}
+    if data["coord"]:
+        coord_df = (pd
+          .read_csv(coord_inc, sep="\t", header=None)
+          .set_axis(["Chr", "Start", "End"], axis=1))
+        coord_df["Chr"] = coord_df["Chr"].astype(str)
+
+        for ch, regions in coord_df.groupby("Chr"):
+            coord[ch] = regions["End"].max() - regions["Start"].min() + 1
+
     if data["hap"]:
         #        for ext in (
         #          ".bed",
@@ -618,9 +644,9 @@ def filt_qc(genome, data, task_id, mem=0):
         #              os.path.join(filt_dir, "gt" + ext),
         #              fn_path)
 
-        calc_chr_ld(genome, markers=data["name"], load_ext=data["run_ext"], mem=mem)
+        calc_chr_ld(genome, markers=data["name"], coord=coord, load_ext=data["run_ext"], mem=mem)
     else:
-        run_qc(genome, task_id, markers=data["name"], load_ext=data["run_ext"])
+        run_qc(genome, task_id, markers=data["name"], coord=coord, load_ext=data["run_ext"])
 
     # Change chromosomes to numeric (required by some GWAS tools)
     chr_rename = {ch: idx for idx, ch in enumerate(gdata["chr_names"], start=1)}

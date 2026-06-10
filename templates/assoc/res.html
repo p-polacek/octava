@@ -132,7 +132,10 @@
                 {{ form.plot_thr(
                   id="thresh",
                   class="small-num-input",
-                  onchange="updateThresh(this.value);") }}
+                  onchange="
+                    if(document.getElementById('as-circ').checked) { showPlot(); }
+                    else { updateThresh(this.value); }") 
+                      }}
               </div>
 {# ========================================================= Plot as groups #}
               <div class="row-div">
@@ -151,6 +154,28 @@
               <div class="row-div mini-padded-top">
                 <div class="row-input-div justified">
                   <label
+                   for="as-circ"
+                   class="default-label bold" >
+                    Plot a circular plot
+                  </label>
+                  <input
+                   type="checkbox"
+                   id="as-circ"
+                   onclick="
+                    document.getElementById('as-group').checked = '';
+                    document.getElementById('grouping-opt-div').classList.add('collapsed');
+                    document.getElementById('sgl-opt-div').classList.remove('collapsed');">
+                </div>
+                {#
+                <img
+                  class="aux-button clickable"
+                  src="{{ url_for('serve_button', button='help') }}"
+                  onclick="showHelp(event, 'as-group');" />
+                #}
+              </div>
+              <div class="row-div mini-padded-top">
+                <div class="row-input-div justified">
+                  <label
                    for="as-group"
                    class="default-label bold" >
                     Plot a bubble plot
@@ -159,6 +184,7 @@
                    type="checkbox"
                    id="as-group"
                    onclick="
+                    document.getElementById('as-circ').checked = '';
                     document.getElementById('grouping-opt-div')
                     .classList.toggle('collapsed', !this.checked);
                     document.getElementById('sgl-opt-div')
@@ -493,6 +519,13 @@
     var genome = '{{ genome }}';
     var visibleDropdown = null;
     var mplotData = {};
+
+    // Polar layout constants
+    const GAP_DEG = 2;
+    const TRACK_PAD = 2;
+    const MARKER_SIZE = 4.5;
+    const INNER_RADIUS = 4;
+    const TRACK_HEIGHT = 8;
 {# ================================================== Static plot functions #}
     function toggleStatic() {
       var liveDiv = document.getElementById("live-plot");
@@ -543,7 +576,9 @@
       document.getElementById("live-plot").classList.remove("collapsed");
 
       var asGroup = document.getElementById("as-group").checked;
+      var asCirc  = document.getElementById("as-circ").checked;
       var thresh  = Math.max(0, document.getElementById("min-sig").value);
+      var thrLine = document.getElementById("thresh").value;
       var window  = Math.max(0, document.getElementById("window-bbl").value);
       var minSize = Math.max(0, document.getElementById("min-size").value);
       var plotEff = document.getElementById("plot-eff").checked;
@@ -675,7 +710,6 @@
         });
 
         requests.push(request);
-
 {# ============================================================= Individual #}
       } else {
         checkedBoxes(".trait_group-option").forEach( function(group) {
@@ -747,9 +781,252 @@
       }
 {# ========================================================== Assemble plot #}
       $.when.apply($, requests).done(function() {
-        var lastChrom = chrNames[chrNames.length - 1];
-        var xMax = chrOffsets.slice(-1)[0] + chrSizes.slice(-1)[0];
+        if (asCirc) {
+          var circSizes = chrSizes.filter( (n, i) => !concatNames.includes(chrNames[i]) );
+          const otherSize = chrSizes
+            .filter( (s, i) => concatNames.includes(chrNames[i]) )
+            .reduce( (s, c) => s + c, 0);
+          circSizes.push(otherSize);
 
+          // Angle mapping
+          const totalLength = circSizes.reduce((s,c) => s + c, 0);
+          const usableDeg = 360 - GAP_DEG * plotNames.length;
+
+          let angle = 0;
+          const chrLayout = {};
+          for (let i = 0; i < plotNames.length; i++) {
+            const span = usableDeg * (circSizes[i] / totalLength);
+            chrLayout[plotNames[i]] = { start: angle, end: angle + span };
+            angle += span + GAP_DEG;
+          }
+
+          // Scale values so each ring has equal thickness
+          function gwasPolar(data) {
+            let newData = data.map( d => {
+              if (plotNames.includes(d[1])) {
+                return d;
+              } else {
+                let newD = [d[0], "Other"];
+                newD.push(d[2] + chrOffsets[d[1]] - chrOffsets[concatNames[0]]);
+                return newD;
+              }
+            });
+            return newData.map(d => {
+              const chrLen = circSizes[plotNames.indexOf(d[1])];
+              const { start, end } = chrLayout[d[1]];
+
+              const theta = start + (d[2] / chrLen) * (end - start);
+
+              return theta;
+            });
+          }
+
+          function makeGwasTrace(data, rBase, color, key, traceIdx, thr) {
+            const maxLogP = Math.max(thr, ...data.map(d => d[0]));
+            const theta = gwasPolar(data);
+
+            var isHap = isHapDict[key[0]];
+            var traceName = [...key];
+            traceName[1] = modelsDict[traceName[1]];
+            var visName = traceName.join(", ");
+            return {
+              type: "scatterpolargl",
+              mode: "markers",
+              name: visName,
+              Id: key,
+              legendgroup: traceName.join(", "),
+              traceType: "mp_sgl",
+              r: data.map(d => rBase + (d[0] / maxLogP) * TRACK_HEIGHT  / 1.05),
+              theta,
+              maxLogP,
+              rBase,
+              thr,
+              text: data.map(i => {
+                if (1 || i[0] >= thrLine) {
+                  if (isHap) {
+                    return `${i[1]}:${i[2]
+                     .toString()
+                     .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}-${i[3]
+                     .toString()
+                     .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}_${i[4]}<br>${visName}`;
+                  } else {
+                    return `${i[1]}:${i[2]
+                     .toString()
+                     .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}<br>${visName}`;
+                   }
+                 } else {
+                   return null;
+                 }
+              }),
+              hoverinfo: "text",
+              customdata: data.map(d => [d[0].toFixed(6)]),
+              hovertemplate: "%{text}<br>Value: %{customdata[0]}",
+              hoverlabel: {
+                namelength: 0,
+                bgcolor: "white",
+              },
+              marker: {
+                color: colorCycle[traceIdx % 10],
+                size: MARKER_SIZE,
+                symbol: Math.floor(traceIdx / 10),
+                opacity: null,
+              },
+              visible: true,
+            };
+          }
+
+          // Per-track chromosome shading
+          function chromosomeShadingPerTrack(rBase) {
+            const n = 90;
+
+            let thetaAll = [];
+            let rAll = [];
+
+            plotNames.forEach((c, i) => {
+              if (i % 2 === 0) return;
+
+              const { start, end } = chrLayout[c];
+
+              const thetaOuter = Array.from({ length: n }, (_, j) =>
+                start + (end - start) * j / (n - 1)
+              );
+              const thetaInner = thetaOuter.slice().reverse();
+
+              const rOuter = Array(n).fill(rBase + TRACK_HEIGHT);
+              const rInner = Array(n).fill(rBase);
+
+              // concatenate polygon
+              thetaAll.push(...thetaOuter, ...thetaInner, null);
+              rAll.push(...rOuter, ...rInner, null);
+            });
+
+            return {
+              type: "scatterpolar",
+              mode: "lines",
+              traceType: "shade_polar",
+              rBase,
+              theta: thetaAll,
+              r: rAll,
+              fill: "toself",
+              fillcolor: "#000",
+              opacity: 0.05,
+              line: { width: 0 },
+              hoverinfo: "skip",
+              showlegend: false
+            };
+          }
+
+          // Significance lines broken per chromosome
+          function makeThr(thr, rBase, data) {
+            const maxLogP = Math.max(thr, Math.max(...data.map(d => d[0]) ));
+            return {
+              type: "scatterpolargl",
+              mode: "lines",
+              traceType: "thr_polar",
+              theta: Array.from({ length: 91 }, (_, i) => i * 4),
+              r: Array(91).fill(rBase + (thr / maxLogP) * TRACK_HEIGHT / 1.05),
+              rBase,
+              line: { color: "red", width: 1 },
+              hoverinfo: "skip",
+              showlegend: false };
+          }
+
+          // Build plot
+          dataKeys = dataKeys.filter(k => mplotData[JSON.stringify(k)] != null);
+          const nTracks = dataKeys.length;
+          const trackBases = Array.from({ length: nTracks }, (_, i) => INNER_RADIUS + i * (TRACK_HEIGHT + TRACK_PAD));
+          const MAX_R = trackBases[nTracks - 1] + TRACK_HEIGHT;
+
+          const traces = [];
+
+          for (let i = 0; i < dataKeys.length; i++) {
+            var stringKey = JSON.stringify(dataKeys[i]);
+            var data = mplotData[stringKey];
+            traces.push(makeGwasTrace(data, trackBases[i], colorCycle[i % 10], dataKeys[i], i, thrLine));
+          }
+          for (let i = 0; i < dataKeys.length; i++) {
+            var stringKey = JSON.stringify(dataKeys[i]);
+            var data = mplotData[stringKey];
+            traces.push(chromosomeShadingPerTrack(trackBases[i]));
+            traces.push(makeThr(thrLine, trackBases[i], data));
+          }
+
+          // Break long legend titles by newlines
+          for (i = 0; i < traces.length; i++) {
+            if (traces[i].name != null) {
+              traces[i].name = traces[i].name.replace(/(.{10,}?)[\s\_\-]/g, "$1<br>");
+            }
+          }
+
+          // Chromosome labels
+          if (traces.length > 0) {
+            const r = MAX_R * 1.05;
+            const thetas = plotNames.map(c => (chrLayout[c].start + chrLayout[c].end) / 2);
+            const rs = plotNames.map(_ => r);
+            const texts = plotNames;
+
+            traces.push({
+              type: "scatterpolargl",
+              mode: "text",
+              traceType: "label_polar",
+              theta: thetas,
+              r: rs,
+              text: texts,
+              textposition: "middle center",
+              textfont: { size: 12, color: "black" },
+              showlegend: false,
+              hoverinfo: "skip"
+            });
+          }
+
+          // Layout
+          const layout = {
+           MAX_R: MAX_R * 1.15,
+            polar: {
+              radialaxis: {
+                visible: false,
+                range: [0, MAX_R * 1.15]
+              },
+              angularaxis: {
+                rotation: 90,
+                direction: "clockwise",
+                showticklabels: false,
+                showgrid: false,
+                ticks: "",
+                linewidth: 0,
+              }
+            },
+            margin: { t: 30, b: 0, l: 0, r: 0 },
+            showlegend: true,
+          };
+
+          var customButtons = ["edit", "recolor", "legend", "m_size", "m_symbol", "group_polar", "move_down_polar"];
+          var config = {
+            editable: false,
+            modeBarButtons: [
+              ["toImage", buttonsToAdd["save_svg"], buttonsToAdd["save_html"]],
+              ["zoom2d", "pan2d", "select2d", "lasso2d", buttonsToAdd["clear_sel"], buttonsToAdd["reset_polar"]],
+              ["hoverClosestCartesian", "hoverCompareCartesian"],
+              customButtons.map(key => buttonsToAdd[key])],
+            modeBarButtonsToRemove: [],
+          };
+
+          if (traces.length > 0) {
+            document.getElementById("live-plot").innerHTML = "";
+            Plotly.newPlot("live-plot", traces, layout, config);
+            //Plotly.moveTraces(
+            //  "live-plot",
+            //  [...Array(traces.length).keys()],
+            //  [...Array(traces.length).keys()].reverse(),
+            //);
+            replaceLocus = true;
+          } else {
+            document.getElementById("live-plot").innerHTML = '<h1 class="center-text">Select analysis results</h1><div class="centered-div"><img class="assoc-icon" src="{{ url_for('static', filename='icons/assoc.png') }}" alt=""></div>';
+          }
+          return;
+        }
+
+        var xMax = chrOffsets.slice(-1)[0] + chrSizes.slice(-1)[0];
         dataKeys = dataKeys.filter(k => mplotData[JSON.stringify(k)] != null);
 
         if (!selOnly) {
@@ -760,7 +1037,6 @@
             yMax = Math.max(yMax, data[0][0]);
 
             var traceName = [...key];
-            var thresh = document.getElementById("thresh").value;
             traceName[1] = modelsDict[traceName[1]];
             var visName = traceName.join(", ");
             var trace = {
@@ -780,7 +1056,7 @@
               }),
               y: data.map(i => Math.abs(i[0])),
               text: data.map(i => {
-                if (1 || i[0] >= thresh) {
+                if (1 || i[0] >= thrLine) {
                   if (isHap) {
                     return `${i[1]}:${i[2]
                      .toString()
@@ -1025,17 +1301,13 @@
         }
         layout.shapes = spanShapes;
 
-        var thresh = document.getElementById("thresh").value;
-        if (thresh == null) {
-          thresh = -1;
-        }
         layout.shapes.push({
           type: "line",
           shapeType: "thresh",
           x0: 0,
           x1: 1,
-          y0: thresh,
-          y1: thresh,
+          y0: thrLine,
+          y1: thrLine,
           yaxis: "y2",
           xref: "paper",
           yref: "y2",
@@ -1045,11 +1317,11 @@
           },
         });
 
-      var customButtons = ["edit", "recolor", "legend", "reshade", "m_size", "group_mp", "move_down", "_delete"];
+      var customButtons = ["edit", "recolor", "opacity", "legend", "reshade", "m_size", "m_symbol", "group_mp", "move_down", "_delete"];
       var config = {
         editable: false,
         modeBarButtons: [
-          ["toImage", buttonsToAdd["save_html"]],
+          ["toImage", buttonsToAdd["save_svg"], buttonsToAdd["save_html"]],
           ["zoom2d", "pan2d", "select2d", "lasso2d", buttonsToAdd["clear_sel"]],
           ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
           ["hoverClosestCartesian", "hoverCompareCartesian"],

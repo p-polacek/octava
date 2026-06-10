@@ -165,6 +165,10 @@ class TraitViewForm(FlaskForm):
     trait_group = MultiCheckboxField("Trait group:", choices=[])
     sample = MultiCheckboxField("Sample:", choices=[])
     sample_group = MultiCheckboxField("Sample group:", choices=[])
+    core_k = RadioField("Marker set:", choices=[])
+    core_include = MultiCheckboxField("Include samples:", choices=[])
+    core_exclude = MultiCheckboxField("Exclude samples:", choices=[])
+    core_n = IntegerField("Size of core set:")
     transform = RadioField(
         "Method:",
         choices=[
@@ -186,6 +190,7 @@ class TraitViewForm(FlaskForm):
     kq_from = RadioField("K/Q from:", choices=[])
     cov = MultiCheckboxField("Additional covariates:", choices=[])
     num_pc = IntegerField("Number of PCs:", default=5)
+    loadings = BooleanField("Show loadings")
     num_sd = IntegerField("±SD from the mean >", default=3)
     binthr = FloatField("Threshold:")
     thr_min = FloatField("Minimum:")

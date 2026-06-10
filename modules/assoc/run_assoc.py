@@ -855,7 +855,7 @@ def run_assoc(genome, params, task_id, mem=0):
                 "-miss",
                 "1",
                 "-maf",
-                "0",  # 0.04",
+                "0",
                 "-hwe",
                 "0",
             ]
@@ -871,14 +871,15 @@ def run_assoc(genome, params, task_id, mem=0):
                 else:
                     command += ["-lmm", "1"]
                 command += ["-k", f"{in_root}.kin"]
-            # if not q_matr.empty and model not in ("bslmm", "rr", "bin"):
-            #    command += ["-c", f"{in_root}.cov"]
+            if not q_matr.empty and model not in ("bslmm", "rr", "bin"):
+                command += ["-c", f"{in_root}.cov"]
 
             #if os.path.exists(f"{in_root}.bimbam"):
             #    command += ["-g", f"{in_root}.bimbam", "-a", f"{in_root}.ann"]
             #else:
             command += ["-bfile", in_root]
 
+            print(" ".join(command))
             subprocess.run(command, check=True)
 
             # Save parameters

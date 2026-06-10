@@ -5,6 +5,10 @@ var helpTexts = {
  "cmp-trt":
   "<table><tr><th>Zoom in/out of subplots</th><td>Right-click subplot</td></tr>" +
   "<tr><th>Zoom in/out of correlation</th><td>Right-click plot column</td></tr></table>",
+ "core":
+ "Selects a sample set of specified <i>Size</i> that represents the greatest diversity within the samples.<br>" +
+ "Based on genetic distance data from chosen <i>Marker set</i>.<br>" +
+ "Select samples to <i>Include</i> or <i>Exclude</i> in the core set using dropdowns below.",
  "transform":
   "<table><tr><th>Input traits</th><td>All <i>Traits</i> and <i>Trait groups</i> selected under <i>Compare traits</i></td></tr>" +
   "<tr><th>PCA transform</th><td>PCs are named <i>&lt;trait name prefix&gt;_PC&lt;number&gt;</i></td></tr>" +

@@ -74,7 +74,7 @@
                  onchange="fetchChr();") }}
               </div>
             </div>
-            <span id="pca-sample-div" class="collapsed">
+            <span id="pca-pc-div" class="collapsed">
               <div class="row-div mini-padded-top small-padded-bottom">
                 <button
                  type="button"
@@ -116,6 +116,19 @@
                   {% endfor %}
                 </div>
               </div>
+              <div class="row-input-div justified">
+                <label
+                 for="show-labels"
+                 class="default-label bold" >
+                  Show sample labels
+                </label>
+                <input
+                 type="checkbox"
+                 id="show-labels"
+                 onchange="showPlot();">
+              </div>
+            </span>
+            <span id="pca-sample-div" class="collapsed">
               <div class="row-div mini-padded-top">
                 <h3 class="bold">
                   Color:
@@ -692,7 +705,9 @@
       // Set trackers
       for (dropdownType of ["markers_sgl",  "model_sgl", "kq_from", "by_phe"]) {
         var radioBtn = document.getElementsByName(dropdownType)[0];
-        updateTracker(radioBtn.parentElement.parentElement);
+        if (radioBtn != null) {
+          updateTracker(radioBtn.parentElement.parentElement);
+        }
       }
 
       // Show samples list when right-clicking group
