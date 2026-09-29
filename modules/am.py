@@ -6,6 +6,7 @@ import gzip
 import json
 import pysam
 import gffutils
+import operator
 import numpy as np
 import pandas as pd
 from collections import (
@@ -81,6 +82,11 @@ def am_pipeline(genome, form):
     gconfig = load_config(genome)
     gdata = load_gdata(genome)
     query = form.data
+
+    ge_ops = {
+        True: operator.le,
+        False: operator.ge,
+    }
 
     try:
         if query["impact"] != ["geneonly"]:
@@ -289,9 +295,9 @@ def am_pipeline(genome, form):
                             rec.id,
                             t.id,
                             rec.chrom,
-                            start,
-                            end,
-                            abs(start - end) + 1,
+                            f"{start:,}",
+                            f"{end:,}",
+                            f"{abs(start - end) + 1:,}",
                             rec.strand,
                             0 if query["impact"] != ["geneonly"] else "-",
                             *[t.attributes.get(attr, [""])[0] for attr in gene_attrs],
@@ -305,9 +311,9 @@ def am_pipeline(genome, form):
                         rec.id,
                         t.id,
                         rec.chrom,
-                        rec.start,
-                        rec.end,
-                        abs(rec.start - rec.end) + 1,
+                        f"{rec.start:,}",
+                        f"{rec.end:,}",
+                        f"{abs(rec.start - rec.end) + 1:,}",
                         rec.strand,
                         0 if query["impact"] != ["geneonly"] else "-",
                         *[t.attributes.get(attr, [""])[0] for attr in gene_attrs],
@@ -393,9 +399,9 @@ def am_pipeline(genome, form):
                                 rec.id,
                                 t.id,
                                 rec.chrom,
-                                start,
-                                end,
-                                abs(start - end) + 1,
+                                f"{start:,}",
+                                f"{end:,}",
+                                f"{abs(start - end) + 1:,}",
                                 rec.strand,
                                 0 if query["impact"] != ["geneonly"] else "-",
                                 *[t.attributes.get(attr, [""])[0] for attr in gene_attrs],
@@ -413,9 +419,9 @@ def am_pipeline(genome, form):
                             rec.id,
                             t.id,
                             rec.chrom,
-                            rec.start,
-                            rec.end,
-                            abs(rec.start - rec.end) + 1,
+                            f"{rec.start:,}",
+                            f"{rec.end:,}",
+                            f"{abs(rec.start - rec.end) + 1:,}",
                             rec.strand,
                             0 if query["impact"] != ["geneonly"] else "-",
                             *[t.attributes.get(attr, [""])[0] for attr in gene_attrs],
@@ -643,7 +649,10 @@ def am_pipeline(genome, form):
                             alt = compress_sv(alt)
                         score = str(round(float(data[7]), 2))
                         var_line = " | ".join((str_var, alt, score))
-                        ann_line = data[10]
+                        try:
+                            ann_line = data[10]
+                        except IndexError:
+                            pass
                         if [var_line, ann_line] not in sevs:
                             sevs.append([var_line, ann_line])
                 sevs = [line for sev in sevs for line in sev]
@@ -778,9 +787,9 @@ def am_pipeline(genome, form):
             ]
             maf = min(maj_c / gen_c, 1 - maj_c / gen_c)
         if (gen_c == 0 and query["mis"]) or (
-            (query["mis"] is not None and mis > query["mis"])
-            or (query["het"] is not None and het > query["het"])
-            or (query["maf"] is not None and maf < query["maf"])
+          (query["mis"] is not None and ge_ops[query["mis_ge"]](mis, query["mis"]))
+          or (query["het"] is not None and ge_ops[query["het_ge"]](het, query["het"]))
+          or (query["maf"] is not None and ge_ops[query["maf_ge"]](maf, query["maf"]))
         ):
             pos_rmv.append(var_idx)
             #gts = [gt[:-1] for gt in gts]

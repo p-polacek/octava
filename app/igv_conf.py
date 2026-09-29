@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 
+import os
 import json
 
 from flask import url_for
 
+from app.dirs import data_dir
 from modules.load_input import load_config
 
 
@@ -48,7 +50,9 @@ def igv_am(genome):
         "minimumBases": 2,
     }
 
-    bam_fns = json.loads(gconfig["bam"])
+    genome_dir = os.path.join(data_dir, genome)
+    bam_fns = [f for f in os.listdir(genome_dir)
+               if f.endswith(".bam") and os.path.exists(os.path.join(genome_dir, f + ".bai"))]
     if bam_fns:
         for bam_fn in bam_fns:
             bam_idx = f"{bam_fn}.bai"
@@ -58,8 +62,8 @@ def igv_am(genome):
                 "format": "bam",
                 "url": url_for("serve_file", genome=genome, fn=bam_fn),
                 "indexURL": url_for("serve_file", genome=genome, fn=bam_idx),
-                # "visibilityWindow": gconfig["igv_vis"],
-                # "height": gconfig["igv_h"],
+                #"visibilityWindow": 200000,
+                #"height": 500,
             }
             igv_config["reference"]["tracks"].append(bam_track)
 

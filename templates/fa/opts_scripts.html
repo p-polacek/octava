@@ -81,6 +81,11 @@
       if (radioBtn != null) {
         updateTracker(radioBtn.parentElement.parentElement);
       }
+      for (let field of ["mis", "het", "maf"]) {
+        const ge = document.getElementById(field + "_ge");
+        const sign = document.getElementById(field + "_sign");
+        sign.textContent = ge.checked ? "≥" : "≤";
+      }
 
     });
 {% endblock %}

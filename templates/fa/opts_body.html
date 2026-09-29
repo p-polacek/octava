@@ -354,11 +354,30 @@
               <h2>
                 Variant quality:
               </h2>
+              <img
+                class="aux-button clickable"
+                src="{{ url_for('serve_button', button='help') }}"
+                onclick="showHelp(event, 'fa-qual');" />
             </div>
             {% for field in ("mis", "het", "maf") %}
+              {% set field_ge = field + "_ge" %}
+              {% set sign_id = field + "_sign" %}
+              {{ form[field_ge](class="collapsed") }}
               <div class="row-input-div justified small-padded-top">
                 {{ form[field].label(class="default-label bold") }}
-                {{ form[field](class="small-num-input", id=field+"-field") }}
+                <div>
+                  <button
+                   id="{{ sign_id }}"
+                   type="button"
+                   class="sign-button"
+                   onclick="
+                    const ge = document.getElementById('{{ form[field_ge].id }}');
+                    ge.checked = !ge.checked;
+                    this.textContent = this.textContent.trim() === '&ge;' ? '&le;' : '&ge;'">
+                    &ge;
+                  </button>
+                  {{ form[field](class="small-num-input", id=field+"-field") }}
+                </div>
               </div>
             {% endfor %}
             </div>

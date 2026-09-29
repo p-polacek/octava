@@ -1,6 +1,6 @@
 {% extends "header.html" %}
 
-{% block title %} Trait and sample view {% endblock %}
+{% block title %} Phenotype / sample view {% endblock %}
 
 {% block style %}{% endblock %}
 
@@ -140,147 +140,6 @@
                 <input
                  type="checkbox"
                  id="gt">
-              </div>
-{# =============================================================== Core set #}
-              <div class="row-div padded-top padded-bottom">
-                <h3 class="bold">
-                  Make a core set:
-                </h3>
-                <img
-                  class="aux-button clickable"
-                  src="{{ url_for('serve_button', button='help') }}"
-                  onclick="showHelp(event, 'core');" />
-              </div>
-              <div class="row-div">
-                <button
-                 type="button"
-                 class="dropdown-button"
-                 onclick="showDropdown(event, this);">
-                  {{ form.core_k.label(
-                   class="default-label bold") }}
-                  <span
-                   class="default-label tracker">
-                  </span>
-                </button>
-                <div class="dropdown-menu collapsed">
-                  <div class="sticky non-transparent small-padding">
-                    <input
-                     type="text"
-                     class="search-bar"
-                     placeholder="Search..."
-                     onkeyup="filterDropdown(visibleDropdown);">
-                    <button
-                     type="button"
-                     disabled">
-                      Select all
-                    </button>
-                  </div>
-                  {% for choice in form.core_k %}
-                    <div
-                     class="checkbox-row"
-                     oncontextmenu="contextMenu(
-                      event,
-                      {'action': 'markers',
-                       'markers': this.querySelector('label').textContent});">
-                      {{ choice(
-                       onchange="updateTracker(this.parentElement.parentElement);")}}
-                      {{ choice.label(
-                       class="checkbox-label") }}
-                    </div>
-                  {% endfor %}
-                </div>
-              </div>
-              <div class="row-div small-padded-top">
-                <button
-                 type="button"
-                 class="dropdown-button"
-                 onclick="showDropdown(event, this);">
-                  {{ form.core_include.label(class="default-label bold") }}
-                  <span
-                   class="default-label counter"
-                   id="core_include-count">
-                    0 selected
-                  </span>
-                </button>
-                <div
-                 id="sample_group-dropdown"
-                 class="dropdown-menu collapsed">
-                  <div class="sticky non-transparent small-padding">
-                    <input
-                     type="text"
-                     class="search-bar"
-                     placeholder="Search..."
-                     onkeyup="filterDropdown(visibleDropdown);">
-                    <button
-                     type="button"
-                     onclick="toggleAll(visibleDropdown);">
-                      Select all
-                    </button>
-                  </div>
-                  {% for choice in form.core_include %}
-                    <div class="checkbox-row group-option">
-                      {{ choice(
-                       class="core_include-checkbox",
-                       onchange="updateCount(this.parentElement.parentElement);") }}
-                      {{ choice.label(class="checkbox-label") }}
-                    </div>
-                  {% endfor %}
-                </div>
-              </div>
-              <div class="row-div small-padded-top">
-                <button
-                 type="button"
-                 class="dropdown-button"
-                 onclick="showDropdown(event, this);">
-                  {{ form.core_exclude.label(class="default-label bold") }}
-                  <span
-                   class="default-label counter"
-                   id="core_exclude-count">
-                    0 selected
-                  </span>
-                </button>
-                <div
-                 id="core_exclude-dropdown"
-                 class="dropdown-menu collapsed">
-                  <div class="sticky non-transparent small-padding">
-                    <input
-                     type="text"
-                     class="search-bar"
-                     placeholder="Search..."
-                     onkeyup="filterDropdown(visibleDropdown);">
-                    <button
-                     type="button"
-                     onclick="
-                      toggleAll(visibleDropdown);">
-                      Select all
-                    </button>
-                  </div>
-                  {% for choice in form.core_exclude %}
-                    <div class="checkbox-row group-option">
-                      {{ choice(
-                       class="core_exclude-checkbox",
-                       onchange="updateCount(this.parentElement.parentElement);") }}
-                      {{ choice.label(class="checkbox-label") }}
-                    </div>
-                  {% endfor %}
-                </div>
-              </div>
-              <div class="row-input-div justified small-padded-top">
-                {{ form.core_n.label(for="core-n", class="default-label bold") }}
-                {{ form.core_n(id="core-n", class="promsize-div", size=4) }}
-              </div>
-              <div class="
-               row-input-div
-               justified
-               padded-top
-               padded-bottom">
-                <button
-                 type="button"
-                 onclick="coreSet();">
-                  <label class="default-label bold">
-                   Make a core set
-                  </label>
-                </button>
               </div>
 {# ============================================================ Correlation #}
               <div class="row-div padded-top padded-bottom">
@@ -613,6 +472,147 @@
               {{ form.t_name(
                class="collapsed",
                id="t_name-field") }}
+{# =============================================================== Core set #}
+              <div class="row-div padded-top padded-bottom">
+                <h3 class="bold">
+                  Make a core set:
+                </h3>
+                <img
+                  class="aux-button clickable"
+                  src="{{ url_for('serve_button', button='help') }}"
+                  onclick="showHelp(event, 'core');" />
+              </div>
+              <div class="row-div">
+                <button
+                 type="button"
+                 class="dropdown-button"
+                 onclick="showDropdown(event, this);">
+                  {{ form.core_k.label(
+                   class="default-label bold") }}
+                  <span
+                   class="default-label tracker">
+                  </span>
+                </button>
+                <div class="dropdown-menu collapsed">
+                  <div class="sticky non-transparent small-padding">
+                    <input
+                     type="text"
+                     class="search-bar"
+                     placeholder="Search..."
+                     onkeyup="filterDropdown(visibleDropdown);">
+                    <button
+                     type="button"
+                     disabled">
+                      Select all
+                    </button>
+                  </div>
+                  {% for choice in form.core_k %}
+                    <div
+                     class="checkbox-row"
+                     oncontextmenu="contextMenu(
+                      event,
+                      {'action': 'markers',
+                       'markers': this.querySelector('label').textContent});">
+                      {{ choice(
+                       onchange="updateTracker(this.parentElement.parentElement);")}}
+                      {{ choice.label(
+                       class="checkbox-label") }}
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="row-div small-padded-top">
+                <button
+                 type="button"
+                 class="dropdown-button"
+                 onclick="showDropdown(event, this);">
+                  {{ form.core_include.label(class="default-label bold") }}
+                  <span
+                   class="default-label counter"
+                   id="core_include-count">
+                    0 selected
+                  </span>
+                </button>
+                <div
+                 id="sample_group-dropdown"
+                 class="dropdown-menu collapsed">
+                  <div class="sticky non-transparent small-padding">
+                    <input
+                     type="text"
+                     class="search-bar"
+                     placeholder="Search..."
+                     onkeyup="filterDropdown(visibleDropdown);">
+                    <button
+                     type="button"
+                     onclick="toggleAll(visibleDropdown);">
+                      Select all
+                    </button>
+                  </div>
+                  {% for choice in form.core_include %}
+                    <div class="checkbox-row group-option">
+                      {{ choice(
+                       class="core_include-checkbox",
+                       onchange="updateCount(this.parentElement.parentElement);") }}
+                      {{ choice.label(class="checkbox-label") }}
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="row-div small-padded-top">
+                <button
+                 type="button"
+                 class="dropdown-button"
+                 onclick="showDropdown(event, this);">
+                  {{ form.core_exclude.label(class="default-label bold") }}
+                  <span
+                   class="default-label counter"
+                   id="core_exclude-count">
+                    0 selected
+                  </span>
+                </button>
+                <div
+                 id="core_exclude-dropdown"
+                 class="dropdown-menu collapsed">
+                  <div class="sticky non-transparent small-padding">
+                    <input
+                     type="text"
+                     class="search-bar"
+                     placeholder="Search..."
+                     onkeyup="filterDropdown(visibleDropdown);">
+                    <button
+                     type="button"
+                     onclick="
+                      toggleAll(visibleDropdown);">
+                      Select all
+                    </button>
+                  </div>
+                  {% for choice in form.core_exclude %}
+                    <div class="checkbox-row group-option">
+                      {{ choice(
+                       class="core_exclude-checkbox",
+                       onchange="updateCount(this.parentElement.parentElement);") }}
+                      {{ choice.label(class="checkbox-label") }}
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="row-input-div justified small-padded-top">
+                {{ form.core_n.label(for="core-n", class="default-label bold") }}
+                {{ form.core_n(id="core-n", class="promsize-div", size=4) }}
+              </div>
+              <div class="
+               row-input-div
+               justified
+               padded-top
+               padded-bottom">
+                <button
+                 type="button"
+                 onclick="coreSet();">
+                  <label class="default-label bold">
+                   Make a core set
+                  </label>
+                </button>
+              </div>
 {# ========================================================= Plot and table #}
             </div>
           </div>

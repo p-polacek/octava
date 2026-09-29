@@ -286,7 +286,6 @@ function applyFilters(dropdownData, checkedVals, checked) {
   var tableId = dropdownData[1];
   var table = document.getElementById(tableId);
   var rows = table.getElementsByTagName("tbody")[0].getElementsByTagName("tr");
-  //console.log(dropdownData);
   var colIdNum = dropdown.id.split(/[_]+/).pop();
   var colId = tableId + "_" + colIdNum;
   var colIndex = [...table.querySelector("thead").querySelectorAll("th")]

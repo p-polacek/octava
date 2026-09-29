@@ -428,7 +428,7 @@ a:active {
 }
 
 .small-num-input {
-	width: 6em;
+	width: 5em;
 	font-size: 0.8em;
 	box-sizing: border-box;
 	border: 1px solid #999;
@@ -561,6 +561,10 @@ input[type="number"] {
     outline: none;
 }
 
+.sign-button {
+    padding: 1px;
+    font-size: 0.7em;
+}
 /*
 .search-bar:focus {
 	outline: none;

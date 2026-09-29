@@ -203,7 +203,7 @@ def run_assoc(genome, params, task_id, mem=0):
                     importance="permutation",
                     scale_permutation_importance=True,
                     seed=random.randint(0, 2**32 - 1),
-                    n_jobs=os.cpu_count() - 1,
+                    n_jobs=max(1, os.cpu_count() - 1),
                 )
                 rf.fit(phe_gt, phe_corr)
                 res = pd.DataFrame({"Imp": rf.feature_importances_})
@@ -370,12 +370,8 @@ def run_assoc(genome, params, task_id, mem=0):
                 f"{in_root}.txt",
                 "--mpheno",
                 str(trait_idx),
-                "--bayes",
-                model,
-                "--maf",
-                "0",
-                "--p-value",
-                "1",
+                "--bayes", model,
+                "--seed", str(random.randint(0, 2**32 - 1)),
                 "--out",
                 os.path.join(out_dir, f"{model}.{trait}"),
             ]

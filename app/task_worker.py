@@ -133,6 +133,22 @@ def task_worker():
                 _ = log_file.write(buffer_str.replace("<b>", "").replace("</b>", ""))
 
         pr.wait()
+
+        end = time()
+        task_status[task_id]["end"] = end
+        secs = end - task_status[task_id]["start"]
+
+        hours = secs // 3600
+        minutes = (secs % 3600) // 60
+        seconds = round(secs % 60)
+
+        duration = (
+            (f"{hours} h " if hours else "")
+            + (f"{minutes} min " if minutes else "")
+            + f"{seconds} sec"
+        )
+
+        _ = log_file.write("\nTotal time: " + duration)
         log_file.close()
 
         with running_pr_lock:

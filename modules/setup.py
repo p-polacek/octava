@@ -34,7 +34,7 @@ def genome_setup(genome, params, task_id):
     if params["setup_from"]:
         genome_from = params["setup_from"]
         config_from = load_config(genome_from)
-        config_from["bam"] = json.loads(config_from["bam"])
+        #config_from["bam"] = json.loads(config_from["bam"])
 
         # Process VCF file
         file_path = os.path.join(data_dir, genome, params["vcf"])
@@ -61,7 +61,7 @@ def genome_setup(genome, params, task_id):
 
         # Link other files
         for key in (
-            "seq", "ann", "exp", "run", "info", "bam",
+            "seq", "ann", "exp", "run", "info", #"bam",
             "cds", "pep", "db_prefix"):
             params[key] = config_from[key]
         params["concat"] = json.loads(config_from["concat"])
@@ -81,14 +81,14 @@ def genome_setup(genome, params, task_id):
                     os.path.abspath(os.path.join(data_dir, genome_from, config_from[key]+ext)),
                     os.path.join(data_dir, genome, config_from[key]+ext)
                 )
-        for bam in config_from["bam"]:
-            for ext in ("", ".bai"):
-                if os.path.exists(os.path.join(data_dir, genome, config_from[key]+ext)):
-                    continue
-                os.symlink(
-                    os.path.abspath(os.path.join(data_dir, genome_from, config_from[key]+ext)),
-                    os.path.join(data_dir, genome, config_from[key]+ext)
-                )
+        #for bam in json.loads(config_from["bam"]):
+        #    for ext in ("", ".bai"):
+        #        if os.path.exists(os.path.join(data_dir, genome, config_from[key]+ext)):
+        #            continue
+        #        os.symlink(
+        #            os.path.abspath(os.path.join(data_dir, genome_from, config_from[key]+ext)),
+        #            os.path.join(data_dir, genome, config_from[key]+ext)
+        #        )
         for key in ("run", "info"):
             if os.path.exists(os.path.join(data_dir, genome, config_from[key])):
                 continue
@@ -143,11 +143,12 @@ def genome_setup(genome, params, task_id):
                 sep="\t",
                 index_col=0,
             )
-            exp["Pos"] = 1
-            exp[["Pos"] + exp.columns.tolist()[:-1]].to_csv(
-                out_path,
-                sep="\t",
-            )
+            if "Pos" not in exp.columns:
+                exp["Pos"] = 1
+                exp[["Pos"] + exp.columns.tolist()[:-1]].to_csv(
+                    out_path,
+                    sep="\t",
+                )
             pysam.tabix_compress(out_path, out_path + ".gz", force=True)
             file_path = out_path + ".gz"
             
@@ -175,7 +176,7 @@ def genome_setup(genome, params, task_id):
                     shutil.copy2(link_path, file_path)
 
                 print(f"Compressing {file} file")
-                pysam.tabix_compress(file_path, file_path + ".gz")
+                pysam.tabix_compress(file_path, file_path + ".gz", force=True)
                 os.remove(file_path)
                 params[file] += ".gz"
 
@@ -195,11 +196,11 @@ def genome_setup(genome, params, task_id):
                         preset=("vcf" if file == "vcf" else "gff"),
                         force=True,
                     )
-        for file in params["bam"]:
-            file_path = os.path.join(data_dir, genome, file)
-            if not os.path.exists(file_path + ".bai"):
-                print("Indexing a bam file")
-                pysam.index(file)
+        #for file in params["bam"]:
+        #    file_path = os.path.join(data_dir, genome, file)
+        #    if not os.path.exists(file_path + ".bai"):
+        #        print("Indexing a bam file")
+        #        pysam.index(file)
 
         if params["exp"] and not params["run"]:
             file_path = os.path.join(data_dir, genome, params["exp"])
@@ -220,7 +221,7 @@ def genome_setup(genome, params, task_id):
         if not os.path.exists(db_path):
             print("<b>Creating an annotation database</b>")
             gffutils.create_db(ann_path, dbfn=db_path, merge_strategy="merge")
-        #db = gffutils.FeatureDB(db_path)
+        db = gffutils.FeatureDB(db_path)
 
 ###############################################################################
 ### Add gene attributes to GFFUtils database
@@ -394,7 +395,7 @@ def genome_setup(genome, params, task_id):
     # Save parameters as config.ini
     config_params = {k: v for k, v in params.items()}
     _ = [config_params.pop(v) for v in ("name", "csrf_token")]
-    config_params["bam"] = json.dumps(config_params["bam"])
+    #config_params["bam"] = json.dumps(config_params["bam"])
     # config_params["enr"] = json.dumps(config_params["enr"])
     config_params["concat"] = json.dumps(config_params["concat"])
     config_params = {k: str(v) for k, v in config_params.items()}

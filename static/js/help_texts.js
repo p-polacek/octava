@@ -31,6 +31,8 @@ var helpTexts = {
 //  "<table><tr><th>Sample groups</th><td>Created in Phenotype/sample view</td></tr>" +
 //  "<tr><th>Types</th><td>Structural variant types may be annotated by the variant caller used<br>SNP, MNP and indel variants are annotated based on length</td></tr>" +
 //  "<tr><th>Consequence</th><td>H: High, M: Moderate, L: Low, -: Modifier<br>Sequence Ontology nomenclature, see <a target='_blank' href='http://www.sequenceontology.org/'>here</a></td></tr></table>",
+ "fa-qual":
+  "Click the operator button to toggle between &ge; and &le;",
  "fa-skip":
   "<table><tr><th>Reference-only samples</th><td>Skip samples identical to the reference across the region specified</td></tr>" +
   "<tr><th>Reference-only variants</th><td>Skip variants where each sample is identical to the reference</td></tr>" +

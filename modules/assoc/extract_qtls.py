@@ -27,17 +27,22 @@ models_dict = dict(models_dict)
 
 def extract_qtls(genome, params, task_id):
     runs = json.loads(params["qtl_runs"])
+
+    # Constants
     window = int(params["window_ld"])
     thresh = float(params["plot_thr"])
     r2 = float(params["r2_ld"])
+    r2_markers = params["markers_sgl"]
+    curr_locus = params["curr_locus"]
 
+    # Header
     qtls = [
         [
             "Marker set",
             "Model",
             "Trait",
             "Correction",
-            #"Trait heritability",
+            "Narrow sense heritability",
             "Peak marker",
             "Peak significance",
             "QTL span at r^2=0.8",
@@ -48,21 +53,65 @@ def extract_qtls(genome, params, task_id):
             "Percentage of variance explained",
         ]
     ]
+    pd.DataFrame(columns=qtls[0]).to_csv("QTL_data.txt", sep="\t", index=False)
+
+    # Fixed input
+    config = load_config(genome)
+    phe_path = os.path.join(data_dir, genome, config["phe"])
+    with portalocker.Lock(phe_path, "r", flags=portalocker.LOCK_SH) as locked_f:
+        phe_df = pd.read_csv(phe_path, sep="\t", header=0, index_col=0)
+
+    prev_markers = None
+    pvar = None
+    psam = None
 
     num_runs = len(runs)
-    pd.DataFrame(columns=qtls[0]).to_csv("QTL_data.txt", sep="\t", index=False)
     for run_idx, run in enumerate(runs, start=1):
-        markers, model, trait = run
+        model_markers, model, trait = run
         print(
-            ", ".join((markers, models_dict[model], trait)) + f" ({run_idx}/{num_runs})"
+            ", ".join((model_markers, models_dict[model], trait)) + f" ({run_idx}/{num_runs})"
         )
 
-        markers_root = os.path.join(data_dir, genome, "assoc", markers)
-        hap_fn = os.path.join(markers_root, "stats", "is_hap")
-        is_hap = os.path.exists(hap_fn)
+        model_root = os.path.join(data_dir, genome, "assoc", model_markers, "gt", "gt")
+        if prev_markers != model_markers:
+            psam = pd.read_csv(f"{model_root}.psam", index_col=0).index
+            pvar = pd.read_csv(f"{model_root}.pvar.zst", sep="\t", index_col=0, usecols=[2]).index
+        bed = bed_reader.open_bed(f"{model_root}.bed")
 
-        res_fn = os.path.join(markers_root, "res", f"{model}.{trait}.feather")
-        res = pd.read_feather(res_fn)
+        prev_markers = model_markers
+
+        res_root = os.path.join(data_dir, genome, "assoc", model_markers, "res", f"{model}.{trait}")
+        r2_root = os.path.join(data_dir, genome, "assoc", r2_markers or model_markers)
+
+        model_hap = os.path.join(data_dir, genome, "assoc", model_markers, "stats", "is_hap")
+        r2_hap = os.path.join(r2_root, "stats", "is_hap")
+        is_hap = os.path.exists(model_hap)
+        if is_hap != os.path.exists(r2_hap):
+            print("Invalid marker set for QTL analysis.")
+            continue
+
+        res = pd.read_feather(f"{res_root}.feather")
+        # Extract only current QTLs
+        if params["fmt"] == "coord" and curr_locus:
+            loci = curr_locus.split()
+            mask = pd.Series(False, index=res.index)
+
+            for locus in loci:
+                if ":" not in locus:
+                    continue
+                chrom, span = locus.replace(",", "").split(":")
+                if "-" in span:
+                    start, end = map(int, span.split("-"))
+                else:
+                    start = end = int(span)
+
+                mask |= (
+                  (res["Chr"] == chrom) &
+                  (res["Pos"] >= start) &
+                  (res["Pos"] <= end)
+                )
+            res = res[mask]
+
         sig_col, ch_col, pos_col = res.columns[:3]
         if is_hap:
             end_col, idx_col = res.columns[3:5]
@@ -83,10 +132,9 @@ def extract_qtls(genome, params, task_id):
             res["id"] = res[ch_col].astype(str) + ":" + res[pos_col].astype(str)
 
         # Get correction parameters
-        params_fn = os.path.join(markers_root, "res", f"{model}.{trait}.params")
-        with open(params_fn) as params_in:
+        with open(f"{res_root}.params") as params_in:
             q_num, k, kq_from, cov = json.load(params_in)[1][2:6]
-        k = k == "Yes"
+        k = (k == "Yes")
         corr_string = ""
         if int(q_num):
             corr_string += f"{q_num} PCs, "
@@ -100,16 +148,29 @@ def extract_qtls(genome, params, task_id):
             corr_string += "covariates"
 
         # Calculate trait heritability
-        # heritability = ""
+        phe = phe_df.loc[psam, trait].dropna()
+        samples_mask = np.isin(psam, phe.index)
+
+        q_matr, k_matr = kq_process(genome, model_markers, phe.index, True, int(q_num), cov, data_dir)
+
+        null_cov = sm.add_constant(q_matr)
+        QS = economic_qs_linear(k_matr)
+        lmm0 = LMM(phe, null_cov["const"], QS=QS)
+        lmm0.fit(verbose=False)
+
+        sigma_g2_null = lmm0.v0   # genetic variance
+        sigma_e2_null = lmm0.v1   # residual/noise variance
+
+        hrt = round(sigma_g2_null / (sigma_g2_null + sigma_e2_null), 3)
 
         if res.empty:
             qtls.append(
                 [
-                    markers,
+                    model_markers,
                     models_dict[model],
                     trait,
                     corr_string,
-                    # heritability,
+                    hrt,
                     "",
                     "",
                     "",
@@ -137,13 +198,14 @@ def extract_qtls(genome, params, task_id):
                     peak_pos = f"{ch}:{peak[pos_col]:,}"
                 data = data.iloc[1:]
 
-                in_root = os.path.join(markers_root, "gt", "gt")
+                in_root = os.path.join(r2_root, "gt", "gt")
                 out_root = os.path.join(tmp_dir, task_id)
 
                 if is_hap:
                     start, end = peak[pos_col], peak[end_col]
                 else:
                     start = end = peak[pos_col]
+
                 subprocess.run(
                     [
                         plink2_path,
@@ -249,59 +311,56 @@ def extract_qtls(genome, params, task_id):
                         )
 
                 # MAF calculation
-                bed = bed_reader.open_bed(f"{in_root}.bed")
-                config = load_config(genome)
-                phe_path = os.path.join(data_dir, genome, config["phe"])
-                with portalocker.Lock(
-                    phe_path, "r", flags=portalocker.LOCK_SH
-                ) as locked_f:
-                    phe = (
-                        pd.read_csv(phe_path, sep="\t", header=0, index_col=0)
-                        .loc[bed.iid, trait]
-                        .dropna()
-                    )
-
-                samples_mask = np.isin(bed.iid, phe.index)
-                marker_idx = np.where(bed.sid == peak["id"])[0]
-                if marker_idx.size != 1 or samples_mask.sum() != len(phe.index):
-                    pve = "-"
-                else:
-                    gts = bed.read(index=marker_idx).flatten()
-
-                    filt_gts = gts[samples_mask]
-                    filt_gts = filt_gts[~np.isnan(filt_gts)]
-                    af = filt_gts.sum() / (filt_gts.size * 2)
-                    maf = round(min(af, 1 - af), 2)
-                    gts = gts[samples_mask]
+                marker_idx = pvar.get_loc(peak["id"])
+                gts = bed.read(index=marker_idx).flatten()[samples_mask]
+                gts = gts[~np.isnan(gts)]
+                af = gts.sum() / (gts.size * 2)
+                maf = round(min(af, 1 - af), 2)
+                gts_matr = pd.DataFrame(gts, columns=[trait], index=phe.index)
 
                 if model == "mtmlm":
                     effect = "-"
                     pve = "-"
                 else:
                     # PVE and effect calculation
-                    q_matr, k_matr = kq_process(genome, markers, phe.index, k, int(q_num), cov, data_dir)
-                    phe_fit = sm.OLS(
-                        phe,
-                        sm.add_constant(pd.concat([pd.DataFrame(gts, columns=[trait], index=phe.index), q_matr], axis=1)),
-                        missing="drop"
-                    ).fit()
+                    full_cov = sm.add_constant(pd.concat([gts_matr, q_matr], axis=1))
 
-                    null_fit = sm.OLS(
-                        phe,
-                        sm.add_constant(q_matr),
-                        missing="drop"
-                    ).fit()
+                    snp_idx = list(full_cov.columns).index(trait)
+                    gt = full_cov.iloc[:, snp_idx]
+                    var_y = float(phe.var())
 
-                    effect = round(phe_fit.params[trait].astype(float), 2)
-                    pve = round((phe_fit.rsquared - null_fit.rsquared) * 100, 2)
+                    if k:
+                        lmm = LMM(phe, full_cov, QS=QS)
+                        lmm.fit(verbose=False)
+
+                        snp_beta = lmm.beta[snp_idx]
+
+                        sigma_g2 = lmm.v0   # genetic variance
+                        sigma_e2 = lmm.v1   # residual/noise variance
+
+                        var_snp = float(snp_beta**2 * gt.var())
+
+                        effect = round(snp_beta, 2)
+                        pve = round((var_snp / var_y) * 100, 2)
+
+                    else:
+                        full_fit = sm.OLS(phe, full_cov, missing="drop").fit()
+                        #null_fit = sm.OLS(phe, null_cov, missing="drop").fit()
+
+                        effect = round(full_fit.params[trait].astype(float), 2)
+                        #pve = round((full_fit.rsquared - null_fit.rsquared) * 100, 2)
+
+                        snp_beta = full_fit.params[trait]
+                        var_snp = float(snp_beta**2 * gt.var())
+                        pve = round((var_snp / var_y) * 100, 2)
 
                 qtls.append(
                     [
-                        markers,
+                        model_markers,
                         models_dict[model],
                         trait,
                         corr_string,
-                        # heritability,
+                        hrt,
                         peak_pos,
                         round(peak[sig_col], 2),
                         span_r8,

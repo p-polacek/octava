@@ -115,9 +115,7 @@ def get_status(task_id):
             task_status[task_id]["progress"] = ""
             code = task_status[task_id]["code"]
             if code == 200 or code == 500:
-                end = time()
-                task_status[task_id]["end"] = end
-                duration = end - task_status[task_id]["start"]
+                duration = task_status[task_id]["end"] - task_status[task_id]["start"]
                 return jsonify([progress, round(duration)]), code
             return jsonify(progress), code
 
@@ -317,7 +315,7 @@ def setup_new(genome):
         form[ftype].choices = [""] + [
             f for f in os.listdir(genome_dir) if f.endswith(ext)
         ]
-    form.bam.choices = [f for f in os.listdir(genome_dir) if f.endswith(".bam")]
+    #form.bam.choices = [f for f in os.listdir(genome_dir) if f.endswith(".bam")]
     if os.path.exists(prot_db_dir):
         form.db_prefix.choices = [""] + list(
             set(

@@ -511,6 +511,8 @@ function showPlot() {
       y: data[1],
       zmin: percentile(zVals, 1),
       zmax: percentile(zVals, 99),
+      showscale: true,
+      //colorscale: "Jet",
       colorbar: {
         title: {
           text: "Kinship",
@@ -539,11 +541,10 @@ function showPlot() {
         zmax: 1,
         colorscale: [
           [0, "white"],
-          [0.5, "white"],
-          [0.5, "red"],
           [1, "red"]
         ],
         xaxis: "x2",
+        toggleable: false,
       };
       traces.push(groupTrace);
     }
@@ -572,7 +573,7 @@ function showPlot() {
                 size: 12,
               },
             },
-            x: 1.15 ,
+            x: 1.15,
             xref: "paper",
           },
         };
@@ -638,6 +639,12 @@ function showPlot() {
       x: chrData.map(v => (v[0] + v[1]) / 2),
       y: chrData.map(v => v[2]),
       textposition: "none",
+      customdata: chrData.map(v => [v[0], v[1]].join("‒").replace(/\B(?=(\d{3})+(?!\d))/g, ",")),
+      hovertemplate: "%{customdata}",
+      hoverlabel: {
+        namelength: 0,
+        bgcolor: "white",
+      },
       width: chrData.map(v => v[2]),
       marker: { color: "#60cdcd" },
       visible: true,

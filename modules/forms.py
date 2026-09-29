@@ -13,6 +13,7 @@ from wtforms import (
     StringField,
     BooleanField,
     IntegerField,
+    TextAreaField,
     SelectMultipleField,
 )
 
@@ -66,7 +67,7 @@ class AddForm(FlaskForm):
     # enr = MultiCheckboxField(
     #  "Enrichment for:",
     #  choices=[])
-    bam = MultiCheckboxField("BAM file(s):", choices=[])
+    # bam = MultiCheckboxField("BAM file(s):", choices=[])
     snpeff = BooleanField("Annotate variants with SnpEff")
     cds = SelectField("CDS:", choices=[])
     pep = SelectField("Proteins:", choices=[])
@@ -136,8 +137,11 @@ class FuncAnalysisForm(RegionForm):
     csqs = MultiCheckboxField("Consequence:", choices=csqs)
 
     mis = FloatField("Missingness:")
+    mis_ge = BooleanField(default=True)
     het = FloatField("Heterozygosity:")
+    het_ge = BooleanField(default=True)
     maf = FloatField("MAF:")
+    maf_ge = BooleanField(default=True)
 
     skip_samp = MultiCheckboxField(
         "",
@@ -285,6 +289,7 @@ class AssocResForm(RegionForm, PlotForm, ParametersForm):
     b_chain = IntegerField("Total iterations:")
     b_thin = IntegerField("Thinning:")
 
+    curr_locus = TextAreaField("")
     hgl_coord_group = MultiCheckboxField("Saved regions:", choices=[])
     hgl_gene_group = MultiCheckboxField("Gene groups:", choices=[])
 

@@ -230,7 +230,7 @@ def filt_qc(genome, data, task_id, mem=0):
         chr_data = pd.read_csv(
             filt_out + ".pvar.zst",
             sep="\t",
-            usecols=[0, 1],
+            usecols=[0,1,2],
             skiprows=1,
             header=None,
             index_col=None,
@@ -239,7 +239,7 @@ def filt_qc(genome, data, task_id, mem=0):
         for chk in chr_data:
             for ch, vs in chk.groupby(0):
                 if vs.shape[0] == 1:
-                    chr_d.setdefault(ch, []).append(vs.reset_index().loc[0, 1])
+                    chr_d.setdefault(ch, []).append(vs.reset_index().loc[0, 2])
         if any(len(v) == 1 for v in chr_d.values()):
             chrs = []
             excl_path = os.path.join(filt_dir, "exclude.txt")
@@ -264,6 +264,7 @@ def filt_qc(genome, data, task_id, mem=0):
             beagle_path,
             f"gt={vcf_filt}",
             f"out={imp_out}",
+            f"nthreads={os.cpu_count() - 1}",
         ]
         if any(len(v) == 1 for v in chr_d.values()):
             cmd.append(f"excludemarkers={excl_path}")

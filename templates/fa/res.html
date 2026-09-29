@@ -1,6 +1,6 @@
 {% extends "header.html" %}
 
-{% block title %} Functional analysis {% endblock %}
+{% block title %} Gene / variant view {% endblock %}
 
 {% block style %}{% endblock %}
 
@@ -111,7 +111,7 @@
                    id="{{ 'var' + loop.index0|string }}"
                    pos="{{ ann[0] + ':' + ann[1] }}" {# '{:,}'.format(ann[1]) }}" #}
                    gene="{{ ann[2]|join(' ') }}"
-                   len="{{ ann[3]|length }}"
+                   len="{{ (ann[3].replace('(', '').replace(' bp)', '')) if '(' in ann[3] else (ann[3] | length) }}"
                    class="var-checkbox"
                    onclick="event.stopPropagation();"
                    onchange="document.getElementById('{{ bar_id }}').classList.toggle('var-sel', this.checked);"
@@ -1183,6 +1183,7 @@
                 ticks.push(varsArr[i]);
               }
             }
+            if (ticks.length === 0) return;
 
             var trace = {
               x: ticks,
@@ -1734,8 +1735,8 @@
               var [id, chrom, start, end] = cellData.map(cell => {
                 return cell.innerText;
               });
-              start = parseInt(start) - 1;
-              end = parseInt(end);
+              start = parseInt(start.replaceAll(",", "")) - 1;
+              end = parseInt(end.replaceAll(",", ""));
               var offset = 0; //Math.floor((end - start) / 10);
               genesLoc += chrom + ":"
               genesLoc += (start - offset) + "-";

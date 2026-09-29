@@ -448,7 +448,8 @@ def calc_chr_ld(genome, markers=None, coord=None, load_ext=False, mem=0):
 
     concat = json.loads(config["concat"])
     for ch, span in zip(gdata["chr_names"], gdata["chr_sizes"]):
-        span = coord.get(ch, span)
+        if coord:
+            span = coord.get(ch, span)
 
         r2_path = os.path.join(stats_dir, f"{ch}.r2.gz")
         if ch in concat:

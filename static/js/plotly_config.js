@@ -110,13 +110,14 @@ var buttonsToAdd = {
     },
     click: function(gd) {
       Plotly.relayout(gd, { showlegend: !gd.layout.showlegend });
-      var colorBar = gd.data.filter(t => t.showscale != null);
-      var colorMarkerBar = gd.data.filter(t => t.marker != null && t.marker.showscale != null);
-      if (colorBar.length > 0) {
-        Plotly.restyle(gd, { showscale: [!colorBar[0].showscale] });
+      var colorBars = gd.data.map((v,i) => [v,i]).filter(p => (p[0].showscale != null && p[0].toggleable !== false));
+      var colorMarkerBars = gd.data.map((v,i) => [v,i]).filter(p => (p[0].marker != null && p[0].showscale != null && p[0].toggleable !== false));
+
+      if (colorBars.length > 0) {
+        Plotly.restyle(gd, { showscale: [!colorBars[0][0].showscale] }, colorBars.map(p => p[1]));
       }
-      if (colorMarkerBar.length > 0) {
-        Plotly.restyle(gd, { "marker.showscale": [!colorMarkerBar[0].marker.showscale] });
+      if (colorMarkerBars.length > 0) {
+        Plotly.restyle(gd, { "marker.showscale": [!colorMarkerBars[0][0].marker.showscale] }, colorMarkerBars.map(p => p[1]));
       }
     }
   },
@@ -137,7 +138,7 @@ var buttonsToAdd = {
     click: function(gd) {
       var editable = !gd._context.editable;
       // Enable rescaling axes
-      var axes = Object.keys(gd.layout).filter(k => k.startsWith("xaxis") || k.startsWith("yaxis"));
+      var axes = Object.keys(gd.layout).filter(k => k.startsWith("xaxis") || k.startsWith("yaxis")).filter(k => gd.layout[k].editable !== false);
       for (var ax of axes) {
         ax = gd.layout[ax];
         ax.minallowed = editable ? false : ax.range[0];

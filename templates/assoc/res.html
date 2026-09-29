@@ -267,11 +267,10 @@
               <h3 class="bold small-padded-top small-padded-bottom">
                 Current / selected region(s)
               </h3>
-              <textarea
-               class="locus-textarea"
-               id="assoc-locus-field"
-               onchange="goToLocus(this.value);">
-              </textarea>
+              {{ form.curr_locus(
+                class="locus-textarea",
+                id="assoc-locus-field",
+                onchange="goToLocus(this.value);") }}
               <div class="row-input-div small-padded-top padded-bottom">
                 <button
                  type="button"
@@ -1245,6 +1244,7 @@
             showticklabels: false,
             minallowed: 0.1,
             maxallowed: 0.9,
+            editable: false,
           },
           yaxis2: {
             title:  y2Title,
