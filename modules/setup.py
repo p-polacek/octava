@@ -122,7 +122,7 @@ def genome_setup(genome, params, task_id):
     else:
 
 ###############################################################################
-### Add a dummy pos column to expression file
+### Add a dummy pseudoposition column to expression file
 ###############################################################################
 
         if params["exp"]:
@@ -143,16 +143,17 @@ def genome_setup(genome, params, task_id):
                 sep="\t",
                 index_col=0,
             )
-            if "Pos" not in exp.columns:
-                exp["Pos"] = 1
-                exp[["Pos"] + exp.columns.tolist()[:-1]].to_csv(
+            if "pseudoposition" not in exp.columns:
+                exp["pseudoposition"] = 1
+                exp[["pseudoposition"] + exp.columns.tolist()[:-1]].to_csv(
                     out_path,
                     sep="\t",
                 )
             pysam.tabix_compress(out_path, out_path + ".gz", force=True)
             file_path = out_path + ".gz"
-            
-            os.remove(out_path)
+
+            if os.path.exists(out_path):
+                os.remove(out_path)
             pysam.tabix_index(
                 file_path,
                 seq_col=0,
