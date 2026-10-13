@@ -149,8 +149,9 @@ def genome_setup(genome, params, task_id):
                     out_path,
                     sep="\t",
                 )
-            pysam.tabix_compress(out_path, out_path + ".gz", force=True)
-            file_path = out_path + ".gz"
+            if not is_gz:
+                pysam.tabix_compress(out_path, out_path + ".gz", force=True)
+                file_path = out_path + ".gz"
 
             if os.path.exists(out_path):
                 os.remove(out_path)
