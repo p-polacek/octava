@@ -133,36 +133,39 @@ def genome_setup(genome, params, task_id):
                 os.unlink(file_path)
                 shutil.copy2(link_path, file_path)
 
+
+
             is_gz = file_path.endswith(".gz")
-            if not is_gz:
-                params["exp"] += ".gz"
 
-            out_path = file_path[:-3] if is_gz else file_path
-            exp = pd.read_csv(
-                file_path,
-                sep="\t",
-                index_col=0,
-            )
-            if "pseudoposition" not in exp.columns:
-                exp["pseudoposition"] = 1
-                exp[["pseudoposition"] + exp.columns.tolist()[:-1]].to_csv(
-                    out_path,
-                    sep="\t",
+            exp = pd.read_csv(file_path, sep="\t", index_col=0)
+
+            if not is_gz or "pseudoposition" not in exp.columns:
+                out_path = file_path[:-3] if is_gz else file_path
+
+                if "pseudoposition" not in exp.columns:
+                    exp.insert(0, "pseudoposition", 1)
+
+                exp.to_csv(out_path, sep="\t")
+
+                gz_path = out_path + ".gz"
+                pysam.tabix_compress(out_path, gz_path, force=True)
+
+                if os.path.exists(out_path):
+                    os.remove(out_path)
+
+                file_path = gz_path
+
+                pysam.tabix_index(
+                    file_path,
+                    seq_col=0,
+                    start_col=1,
+                    end_col=1,
+                    line_skip=1,
+                    force=True,
                 )
-            if not is_gz:
-                pysam.tabix_compress(out_path, out_path + ".gz", force=True)
-                file_path = out_path + ".gz"
 
-            if os.path.exists(out_path):
-                os.remove(out_path)
-            pysam.tabix_index(
-                file_path,
-                seq_col=0,
-                start_col=1,
-                end_col=1,
-                line_skip=1,
-                force=True,
-            )
+            if not is_gz:
+                params["exp"] = file_path
 
 ###############################################################################
 ### BGZip and tabix files if necessary
